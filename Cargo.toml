@@ -1,0 +1,9 @@
+[package]
+name = "nbe-for-mltt"
+version = "0.1.0"
+authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
+license = "MIT"
+publish = false
+
+[dependencies]
+im = "12.2.0"
