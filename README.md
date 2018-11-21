@@ -14,3 +14,16 @@ DeBruijn levels in the value syntax.
 [nbe-for-mltt]: https://github.com/jozefg/nbe-for-mltt
 [de-bruijn-indices]: https://en.wikipedia.org/wiki/De_Bruijn_index
 [visitors]: https://github.com/pikelet-lang/pikelet/issues/75
+
+## TODO
+
+- [x] Convert data types to Rust
+- [x] Port NbE and bidirectional type checking
+- [ ] Add a parser for the concrete syntax
+- [ ] Conversion of concrete syntax to core syntax
+- [ ] Pretty printing
+- [ ] Add a REPL
+- [ ] Type checking and normalization tests
+- [ ] Experiment with using visitors
+- [ ] Preserve pretty names through type checking and normalization
+- [ ] Use arena allocation rather than reference counting
