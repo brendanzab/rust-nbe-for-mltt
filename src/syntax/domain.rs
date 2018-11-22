@@ -10,12 +10,12 @@ pub type Env = im::Vector<RcValue>;
 
 /// A Closure that binds one variable
 #[derive(Debug, Clone, PartialEq)]
-pub enum Closure {
-    Closure { term: RcTerm, env: Env },
-    Const(RcValue),
+pub struct Closure1 {
+    pub term: RcTerm,
+    pub env: Env,
 }
 
-/// A closure that bninds two variables
+/// A closure that binds two variables
 #[derive(Debug, Clone, PartialEq)]
 pub struct Closure2 {
     pub term: RcTerm,
@@ -56,12 +56,12 @@ pub enum Value {
     NatSucc(RcValue),
 
     /// Dependent function types
-    FunType(RcValue, Closure),
+    FunType(RcValue, Closure1),
     /// Introduce a function
-    FunIntro(Closure),
+    FunIntro(Closure1),
 
     /// Dependent pair types
-    PairType(RcValue, Closure),
+    PairType(RcValue, Closure1),
     /// Introduce a pair
     PairIntro(RcValue, RcValue),
 
@@ -107,7 +107,7 @@ pub enum Neutral {
     PairSnd(RcNeutral),
 
     /// Recursively eliminate a natural number
-    NatRec(Closure, RcValue, Closure2, RcNeutral),
+    NatRec(Closure1, RcValue, Closure2, RcNeutral),
 }
 
 /// Associates a type with a value so that later during quotation we can eta

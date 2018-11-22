@@ -90,7 +90,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, ann: &RcValue) -> Result<(), T
         Term::FunIntro(ref body) => match *ann.inner {
             Value::FunType(ref param_ty, ref body_ty) => {
                 let var = RcValue::var(DbLevel(size), param_ty.clone());
-                let body_ty = nbe::do_closure(body_ty, var.clone())?;
+                let body_ty = nbe::do_closure1(body_ty, var.clone())?;
 
                 let mut body_env = env.clone();
                 body_env.push_front(Entry::Term {
@@ -107,7 +107,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, ann: &RcValue) -> Result<(), T
             Value::PairType(ref fst_ty, ref snd_ty) => {
                 check(env, size, fst, fst_ty)?;
                 let fst_value = nbe::eval(fst, &env_to_domain_env(env))?;
-                check(env, size, snd, &nbe::do_closure(snd_ty, fst_value)?)
+                check(env, size, snd, &nbe::do_closure1(snd_ty, fst_value)?)
             },
             _ => Err(TypeError::ExpectedPairType { found: ann.clone() }),
         },
@@ -179,7 +179,7 @@ pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcValue, TypeError> 
                 Value::FunType(ref arg_ty, ref body_ty) => {
                     check(env, size, arg, arg_ty)?;
                     let arg_value = nbe::eval(arg, &env_to_domain_env(env))?;
-                    Ok(nbe::do_closure(body_ty, arg_value)?)
+                    Ok(nbe::do_closure1(body_ty, arg_value)?)
                 },
                 _ => Err(TypeError::ExpectedFunType {
                     found: fun_ty.clone(),
@@ -204,7 +204,7 @@ pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcValue, TypeError> 
                         &RcTerm::from(Term::PairFst(pair.clone())),
                         &env_to_domain_env(env),
                     )?;
-                    Ok(nbe::do_closure(snd_ty, fst)?)
+                    Ok(nbe::do_closure1(snd_ty, fst)?)
                 },
                 _ => Err(TypeError::ExpectedPairType {
                     found: pair_ty.clone(),
