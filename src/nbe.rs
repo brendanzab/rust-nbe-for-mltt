@@ -1,7 +1,7 @@
 //! Normalization by evaluation
 
 use syntax::core::{self, RcTerm, Term};
-use syntax::domain::{Closure1, Closure2, Env, Neutral, Nf, RcNeutral, RcValue, Value};
+use syntax::domain::{Closure1, Closure2, Env, Neutral, Nf, RcNeutral, RcType, RcValue, Value};
 use syntax::{DbIndex, DbLevel};
 
 /// An error produced during normalization
@@ -279,7 +279,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
     }
 }
 
-fn read_back_ty(size: u32, ty: &RcValue) -> Result<RcTerm, NbeError> {
+fn read_back_ty(size: u32, ty: &RcType) -> Result<RcTerm, NbeError> {
     match *ty.inner {
         Value::Neutral { ref term, .. } => read_back_neutral(size, term),
         Value::NatType => Ok(RcTerm::from(Term::NatType)),
@@ -334,7 +334,7 @@ fn read_back_neutral(size: u32, ne: &RcNeutral) -> Result<RcTerm, NbeError> {
 }
 
 /// Check whether a semantic type is a subtype of another
-pub fn check_subtype(size: u32, ty1: &RcValue, ty2: &RcValue) -> Result<bool, NbeError> {
+pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
     match (&*ty1.inner, &*ty2.inner) {
         (
             &Value::Neutral {

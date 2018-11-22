@@ -46,7 +46,7 @@ impl RcValue {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Neutral values
-    Neutral { ann: RcValue, term: RcNeutral },
+    Neutral { ann: RcType, term: RcNeutral },
 
     /// Type of natural numbers
     NatType,
@@ -56,12 +56,12 @@ pub enum Value {
     NatSucc(RcValue),
 
     /// Dependent function types
-    FunType(RcValue, Closure1),
+    FunType(RcType, Closure1),
     /// Introduce a function
     FunIntro(Closure1),
 
     /// Dependent pair types
-    PairType(RcValue, Closure1),
+    PairType(RcType, Closure1),
     /// Introduce a pair
     PairIntro(RcValue, RcValue),
 
@@ -77,6 +77,10 @@ impl Value {
         }
     }
 }
+
+pub type Type = Value;
+
+pub type RcType = RcValue;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcNeutral {
@@ -114,6 +118,6 @@ pub enum Neutral {
 /// expand it appropriately
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nf {
-    pub ann: RcValue,
+    pub ann: RcType,
     pub term: RcValue,
 }

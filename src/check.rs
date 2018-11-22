@@ -2,13 +2,13 @@ use im;
 
 use nbe::{self, NbeError};
 use syntax::core::{RcTerm, Term};
-use syntax::domain::{self, RcValue, Value};
+use syntax::domain::{self, RcType, RcValue, Value};
 use syntax::{DbIndex, DbLevel, UniverseLevel};
 
 #[derive(Debug, Clone)]
 pub enum Entry {
-    Term { term: RcValue, ann: RcValue },
-    TopLevel { term: RcValue, ann: RcValue },
+    Term { term: RcValue, ann: RcType },
+    TopLevel { term: RcValue, ann: RcType },
 }
 
 pub type Env = im::Vector<Entry>;
@@ -17,16 +17,16 @@ pub type Env = im::Vector<Entry>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
     ExpectedFunType {
-        found: RcValue,
+        found: RcType,
     },
     ExpectedPairType {
-        found: RcValue,
+        found: RcType,
     },
     ExpectedUniverse {
         over: Option<UniverseLevel>,
-        found: RcValue,
+        found: RcType,
     },
-    ExpectedSubtype(RcValue, RcValue),
+    ExpectedSubtype(RcType, RcType),
     AmbiguousTerm(RcTerm),
     UnboundVariable,
     Nbe(NbeError),
@@ -47,7 +47,7 @@ fn env_to_domain_env(env: &Env) -> domain::Env {
         .collect()
 }
 
-fn check_subtype(size: u32, ty1: &RcValue, ty2: &RcValue) -> Result<(), TypeError> {
+fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
     if nbe::check_subtype(size, ty1, ty2)? {
         Ok(())
     } else {
@@ -55,7 +55,7 @@ fn check_subtype(size: u32, ty1: &RcValue, ty2: &RcValue) -> Result<(), TypeErro
     }
 }
 
-pub fn check(env: &Env, size: u32, term: &RcTerm, ann: &RcValue) -> Result<(), TypeError> {
+pub fn check(env: &Env, size: u32, term: &RcTerm, ann: &RcType) -> Result<(), TypeError> {
     match *term.inner {
         Term::Let(ref def, ref body) => {
             let mut body_env = env.clone();
@@ -124,7 +124,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, ann: &RcValue) -> Result<(), T
     }
 }
 
-pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcValue, TypeError> {
+pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcType, TypeError> {
     match *term.inner {
         Term::Var(DbIndex(index)) => match env.get(index as usize) {
             None => Err(TypeError::UnboundVariable),
