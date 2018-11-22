@@ -4,12 +4,12 @@ use syntax::UniverseLevel;
 
 pub type Ident = String;
 
-pub type Signature = Vec<Decl>;
+pub type Signature = Vec<Item>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Decl {
-    Def { name: Ident, def: Term, ann: Term },
-    NormalizeDef(Ident),
+pub enum Item {
+    Definition { name: Ident, def: Term, ann: Term },
+    NormalizeDefinition(Ident),
     NormalizeTerm { term: Term, ann: Term },
     Quit,
 }
