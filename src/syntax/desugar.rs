@@ -28,8 +28,8 @@ pub fn desugar(
         ))),
 
         concrete::Term::NatType => Ok(core::RcTerm::from(core::Term::NatType)),
-        concrete::Term::NatSucc(ref n) => {
-            Ok(core::RcTerm::from(core::Term::NatSucc(desugar(n, env)?)))
+        concrete::Term::NatSucc(ref nat) => {
+            Ok(core::RcTerm::from(core::Term::NatSucc(desugar(nat, env)?)))
         },
         concrete::Term::NatLit(nat) => Ok((0..nat)
             .fold(core::RcTerm::from(core::Term::NatZero), |acc, _| {
@@ -63,11 +63,11 @@ pub fn desugar(
                 desugar(dst_ty, &env)?
             }),
         )),
-        concrete::Term::FunIntro(ref ident, ref dst_ty) => {
+        concrete::Term::FunIntro(ref ident, ref body) => {
             Ok(core::RcTerm::from(core::Term::FunIntro({
                 let mut env = env.clone();
                 env.push_front(ident.clone());
-                desugar(dst_ty, &env)?
+                desugar(body, &env)?
             })))
         },
         concrete::Term::FunApp(ref fun, ref args) => {
