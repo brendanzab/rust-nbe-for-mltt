@@ -31,13 +31,10 @@ pub fn desugar(
         concrete::Term::NatSucc(ref n) => {
             Ok(core::RcTerm::from(core::Term::NatSucc(desugar(n, env)?)))
         },
-        concrete::Term::NatLit(nat) => {
-            // let rec int_to_term = function
-            //   | 0 -> S.Zero
-            //   | n -> S.Suc (int_to_term (n - 1))
-
-            unimplemented!("desugar: concrete::Term::NatLit")
-        },
+        concrete::Term::NatLit(nat) => Ok((0..nat)
+            .fold(core::RcTerm::from(core::Term::NatZero), |acc, _| {
+                core::RcTerm::from(core::Term::NatSucc(acc))
+            })),
         concrete::Term::NatRec {
             motive: (ref motive_ident, ref motive_body),
             ref zero,
