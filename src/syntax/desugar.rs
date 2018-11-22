@@ -56,11 +56,11 @@ pub fn desugar(
             desugar(nat, &env)?,
         ))),
 
-        concrete::Term::FunType(ref ident, ref src_ty, ref dst_ty) => Ok(core::RcTerm::from(
-            core::Term::FunType(desugar(src_ty, env)?, {
+        concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => Ok(core::RcTerm::from(
+            core::Term::FunType(desugar(param_ty, env)?, {
                 let mut env = env.clone();
                 env.push_front(ident.clone());
-                desugar(dst_ty, &env)?
+                desugar(body_ty, &env)?
             }),
         )),
         concrete::Term::FunIntro(ref ident, ref body) => {

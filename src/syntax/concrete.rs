@@ -88,7 +88,7 @@ impl Term {
                 .append(nat.to_doc()),
             Term::NatLit(nat) => Doc::as_string(nat),
             Term::NatRec { .. } => unimplemented!("to_doc: Term::NatRec"),
-            Term::FunType(ref ident, ref src_ty, ref dst_ty) => Doc::nil()
+            Term::FunType(ref ident, ref param_ty, ref body_ty) => Doc::nil()
                 .append(Doc::group(
                     Doc::nil()
                         .append("(")
@@ -96,13 +96,13 @@ impl Term {
                         .append(Doc::space())
                         .append(":")
                         .append(Doc::space())
-                        .append(src_ty.to_doc())
+                        .append(param_ty.to_doc())
                         .append(")"),
                 ))
                 .append(Doc::space())
                 .append("->")
                 .append(Doc::space())
-                .append(dst_ty.to_doc()),
+                .append(body_ty.to_doc()),
             Term::FunIntro(ref ident, ref body) => Doc::nil()
                 .append("\\")
                 .append(Doc::as_string(ident))
