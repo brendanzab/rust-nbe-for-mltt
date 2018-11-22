@@ -20,7 +20,8 @@ DeBruijn levels in the value syntax.
 - [x] Convert data types to Rust
 - [x] Port NbE and bidirectional type checking
 - [ ] Add a parser for the concrete syntax
-- [ ] Conversion of concrete syntax to core syntax
+- [x] Desugaring of concrete syntax to core syntax
+- [ ] Resugaring of core syntax to concrete syntax
 - [ ] Pretty printing
 - [ ] Add a REPL
 - [ ] Type checking and normalization tests

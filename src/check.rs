@@ -148,12 +148,12 @@ pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcValue, TypeError> 
         },
 
         Term::NatZero => Ok(RcValue::from(Value::NatType)),
-        Term::NatSucc(ref n) => {
+        Term::NatSucc(ref nat) => {
             let nat_ty = RcValue::from(Value::NatType);
-            check(env, size, n, &nat_ty)?;
+            check(env, size, nat, &nat_ty)?;
             Ok(nat_ty)
         },
-        Term::NatRec(ref motive, ref zero, ref succ, ref n) => {
+        Term::NatRec(ref motive, ref zero, ref succ, ref nat) => {
             //   | NRec (mot, zero, suc, n) ->
             //     check ~env ~size ~term:n ~tp:Nat;
             //     let var = D.mk_var Nat size in

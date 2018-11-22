@@ -25,16 +25,16 @@ fn do_nat_rec(
     ann: Closure,
     zero: RcValue,
     succ: Closure2,
-    n: RcValue,
+    nat: RcValue,
 ) -> Result<RcValue, NbeError> {
-    match *n.inner {
+    match *nat.inner {
         Value::NatZero => Ok(zero),
-        Value::NatSucc(ref n) => {
-            let rec = do_nat_rec(ann, zero, succ.clone(), n.clone())?;
-            do_closure2(&succ, n.clone(), rec)
+        Value::NatSucc(ref nat) => {
+            let rec = do_nat_rec(ann, zero, succ.clone(), nat.clone())?;
+            do_closure2(&succ, nat.clone(), rec)
         },
         Value::Neutral { term: ref ne, .. } => {
-            let final_ann = do_closure(&ann, n.clone())?;
+            let final_ann = do_closure(&ann, nat.clone())?;
             Ok(RcValue::from(Value::Neutral {
                 ann: final_ann,
                 term: RcNeutral::from(Neutral::NatRec(ann, zero, succ, ne.clone())),
@@ -143,8 +143,8 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
         // Natural numbers
         Term::NatType => Ok(RcValue::from(Value::NatType)),
         Term::NatZero => Ok(RcValue::from(Value::NatZero)),
-        Term::NatSucc(ref n) => Ok(RcValue::from(Value::NatSucc(eval(n, env)?))),
-        Term::NatRec(ref ann, ref zero, ref succ, ref n) => do_nat_rec(
+        Term::NatSucc(ref nat) => Ok(RcValue::from(Value::NatSucc(eval(nat, env)?))),
+        Term::NatRec(ref ann, ref zero, ref succ, ref nat) => do_nat_rec(
             Closure::Closure {
                 term: ann.clone(),
                 env: env.clone(),
@@ -154,7 +154,7 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
                 term: succ.clone(),
                 env: env.clone(),
             },
-            eval(n, env)?,
+            eval(nat, env)?,
         ),
 
         // Functions
@@ -200,9 +200,9 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
 
         // Natural numbers
         (&Value::NatType, &Value::NatZero) => Ok(RcTerm::from(Term::NatZero)),
-        (&Value::NatType, &Value::NatSucc(ref n)) => {
+        (&Value::NatType, &Value::NatSucc(ref nat)) => {
             let ann = RcValue::from(Value::NatType);
-            let term = n.clone();
+            let term = nat.clone();
             let nf = Nf { ann, term };
 
             Ok(RcTerm::from(Term::NatSucc(read_back_nf(size, nf)?)))
@@ -315,7 +315,7 @@ fn read_back_neutral(size: u32, ne: &RcNeutral) -> Result<RcTerm, NbeError> {
             read_back_neutral(size, fun)?,
             read_back_nf(size, arg.clone())?,
         ))),
-        Neutral::NatRec(ref ann, ref zero, ref succ, ref n) => {
+        Neutral::NatRec(ref ann, ref zero, ref succ, ref nat) => {
             //   | D.NRec (tp, zero, suc, n) ->
             //     let tp_var = D.mk_var D.Nat size in
             //     let applied_tp = do_clos tp tp_var in

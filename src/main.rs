@@ -1,8 +1,4 @@
-extern crate im;
-
-pub mod check;
-pub mod nbe;
-pub mod syntax;
+extern crate nbe_for_mltt;
 
 fn main() {
     println!("Hello, world!");

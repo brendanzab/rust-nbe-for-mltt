@@ -14,29 +14,14 @@ pub enum Decl {
     Quit,
 }
 
-/// A body that binds one variable
-#[derive(Debug, Clone, PartialEq)]
-pub struct Binder {
-    pub name: Ident,
-    pub body: Box<Term>,
-}
-
-/// A body that binds two variables
-#[derive(Debug, Clone, PartialEq)]
-pub struct Binder2 {
-    pub name1: Ident,
-    pub name2: Ident,
-    pub body: Box<Term>,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     /// Variables
     Var(Ident),
     /// Let bindings
-    Let(Box<Term>, Binder),
+    Let(Ident, Box<Term>, Box<Term>),
     /// A term that is explicitly annotated with a type
-    Check { term: Box<Term>, tp: Box<Term> },
+    Check(Box<Term>, Box<Term>),
 
     /// Type of natural numbers
     NatType,
@@ -46,21 +31,21 @@ pub enum Term {
     NatLit(u32),
     /// Recursively eliminate a natural number
     NatRec {
-        motive: Binder,
+        motive: (Ident, Box<Term>),
         zero: Box<Term>,
-        suc: Binder2,
+        succ: (Ident, Ident, Box<Term>),
         nat: Box<Term>,
     },
 
     /// Dependent function type
-    FunType(Box<Term>, Binder),
+    FunType(Ident, Box<Term>, Box<Term>),
     /// Introduce a function
-    FunIntro(Binder),
+    FunIntro(Ident, Box<Term>),
     /// Apply a function to an argument
     FunApp(Box<Term>, Vec<Term>),
 
     /// Dependent pair type
-    PairType(Box<Term>, Binder),
+    PairType(Ident, Box<Term>, Box<Term>),
     /// Introduce a pair
     PairIntro(Box<Term>, Box<Term>),
     /// Project the first element of a pair
