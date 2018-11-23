@@ -40,13 +40,19 @@ pub enum Term {
     },
 
     /// Dependent function type
+    ///
+    /// Also known as a _pi type_ or _dependent product type_.
     FunType(Ident, Box<Term>, Box<Term>),
     /// Introduce a function
+    ///
+    /// Also known as a _lambda expression_ or _anonymous function_.
     FunIntro(Ident, Box<Term>),
     /// Apply a function to an argument
     FunApp(Box<Term>, Vec<Term>),
 
     /// Dependent pair type
+    ///
+    /// Also known as a _sigma type_ or _dependent sum type_
     PairType(Ident, Box<Term>, Box<Term>),
     /// Introduce a pair
     PairIntro(Box<Term>, Box<Term>),
