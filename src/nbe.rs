@@ -21,6 +21,7 @@ impl NbeError {
     }
 }
 
+/// Return the first element of a pair
 fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
     match *pair.inner {
         Value::PairIntro(ref fst, _) => Ok(fst.clone()),
@@ -40,6 +41,7 @@ fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
     }
 }
 
+/// Return the second element of a pair
 fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
     match *pair.inner {
         Value::PairIntro(_, ref snd) => Ok(snd.clone()),
@@ -60,13 +62,15 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
     }
 }
 
+/// Run a closure with the given argument
 pub fn do_closure(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
     env.push_front(arg);
     eval(&closure.term, &env)
 }
 
-pub fn do_app(fun: RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
+/// Apply an argument to a function
+pub fn do_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
     match *fun.inner {
         Value::FunIntro(ref body) => do_closure(body, arg),
         Value::Neutral { ref ann, ref term } => match *ann.inner {
@@ -116,7 +120,7 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
             term: body.clone(),
             env: env.clone(),
         }))),
-        Term::FunApp(ref fun, ref arg) => do_app(eval(fun, env)?, eval(arg, env)?),
+        Term::FunApp(ref fun, ref arg) => do_app(&eval(fun, env)?, eval(arg, env)?),
 
         // Pairs
         Term::PairType(ref ann, ref body) => Ok(RcValue::from(Value::PairType(
@@ -153,7 +157,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             });
             let nf = Nf {
                 ann: do_closure(body_ty, arg.clone())?,
-                term: do_app(nf.term.clone(), arg)?,
+                term: do_app(&nf.term, arg)?,
             };
 
             Ok(RcTerm::from(Term::FunIntro(read_back_nf(size + 1, nf)?)))
@@ -220,6 +224,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
     }
 }
 
+/// Quote back a neutral term
 fn read_back_neutral(size: u32, ne: &RcNeutral) -> Result<RcTerm, NbeError> {
     match &*ne.inner {
         Neutral::Var(DbLevel(level)) => Ok(RcTerm::from(Term::Var(DbIndex(size - (level + 1))))),
@@ -271,15 +276,15 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
     }
 }
 
+/// Convert a core environment into the initial environment for normalization
 fn initial_env(env: &core::Env) -> Result<Env, NbeError> {
     let mut new_env = Env::new();
 
     for ann in env {
+        let index = DbLevel((env.len() - new_env.len()) as u32 - 1); // TODO: double-check this!
         let ann = RcValue::from(Value::Neutral {
             ann: eval(ann, &new_env)?,
-            term: RcNeutral::from(Neutral::Var(DbLevel(
-                (env.len() - new_env.len()) as u32 - 1, // TODO: double-check this!
-            ))),
+            term: RcNeutral::from(Neutral::Var(index)),
         });
         new_env.push_front(ann);
     }
