@@ -25,20 +25,6 @@ pub enum Term {
     /// A term that is explicitly annotated with a type
     Check(Box<Term>, Box<Term>),
 
-    /// Type of natural numbers
-    NatType,
-    /// Construct the successor of a natural number
-    NatSucc(Box<Term>),
-    /// Construct a natural number from a literal integer
-    NatLit(u32),
-    /// Recursively eliminate a natural number
-    NatRec {
-        motive: (Ident, Box<Term>),
-        zero: Box<Term>,
-        succ: (Ident, Ident, Box<Term>),
-        nat: Box<Term>,
-    },
-
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
@@ -87,13 +73,6 @@ impl Term {
                 .append(":")
                 .append(Doc::space())
                 .append(ann.to_doc()),
-            Term::NatType => Doc::text("Nat"),
-            Term::NatSucc(ref nat) => Doc::nil()
-                .append("succ")
-                .append(Doc::space())
-                .append(nat.to_doc()),
-            Term::NatLit(nat) => Doc::as_string(nat),
-            Term::NatRec { .. } => unimplemented!("to_doc: Term::NatRec"),
             Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
                 .append(param_ty.to_doc())
                 .append(Doc::space())

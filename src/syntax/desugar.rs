@@ -31,35 +31,6 @@ pub fn desugar(
             desugar(ann, env)?,
         ))),
 
-        concrete::Term::NatType => Ok(core::RcTerm::from(core::Term::NatType)),
-        concrete::Term::NatSucc(ref nat) => {
-            Ok(core::RcTerm::from(core::Term::NatSucc(desugar(nat, env)?)))
-        },
-        concrete::Term::NatLit(nat) => Ok((0..nat)
-            .fold(core::RcTerm::from(core::Term::NatZero), |acc, _| {
-                core::RcTerm::from(core::Term::NatSucc(acc))
-            })),
-        concrete::Term::NatRec {
-            motive: (ref motive_ident, ref motive_body),
-            ref zero,
-            succ: (ref succ_ident1, ref succ_ident2, ref succ_body),
-            ref nat,
-        } => Ok(core::RcTerm::from(core::Term::NatRec(
-            {
-                let mut env = env.clone();
-                env.push_front(Some(motive_ident.clone()));
-                desugar(motive_body, &env)?
-            },
-            desugar(zero, &env)?,
-            {
-                let mut env = env.clone();
-                env.push_front(Some(succ_ident1.clone()));
-                env.push_front(Some(succ_ident2.clone()));
-                desugar(succ_body, &env)?
-            },
-            desugar(nat, &env)?,
-        ))),
-
         concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => Ok(core::RcTerm::from(
             core::Term::FunType(desugar(param_ty, env)?, {
                 let mut env = env.clone();

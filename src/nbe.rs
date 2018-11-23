@@ -1,7 +1,7 @@
 //! Normalization by evaluation
 
 use syntax::core::{self, RcTerm, Term};
-use syntax::domain::{Closure1, Closure2, Env, Neutral, Nf, RcNeutral, RcType, RcValue, Value};
+use syntax::domain::{Closure, Env, Neutral, Nf, RcNeutral, RcType, RcValue, Value};
 use syntax::{DbIndex, DbLevel};
 
 /// An error produced during normalization
@@ -18,29 +18,6 @@ impl NbeError {
         NbeError {
             message: message.into(),
         }
-    }
-}
-
-fn do_nat_rec(
-    motive: Closure1,
-    zero: RcValue,
-    succ: Closure2,
-    nat: RcValue,
-) -> Result<RcValue, NbeError> {
-    match *nat.inner {
-        Value::NatZero => Ok(zero),
-        Value::NatSucc(ref nat) => {
-            let rec = do_nat_rec(motive, zero, succ.clone(), nat.clone())?;
-            do_closure2(&succ, nat.clone(), rec)
-        },
-        Value::Neutral { term: ref ne, .. } => {
-            let final_motive = do_closure1(&motive, nat.clone())?;
-            Ok(RcValue::from(Value::Neutral {
-                ann: final_motive,
-                term: RcNeutral::from(Neutral::NatRec(motive, zero, succ, ne.clone())),
-            }))
-        },
-        _ => Err(NbeError::new("do_nat_rec: not a nat")),
     }
 }
 
@@ -72,7 +49,7 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
         } => match *ann.inner {
             Value::PairType(_, ref closure) => {
                 let fst = do_pair_fst(pair)?;
-                let ann = do_closure1(closure, fst)?;
+                let ann = do_closure(closure, fst)?;
                 let term = RcNeutral::from(Neutral::PairSnd(ne.clone()));
 
                 Ok(RcValue::from(Value::Neutral { ann, term }))
@@ -83,25 +60,18 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
     }
 }
 
-pub fn do_closure1(closure: &Closure1, arg: RcValue) -> Result<RcValue, NbeError> {
+pub fn do_closure(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
     env.push_front(arg);
     eval(&closure.term, &env)
 }
 
-pub fn do_closure2(closure: &Closure2, arg1: RcValue, arg2: RcValue) -> Result<RcValue, NbeError> {
-    let mut env = closure.env.clone();
-    env.push_front(arg1);
-    env.push_front(arg2);
-    eval(&closure.term, &env)
-}
-
 pub fn do_app(fun: RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
     match *fun.inner {
-        Value::FunIntro(ref body) => do_closure1(body, arg),
+        Value::FunIntro(ref body) => do_closure(body, arg),
         Value::Neutral { ref ann, ref term } => match *ann.inner {
             Value::FunType(ref param_ty, ref body_ty) => {
-                let body_ty = do_closure1(body_ty, arg.clone())?;
+                let body_ty = do_closure(body_ty, arg.clone())?;
                 Ok(RcValue::from(Value::Neutral {
                     ann: body_ty.clone(),
                     term: RcNeutral::from(Neutral::FunApp(
@@ -134,32 +104,15 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
         },
         Term::Check(ref term, _) => eval(term, env),
 
-        // Natural numbers
-        Term::NatType => Ok(RcValue::from(Value::NatType)),
-        Term::NatZero => Ok(RcValue::from(Value::NatZero)),
-        Term::NatSucc(ref nat) => Ok(RcValue::from(Value::NatSucc(eval(nat, env)?))),
-        Term::NatRec(ref motive, ref zero, ref succ, ref nat) => do_nat_rec(
-            Closure1 {
-                term: motive.clone(),
-                env: env.clone(),
-            },
-            eval(zero, env)?,
-            Closure2 {
-                term: succ.clone(),
-                env: env.clone(),
-            },
-            eval(nat, env)?,
-        ),
-
         // Functions
         Term::FunType(ref ann, ref body) => Ok(RcValue::from(Value::FunType(
             eval(ann, env)?,
-            Closure1 {
+            Closure {
                 term: body.clone(),
                 env: env.clone(),
             },
         ))),
-        Term::FunIntro(ref body) => Ok(RcValue::from(Value::FunIntro(Closure1 {
+        Term::FunIntro(ref body) => Ok(RcValue::from(Value::FunIntro(Closure {
             term: body.clone(),
             env: env.clone(),
         }))),
@@ -168,7 +121,7 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
         // Pairs
         Term::PairType(ref ann, ref body) => Ok(RcValue::from(Value::PairType(
             eval(ann, env)?,
-            Closure1 {
+            Closure {
                 term: body.clone(),
                 env: env.clone(),
             },
@@ -192,17 +145,6 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             read_back_neutral(size, ne)
         },
 
-        // Natural numbers
-        (&Value::NatType, &Value::NatZero) => Ok(RcTerm::from(Term::NatZero)),
-        (&Value::NatType, &Value::NatSucc(ref nat)) => {
-            let ann = RcValue::from(Value::NatType);
-            let term = nat.clone();
-            let nf = Nf { ann, term };
-
-            Ok(RcTerm::from(Term::NatSucc(read_back_nf(size, nf)?)))
-        },
-        (&Value::NatType, &Value::Neutral { term: ref ne, .. }) => read_back_neutral(size, ne),
-
         // Functions
         (&Value::FunType(ref param_ty, ref body_ty), _) => {
             let arg = RcValue::from(Value::Neutral {
@@ -210,7 +152,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
                 term: RcNeutral::from(Neutral::Var(DbLevel(size))),
             });
             let nf = Nf {
-                ann: do_closure1(body_ty, arg.clone())?,
+                ann: do_closure(body_ty, arg.clone())?,
                 term: do_app(nf.term.clone(), arg)?,
             };
 
@@ -220,7 +162,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
         // Pairs
         (&Value::PairType(ref fst_ty, ref snd_ty), _) => {
             let fst = do_pair_fst(&nf.term)?;
-            let snd_ty = do_closure1(snd_ty, fst.clone())?;
+            let snd_ty = do_closure(snd_ty, fst.clone())?;
             let snd = do_pair_snd(&nf.term)?;
 
             let fst_nf = Nf {
@@ -239,7 +181,6 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
         },
 
         // Types
-        (&Value::Universe(_), &Value::NatType) => Ok(RcTerm::from(Term::NatType)),
         (&Value::Universe(_), &Value::FunType(ref param_ty, ref body_ty)) => {
             let var = RcValue::var(DbLevel(size), param_ty.clone());
             let param_ty_nf = Nf {
@@ -248,7 +189,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             };
             let body_ty_nf = Nf {
                 ann: nf.ann.clone(),
-                term: do_closure1(body_ty, var)?,
+                term: do_closure(body_ty, var)?,
             };
 
             Ok(RcTerm::from(Term::FunType(
@@ -264,7 +205,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             };
             let snd_nf = Nf {
                 ann: nf.ann.clone(),
-                term: do_closure1(snd, var)?,
+                term: do_closure(snd, var)?,
             };
 
             Ok(RcTerm::from(Term::PairType(
@@ -279,29 +220,6 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
     }
 }
 
-fn read_back_ty(size: u32, ty: &RcType) -> Result<RcTerm, NbeError> {
-    match *ty.inner {
-        Value::Neutral { ref term, .. } => read_back_neutral(size, term),
-        Value::NatType => Ok(RcTerm::from(Term::NatType)),
-        Value::FunType(ref param_ty, ref dest) => {
-            let var = RcValue::var(DbLevel(size), param_ty.clone());
-            Ok(RcTerm::from(Term::FunType(
-                read_back_ty(size, param_ty)?,
-                read_back_ty(size + 1, &do_closure1(dest, var)?)?,
-            )))
-        },
-        Value::PairType(ref fst, ref snd) => {
-            let var = RcValue::var(DbLevel(size), fst.clone());
-            Ok(RcTerm::from(Term::PairType(
-                read_back_ty(size, fst)?,
-                read_back_ty(size + 1, &do_closure1(snd, var)?)?,
-            )))
-        },
-        Value::Universe(level) => Ok(RcTerm::from(Term::Universe(level))),
-        _ => Err(NbeError::new("read_back_ty: not a type")),
-    }
-}
-
 fn read_back_neutral(size: u32, ne: &RcNeutral) -> Result<RcTerm, NbeError> {
     match &*ne.inner {
         Neutral::Var(DbLevel(level)) => Ok(RcTerm::from(Term::Var(DbIndex(size - (level + 1))))),
@@ -309,25 +227,6 @@ fn read_back_neutral(size: u32, ne: &RcNeutral) -> Result<RcTerm, NbeError> {
             read_back_neutral(size, fun)?,
             read_back_nf(size, arg.clone())?,
         ))),
-        Neutral::NatRec(ref motive, ref zero, ref succ, ref nat) => {
-            //   | D.NRec (tp, zero, suc, n) ->
-            //     let tp_var = D.mk_var D.Nat size in
-            //     let applied_tp = do_clos tp tp_var in
-            //     let zero_tp = do_clos tp D.Zero in
-            //     let applied_suc_tp = do_clos tp (D.Suc tp_var) in
-            //     let tp' = read_back_tp (size + 1) applied_tp in
-            //     let suc_var = D.mk_var applied_tp (size + 1) in
-            //     let applied_suc = do_clos2 suc tp_var suc_var in
-            //     let suc' =
-            //       read_back_nf (size + 2) (D.Normal {tp = applied_suc_tp; term = applied_suc}) in
-            //     Syn.NRec
-            //       (tp',
-            //        read_back_nf size (D.Normal {tp = zero_tp; term = zero}),
-            //        suc',
-            //        read_back_ne size n)
-
-            unimplemented!("read_back_neutral: Neutral::NatRec")
-        },
         Neutral::PairFst(ref ne) => Ok(RcTerm::from(Term::PairFst(read_back_neutral(size, ne)?))),
         Neutral::PairSnd(ref ne) => Ok(RcTerm::from(Term::PairSnd(read_back_neutral(size, ne)?))),
     }
@@ -344,7 +243,6 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
                 term: ref term2, ..
             },
         ) => Ok(read_back_neutral(size, term1)? == read_back_neutral(size, term2)?),
-        (&Value::NatType, &Value::NatType) => Ok(true),
         (
             &Value::FunType(ref param_ty1, ref body_ty1),
             &Value::FunType(ref param_ty2, ref body_ty2),
@@ -354,8 +252,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             Ok(check_subtype(size, param_ty2, param_ty1)?
                 && check_subtype(
                     size + 1,
-                    &do_closure1(body_ty1, var.clone())?,
-                    &do_closure1(body_ty2, var)?,
+                    &do_closure(body_ty1, var.clone())?,
+                    &do_closure(body_ty2, var)?,
                 )?)
         },
         (&Value::PairType(ref fst1, ref snd1), &Value::PairType(ref fst2, ref snd2)) => {
@@ -364,8 +262,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             Ok(check_subtype(size, fst1, fst2)?
                 && check_subtype(
                     size + 1,
-                    &do_closure1(snd1, var.clone())?,
-                    &do_closure1(snd2, var)?,
+                    &do_closure(snd1, var.clone())?,
+                    &do_closure(snd2, var)?,
                 )?)
         },
         (&Value::Universe(level1), &Value::Universe(level2)) => Ok(level1 <= level2),

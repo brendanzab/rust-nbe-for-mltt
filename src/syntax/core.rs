@@ -28,20 +28,6 @@ pub enum Term {
     /// A term that is explicitly annotated with a type
     Check(RcTerm, RcTerm),
 
-    /// Type of natural numbers
-    NatType,
-    /// The natural number zero
-    NatZero,
-    /// The successor of a natural number
-    NatSucc(RcTerm),
-    /// Recursively eliminate a natural number
-    NatRec(
-        /* BINDS */ RcTerm,
-        RcTerm,
-        /* BINDS 2 */ RcTerm,
-        RcTerm,
-    ),
-
     /// Dependent function types
     FunType(RcTerm, /* BINDS */ RcTerm),
     /// Introduce a function

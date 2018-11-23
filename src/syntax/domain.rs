@@ -8,16 +8,9 @@ use syntax::{DbLevel, UniverseLevel};
 
 pub type Env = im::Vector<RcValue>;
 
-/// A Closure that binds one variable
+/// A closure that binds a variable
 #[derive(Debug, Clone, PartialEq)]
-pub struct Closure1 {
-    pub term: RcTerm,
-    pub env: Env,
-}
-
-/// A closure that binds two variables
-#[derive(Debug, Clone, PartialEq)]
-pub struct Closure2 {
+pub struct Closure {
     pub term: RcTerm,
     pub env: Env,
 }
@@ -48,20 +41,13 @@ pub enum Value {
     /// Neutral values
     Neutral { ann: RcType, term: RcNeutral },
 
-    /// Type of natural numbers
-    NatType,
-    /// The natural number zero
-    NatZero,
-    /// The successor of a natural number
-    NatSucc(RcValue),
-
     /// Dependent function types
-    FunType(RcType, Closure1),
+    FunType(RcType, Closure),
     /// Introduce a function
-    FunIntro(Closure1),
+    FunIntro(Closure),
 
     /// Dependent pair types
-    PairType(RcType, Closure1),
+    PairType(RcType, Closure),
     /// Introduce a pair
     PairIntro(RcValue, RcValue),
 
@@ -109,9 +95,6 @@ pub enum Neutral {
     PairFst(RcNeutral),
     /// Project the second element of a pair
     PairSnd(RcNeutral),
-
-    /// Recursively eliminate a natural number
-    NatRec(Closure1, RcValue, Closure2, RcNeutral),
 }
 
 /// Associates a type with a value so that later during quotation we can eta
