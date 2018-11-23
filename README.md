@@ -8,8 +8,14 @@ you are required to shift variable indices whenever you open up binders. This
 is extremely expensive, and rules out future optimizations, like [using
 visitors][visitors] to reduce the number of intermediate allocations as the AST
 is traversed. This implementation avoids these problems by using a "semantic
-type checking"  algorithm that uses DeBruijn indices for the surface syntax, and
-DeBruijn levels in the value syntax.
+type checking"  algorithm that uses DeBruijn indices for the core syntax, and
+DeBruijn levels in the syntax of the semantic domain.
+
+| Syntax   | Binding method              | Example                         |
+|----------|-----------------------------|---------------------------------|
+| Concrete | Nominal                     | `λz. (λy. y (λx. x)) (λx. z x)` |
+| Core     | Nameless (DeBruijn Indices) | `λ . (λ . 0 (λ . 0)) (λ . 1 0)` |
+| Domain   | Nameless (DeBruijn Levels)  | `λ . (λ . 1 (λ . 2)) (λ . 0 1)` |
 
 [nbe-for-mltt]: https://github.com/jozefg/nbe-for-mltt
 [de-bruijn-indices]: https://en.wikipedia.org/wiki/De_Bruijn_index
