@@ -42,7 +42,7 @@ pub enum Term {
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(Ident, Box<Term>, Box<Term>),
+    FunType(Option<Ident>, Box<Term>, Box<Term>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
@@ -53,7 +53,7 @@ pub enum Term {
     /// Dependent pair type
     ///
     /// Also known as a _sigma type_ or _dependent sum type_
-    PairType(Ident, Box<Term>, Box<Term>),
+    PairType(Option<Ident>, Box<Term>, Box<Term>),
     /// Introduce a pair
     PairIntro(Box<Term>, Box<Term>),
     /// Project the first element of a pair
@@ -94,7 +94,13 @@ impl Term {
                 .append(nat.to_doc()),
             Term::NatLit(nat) => Doc::as_string(nat),
             Term::NatRec { .. } => unimplemented!("to_doc: Term::NatRec"),
-            Term::FunType(ref ident, ref param_ty, ref body_ty) => Doc::nil()
+            Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
+                .append(param_ty.to_doc())
+                .append(Doc::space())
+                .append("->")
+                .append(Doc::space())
+                .append(body_ty.to_doc()),
+            Term::FunType(Some(ref ident), ref param_ty, ref body_ty) => Doc::nil()
                 .append(Doc::group(
                     Doc::nil()
                         .append("(")
@@ -123,7 +129,13 @@ impl Term {
                     args.iter().map(Term::to_doc),
                     Doc::space(),
                 )),
-            Term::PairType(ref ident, ref fst_ty, ref snd_ty) => Doc::nil()
+            Term::PairType(None, ref fst_ty, ref snd_ty) => Doc::nil()
+                .append(fst_ty.to_doc())
+                .append(Doc::space())
+                .append("*")
+                .append(Doc::space())
+                .append(snd_ty.to_doc()),
+            Term::PairType(Some(ref ident), ref fst_ty, ref snd_ty) => Doc::nil()
                 .append(Doc::group(
                     Doc::nil()
                         .append("(")

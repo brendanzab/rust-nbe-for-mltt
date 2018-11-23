@@ -8,17 +8,21 @@ pub enum DesugarError {
 
 pub fn desugar(
     concrete_term: &concrete::Term,
-    env: &im::Vector<concrete::Ident>,
+    env: &im::Vector<Option<concrete::Ident>>,
 ) -> Result<core::RcTerm, DesugarError> {
     match *concrete_term {
-        concrete::Term::Var(ref ident) => match env.iter().enumerate().find(|(_, i)| *i == ident) {
+        concrete::Term::Var(ref ident) => match env
+            .iter()
+            .enumerate()
+            .find(|(_, i)| i.as_ref() == Some(ident))
+        {
             None => Err(DesugarError::UnboundVar(ident.clone())),
             Some((index, _)) => Ok(core::RcTerm::from(core::Term::Var(DbIndex(index as u32)))),
         },
         concrete::Term::Let(ref ident, ref def, ref body) => {
             Ok(core::RcTerm::from(core::Term::Let(desugar(def, env)?, {
                 let mut env = env.clone();
-                env.push_front(ident.clone());
+                env.push_front(Some(ident.clone()));
                 desugar(body, &env)?
             })))
         },
@@ -43,14 +47,14 @@ pub fn desugar(
         } => Ok(core::RcTerm::from(core::Term::NatRec(
             {
                 let mut env = env.clone();
-                env.push_front(motive_ident.clone());
+                env.push_front(Some(motive_ident.clone()));
                 desugar(motive_body, &env)?
             },
             desugar(zero, &env)?,
             {
                 let mut env = env.clone();
-                env.push_front(succ_ident1.clone());
-                env.push_front(succ_ident2.clone());
+                env.push_front(Some(succ_ident1.clone()));
+                env.push_front(Some(succ_ident2.clone()));
                 desugar(succ_body, &env)?
             },
             desugar(nat, &env)?,
@@ -66,7 +70,7 @@ pub fn desugar(
         concrete::Term::FunIntro(ref ident, ref body) => {
             Ok(core::RcTerm::from(core::Term::FunIntro({
                 let mut env = env.clone();
-                env.push_front(ident.clone());
+                env.push_front(Some(ident.clone()));
                 desugar(body, &env)?
             })))
         },
