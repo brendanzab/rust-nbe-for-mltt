@@ -2,9 +2,6 @@ pub mod concrete;
 pub mod core;
 pub mod domain;
 
-pub mod desugar;
-pub mod resugar;
-
 /// The level of a universe
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseLevel(pub u32);
