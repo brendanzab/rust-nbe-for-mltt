@@ -7,6 +7,11 @@ pub mod domain;
 pub struct Ident(pub String);
 
 /// A name hint that can be used for pretty printing later on
+///
+/// All hints are equal to each other, to allow for easily using the default
+/// `PartialEq` derive for [alpha equivalence][alpha-equivalence].
+///
+/// [alpha-equivalence]: https://en.wikipedia.org/wiki/Lambda_calculus#Alpha_equivalence
 #[derive(Debug, Clone, Eq)]
 pub struct IdentHint(pub Option<Ident>);
 
