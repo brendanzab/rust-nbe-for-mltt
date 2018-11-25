@@ -35,7 +35,7 @@ pub enum Term {
     /// Apply a function to an argument
     FunApp(RcTerm, RcTerm),
 
-    /// Dependent par types
+    /// Dependent pair types
     PairType(RcTerm, /* BINDS */ RcTerm),
     /// Introduce a pair
     PairIntro(RcTerm, RcTerm),
