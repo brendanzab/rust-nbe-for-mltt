@@ -104,3 +104,9 @@ pub struct Nf {
     pub term: RcValue,
     pub ann: RcType,
 }
+
+impl Nf {
+    pub fn new(term: RcValue, ann: RcType) -> Nf {
+        Nf { term, ann }
+    }
+}
