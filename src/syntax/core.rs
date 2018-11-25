@@ -2,9 +2,9 @@
 
 use std::rc::Rc;
 
-use syntax::{DbIndex, UniverseLevel};
+use syntax::{DbIndex, IdentHint, UniverseLevel};
 
-pub type Env = im::Vector<RcTerm>;
+pub type Env = im::Vector<(IdentHint, RcTerm)>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
@@ -22,21 +22,21 @@ impl From<Term> for RcTerm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// Variables
-    Var(DbIndex),
+    Var(IdentHint, DbIndex),
     /// Let bindings
-    Let(RcTerm, /* BINDS */ RcTerm),
+    Let(IdentHint, RcTerm, RcTerm),
     /// A term that is explicitly annotated with a type
     Check(RcTerm, RcTerm),
 
     /// Dependent function types
-    FunType(RcTerm, /* BINDS */ RcTerm),
+    FunType(IdentHint, RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(/* BINDS */ RcTerm),
+    FunIntro(IdentHint, RcTerm),
     /// Apply a function to an argument
     FunApp(RcTerm, RcTerm),
 
     /// Dependent pair types
-    PairType(RcTerm, /* BINDS */ RcTerm),
+    PairType(IdentHint, RcTerm, RcTerm),
     /// Introduce a pair
     PairIntro(RcTerm, RcTerm),
     /// Project the first element of a pair

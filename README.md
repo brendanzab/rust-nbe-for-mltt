@@ -32,5 +32,5 @@ DeBruijn levels in the syntax of the semantic domain.
 - [ ] Add a REPL
 - [ ] Type checking and normalization tests
 - [ ] Experiment with using visitors
-- [ ] Preserve pretty names through type checking and normalization
+- [x] Preserve pretty names through type checking and normalization
 - [ ] Use arena allocation rather than reference counting

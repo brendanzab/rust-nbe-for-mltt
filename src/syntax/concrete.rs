@@ -2,9 +2,7 @@
 
 use pretty::{BoxDoc, Doc};
 
-use syntax::UniverseLevel;
-
-pub type Ident = String;
+use syntax::{Ident, UniverseLevel};
 
 pub type Signature = Vec<Item>;
 
@@ -55,8 +53,8 @@ impl Term {
     // FIXME: Precedences
     pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
         match *self {
-            Term::Var(ref ident) => Doc::as_string(ident),
-            Term::Let(ref ident, ref def, ref body) => Doc::nil()
+            Term::Var(Ident(ref ident)) => Doc::as_string(ident),
+            Term::Let(Ident(ref ident), ref def, ref body) => Doc::nil()
                 .append("let")
                 .append(Doc::as_string(ident))
                 .append(Doc::space())
@@ -79,7 +77,7 @@ impl Term {
                 .append("->")
                 .append(Doc::space())
                 .append(body_ty.to_doc()),
-            Term::FunType(Some(ref ident), ref param_ty, ref body_ty) => Doc::nil()
+            Term::FunType(Some(Ident(ref ident)), ref param_ty, ref body_ty) => Doc::nil()
                 .append(Doc::group(
                     Doc::nil()
                         .append("(")
@@ -94,7 +92,7 @@ impl Term {
                 .append("->")
                 .append(Doc::space())
                 .append(body_ty.to_doc()),
-            Term::FunIntro(ref ident, ref body) => Doc::nil()
+            Term::FunIntro(Ident(ref ident), ref body) => Doc::nil()
                 .append("\\")
                 .append(Doc::as_string(ident))
                 .append(Doc::space())
@@ -114,7 +112,7 @@ impl Term {
                 .append("*")
                 .append(Doc::space())
                 .append(snd_ty.to_doc()),
-            Term::PairType(Some(ref ident), ref fst_ty, ref snd_ty) => Doc::nil()
+            Term::PairType(Some(Ident(ref ident)), ref fst_ty, ref snd_ty) => Doc::nil()
                 .append(Doc::group(
                     Doc::nil()
                         .append("(")

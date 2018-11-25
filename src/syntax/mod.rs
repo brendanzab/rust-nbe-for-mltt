@@ -2,9 +2,25 @@ pub mod concrete;
 pub mod core;
 pub mod domain;
 
-/// The level of a universe
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniverseLevel(pub u32);
+/// A name that identifies a variable
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Ident(pub String);
+
+/// A name hint that can be used for pretty printing later on
+#[derive(Debug, Clone, Eq)]
+pub struct IdentHint(pub Option<Ident>);
+
+impl From<Option<Ident>> for IdentHint {
+    fn from(src: Option<Ident>) -> IdentHint {
+        IdentHint(src)
+    }
+}
+
+impl PartialEq for IdentHint {
+    fn eq(&self, _: &IdentHint) -> bool {
+        true
+    }
+}
 
 /// DeBruijn level
 ///
@@ -19,3 +35,7 @@ pub struct DbLevel(pub u32);
 /// get to the binder that bound this variable.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DbIndex(pub u32);
+
+/// The level of a universe
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UniverseLevel(pub u32);

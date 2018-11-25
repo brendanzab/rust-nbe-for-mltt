@@ -4,7 +4,7 @@ use im;
 use std::rc::Rc;
 
 use syntax::core::RcTerm;
-use syntax::{DbLevel, UniverseLevel};
+use syntax::{DbLevel, IdentHint, UniverseLevel};
 
 pub type Env = im::Vector<RcValue>;
 
@@ -30,8 +30,12 @@ impl From<Value> for RcValue {
 
 impl RcValue {
     /// Construct a variable
-    pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> RcValue {
-        RcValue::from(Value::var(level, ann))
+    pub fn var(
+        ident: impl Into<IdentHint>,
+        level: impl Into<DbLevel>,
+        ann: impl Into<RcValue>,
+    ) -> RcValue {
+        RcValue::from(Value::var(ident, level, ann))
     }
 }
 
@@ -45,12 +49,12 @@ pub enum Value {
     Neutral(RcNeutral, RcType),
 
     /// Dependent function types
-    FunType(RcType, Closure),
+    FunType(IdentHint, RcType, Closure),
     /// Introduce a function
-    FunIntro(Closure),
+    FunIntro(IdentHint, Closure),
 
     /// Dependent pair types
-    PairType(RcType, Closure),
+    PairType(IdentHint, RcType, Closure),
     /// Introduce a pair
     PairIntro(RcValue, RcValue),
 
@@ -60,8 +64,15 @@ pub enum Value {
 
 impl Value {
     /// Construct a variable
-    pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> Value {
-        Value::Neutral(RcNeutral::from(Neutral::Var(level.into())), ann.into())
+    pub fn var(
+        ident: impl Into<IdentHint>,
+        level: impl Into<DbLevel>,
+        ann: impl Into<RcValue>,
+    ) -> Value {
+        Value::Neutral(
+            RcNeutral::from(Neutral::Var(ident.into(), level.into())),
+            ann.into(),
+        )
     }
 }
 
@@ -93,7 +104,7 @@ impl From<Neutral> for RcNeutral {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Neutral {
     /// Variables
-    Var(DbLevel),
+    Var(IdentHint, DbLevel),
 
     /// Apply a function to an argument
     FunApp(RcNeutral, Nf),
