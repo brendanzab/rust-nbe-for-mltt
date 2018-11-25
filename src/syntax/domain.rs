@@ -39,7 +39,7 @@ impl RcValue {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Neutral values
-    Neutral { ann: RcType, term: RcNeutral },
+    Neutral { term: RcNeutral, ann: RcType },
 
     /// Dependent function types
     FunType(RcType, Closure),
@@ -58,8 +58,8 @@ pub enum Value {
 impl Value {
     pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> Value {
         Value::Neutral {
-            ann: ann.into(),
             term: RcNeutral::from(Neutral::Var(level.into())),
+            ann: ann.into(),
         }
     }
 }
@@ -101,6 +101,6 @@ pub enum Neutral {
 /// expand it appropriately
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nf {
-    pub ann: RcType,
     pub term: RcValue,
+    pub ann: RcType,
 }
