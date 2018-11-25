@@ -81,12 +81,12 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, ann: &RcType) -> Result<(), Ty
         },
         Term::FunIntro(ref body) => match *ann.inner {
             Value::FunType(ref param_ty, ref body_ty) => {
-                let var = RcValue::var(DbLevel(size), param_ty.clone());
-                let body_ty = nbe::do_closure(body_ty, var.clone())?;
+                let param = RcValue::var(DbLevel(size), param_ty.clone());
+                let body_ty = nbe::do_closure(body_ty, param.clone())?;
 
                 let mut body_env = env.clone();
                 body_env.push_front(Entry::Term {
-                    term: var,
+                    term: param,
                     ann: param_ty.clone(),
                 });
 
