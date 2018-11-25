@@ -139,6 +139,13 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
 pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
     let Nf { term, ann } = nf;
 
+    // We don't look inside the `term` when reading back functions and pairs.
+    // This is because we are [converting to eta-long form][eta-conversion].
+    // This is the reason that we need to take care to pass along type
+    // annotations with our normal forms.
+    //
+    // [eta-conversion]: https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
+
     match (&*term.inner, &*ann.inner) {
         (&Value::Neutral(ref term, _), &Value::Neutral(_, _)) => read_back_neutral(size, term),
 
@@ -262,7 +269,7 @@ fn initial_env(env: &core::Env) -> Result<Env, NbeError> {
     let mut new_env = Env::new();
 
     for (ref ident, ref ann) in env {
-        let index = DbLevel((env.len() - new_env.len()) as u32); // TODO: double-check this!
+        let index = DbLevel((env.len() - new_env.len()) as u32);
         let ann = RcValue::var(ident.clone(), index, eval(ann, &new_env)?);
         new_env.push_front(ann);
     }
