@@ -1,6 +1,6 @@
 use im;
 
-use syntax::{concrete, core, DbIndex};
+use syntax::{concrete, core, DbIndex, UniverseLevel};
 
 pub enum DesugarError {
     UnboundVar(concrete::Ident),
@@ -29,6 +29,7 @@ pub fn desugar<'a>(
             desugar(ann, env)?,
         ))),
 
+        // Functions
         concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => Ok(core::RcTerm::from(
             core::Term::FunType(desugar(param_ty, env)?, {
                 let mut env = env.clone();
@@ -52,6 +53,7 @@ pub fn desugar<'a>(
             })
         },
 
+        // Pairs
         concrete::Term::PairType(ref ident, ref fst_ty, ref snd_ty) => Ok(core::RcTerm::from(
             core::Term::PairType(desugar(fst_ty, env)?, {
                 let mut env = env.clone();
@@ -69,6 +71,10 @@ pub fn desugar<'a>(
             Ok(core::RcTerm::from(core::Term::PairSnd(desugar(pair, env)?)))
         },
 
-        concrete::Term::Universe(level) => Ok(core::RcTerm::from(core::Term::Universe(level))),
+        // Universes
+        concrete::Term::Universe(level) => match level {
+            None => Ok(core::RcTerm::from(core::Term::Universe(UniverseLevel(0)))),
+            Some(level) => Ok(core::RcTerm::from(core::Term::Universe(level))),
+        },
     }
 }

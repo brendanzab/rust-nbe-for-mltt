@@ -48,7 +48,7 @@ pub enum Term {
     PairSnd(Box<Term>),
 
     /// Universe of types
-    Universe(UniverseLevel),
+    Universe(Option<UniverseLevel>),
 }
 
 impl Term {
@@ -138,7 +138,10 @@ impl Term {
                 .append(">"),
             Term::PairFst(ref pair) => pair.to_doc().append(".1"),
             Term::PairSnd(ref pair) => pair.to_doc().append(".2"),
-            Term::Universe(UniverseLevel(level)) => Doc::text("Type").append(Doc::as_string(level)),
+            Term::Universe(None) => Doc::text("Type"),
+            Term::Universe(Some(UniverseLevel(level))) => {
+                Doc::text("Type^").append(Doc::as_string(level))
+            },
         }
     }
 }
