@@ -29,13 +29,16 @@ impl From<Value> for RcValue {
 }
 
 impl RcValue {
+    /// Construct a variable
     pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> RcValue {
         RcValue::from(Value::var(level, ann))
     }
 }
 
-/// Values are terms that have evaluated to a constructor that does not need to
-/// be reduced further
+/// Terms that are in _weak head normal form_
+///
+/// These can either be _neutral values_ (values that are stuck on a variable),
+/// or _canonical values_.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Neutral values, annotated with a type
@@ -56,13 +59,18 @@ pub enum Value {
 }
 
 impl Value {
+    /// Construct a variable
     pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> Value {
         Value::Neutral(RcNeutral::from(Neutral::Var(level.into())), ann.into())
     }
 }
 
+/// Alias for types - we are using describing a dependently typed language
+/// types, so this is just an alias
 pub type Type = Value;
 
+/// Alias for reference counted types - we are using describing a dependently
+/// typed language types, so this is just an alias
 pub type RcType = RcValue;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -78,8 +86,10 @@ impl From<Neutral> for RcNeutral {
     }
 }
 
-/// Terms that want to reduce further, but cannot because they blocked on
-/// something
+/// Terms for which computation has stopped because of an attempt to evaluate a
+/// variable
+///
+/// These are known as _neutral values_ or _accumulators_.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Neutral {
     /// Variables
