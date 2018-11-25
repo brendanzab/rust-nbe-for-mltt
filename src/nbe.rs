@@ -25,15 +25,12 @@ impl NbeError {
 fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
     match *pair.inner {
         Value::PairIntro(ref fst, _) => Ok(fst.clone()),
-        Value::Neutral { ref term, ref ann } => match *ann.inner {
+        Value::Neutral(ref pair, ref pair_ty) => match *pair_ty.inner {
             Value::PairType(ref ann_ty, _) => {
-                let fst = RcNeutral::from(Neutral::PairFst(term.clone()));
+                let fst = RcNeutral::from(Neutral::PairFst(pair.clone()));
                 let fst_ty = ann_ty.clone();
 
-                Ok(RcValue::from(Value::Neutral {
-                    term: fst,
-                    ann: fst_ty,
-                }))
+                Ok(RcValue::from(Value::Neutral(fst, fst_ty)))
             },
             _ => Err(NbeError::new("do_pair_fst: not a pair type")),
         },
@@ -45,16 +42,13 @@ fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
 fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
     match *pair.inner {
         Value::PairIntro(_, ref snd) => Ok(snd.clone()),
-        Value::Neutral { ref term, ref ann } => match *ann.inner {
+        Value::Neutral(ref pair_ne, ref pair_ty) => match *pair_ty.inner {
             Value::PairType(_, ref snd_ty) => {
                 let fst = do_pair_fst(pair)?;
-                let snd = RcNeutral::from(Neutral::PairSnd(term.clone()));
+                let snd = RcNeutral::from(Neutral::PairSnd(pair_ne.clone()));
                 let snd_ty = do_closure(snd_ty, fst)?;
 
-                Ok(RcValue::from(Value::Neutral {
-                    term: snd,
-                    ann: snd_ty,
-                }))
+                Ok(RcValue::from(Value::Neutral(snd, snd_ty)))
             },
             _ => Err(NbeError::new("do_pair_snd: not a pair type")),
         },
@@ -73,16 +67,13 @@ pub fn do_closure(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> 
 pub fn do_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
     match *fun.inner {
         Value::FunIntro(ref body) => do_closure(body, arg),
-        Value::Neutral { ref term, ref ann } => match *ann.inner {
+        Value::Neutral(ref fun, ref fun_ty) => match *fun_ty.inner {
             Value::FunType(ref param_ty, ref body_ty) => {
                 let arg_nf = Nf::new(arg.clone(), param_ty.clone());
-                let body = RcNeutral::from(Neutral::FunApp(term.clone(), arg_nf));
+                let body = RcNeutral::from(Neutral::FunApp(fun.clone(), arg_nf));
                 let body_ty = do_closure(body_ty, arg)?;
 
-                Ok(RcValue::from(Value::Neutral {
-                    term: body,
-                    ann: body_ty,
-                }))
+                Ok(RcValue::from(Value::Neutral(body, body_ty)))
             },
             _ => Err(NbeError::new("do_ap: not a function type")),
         },
@@ -144,7 +135,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
     let Nf { term, ann } = nf;
 
     match (&*term.inner, &*ann.inner) {
-        (&Value::Neutral { ref term, .. }, &Value::Neutral { .. }) => read_back_neutral(size, term),
+        (&Value::Neutral(ref term, _), &Value::Neutral(_, _)) => read_back_neutral(size, term),
 
         // Functions
         (_, &Value::FunType(ref param_ty, ref body_ty)) => {
@@ -193,7 +184,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             )))
         },
         (&Value::Universe(level), &Value::Universe(_)) => Ok(RcTerm::from(Term::Universe(level))),
-        (&Value::Neutral { ref term, .. }, &Value::Universe(_)) => read_back_neutral(size, term),
+        (&Value::Neutral(ref term, _), &Value::Universe(_)) => read_back_neutral(size, term),
 
         _ => Err(NbeError::new("read_back_nf: ill-typed")),
     }
@@ -221,14 +212,7 @@ fn read_back_neutral(size: u32, neutral: &RcNeutral) -> Result<RcTerm, NbeError>
 /// Check whether a semantic type is a subtype of another
 pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
     match (&*ty1.inner, &*ty2.inner) {
-        (
-            &Value::Neutral {
-                term: ref term1, ..
-            },
-            &Value::Neutral {
-                term: ref term2, ..
-            },
-        ) => {
+        (&Value::Neutral(ref term1, _), &Value::Neutral(ref term2, _)) => {
             let term1 = read_back_neutral(size, term1)?;
             let term2 = read_back_neutral(size, term2)?;
 
