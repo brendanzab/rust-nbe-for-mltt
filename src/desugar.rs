@@ -31,6 +31,7 @@ pub fn desugar<'a>(
             desugar(term, env)?,
             desugar(ann, env)?,
         ))),
+        concrete::Term::Parens(ref term) => desugar(term, env),
 
         // Functions
         concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => Ok(core::RcTerm::from(

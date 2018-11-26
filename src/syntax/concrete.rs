@@ -14,6 +14,7 @@ pub enum Item {
     Quit,
 }
 
+/// Concrete terms
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     /// Variables
@@ -22,6 +23,8 @@ pub enum Term {
     Let(Ident, Box<Term>, Box<Term>),
     /// A term that is explicitly annotated with a type
     Check(Box<Term>, Box<Term>),
+    /// A parenthesized term
+    Parens(Box<Term>),
 
     /// Dependent function type
     ///
@@ -71,6 +74,7 @@ impl Term {
                 .append(":")
                 .append(Doc::space())
                 .append(ann.to_doc()),
+            Term::Parens(ref term) => Doc::text("(").append(term.to_doc()).append(")"),
             Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
                 .append(param_ty.to_doc())
                 .append(Doc::space())
