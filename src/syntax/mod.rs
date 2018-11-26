@@ -1,6 +1,11 @@
+//! The various syntaxes of the language
+//!
+//! The core, domain, and normal syntaxes are mainly based off Mini-TT
+
 pub mod concrete;
 pub mod core;
 pub mod domain;
+pub mod normal;
 
 /// A name that identifies a variable
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

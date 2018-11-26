@@ -1,7 +1,8 @@
 //! Normalization by evaluation
 
 use syntax::core::{self, RcTerm, Term};
-use syntax::domain::{Closure, Env, Neutral, Nf, RcNeutral, RcType, RcValue, Value};
+use syntax::domain::{self, Closure, Env, Nf, RcType, RcValue, Value};
+use syntax::normal::{self, Normal, RcNormal};
 use syntax::{DbIndex, DbLevel};
 
 /// An error produced during normalization
@@ -27,7 +28,7 @@ fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
         Value::PairIntro(ref fst, _) => Ok(fst.clone()),
         Value::Neutral(ref pair, ref pair_ty) => match *pair_ty.inner {
             Value::PairType(_, ref ann_ty, _) => {
-                let fst = RcNeutral::from(Neutral::PairFst(pair.clone()));
+                let fst = domain::RcNeutral::from(domain::Neutral::PairFst(pair.clone()));
                 let fst_ty = ann_ty.clone();
 
                 Ok(RcValue::from(Value::Neutral(fst, fst_ty)))
@@ -45,7 +46,7 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
         Value::Neutral(ref pair_ne, ref pair_ty) => match *pair_ty.inner {
             Value::PairType(_, _, ref snd_ty) => {
                 let fst = do_pair_fst(pair)?;
-                let snd = RcNeutral::from(Neutral::PairSnd(pair_ne.clone()));
+                let snd = domain::RcNeutral::from(domain::Neutral::PairSnd(pair_ne.clone()));
                 let snd_ty = do_closure(snd_ty, fst)?;
 
                 Ok(RcValue::from(Value::Neutral(snd, snd_ty)))
@@ -70,7 +71,7 @@ pub fn do_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
         Value::Neutral(ref fun, ref fun_ty) => match *fun_ty.inner {
             Value::FunType(_, ref param_ty, ref body_ty) => {
                 let arg_nf = Nf::new(arg.clone(), param_ty.clone());
-                let body = RcNeutral::from(Neutral::FunApp(fun.clone(), arg_nf));
+                let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), arg_nf));
                 let body_ty = do_closure(body_ty, arg)?;
 
                 Ok(RcValue::from(Value::Neutral(body, body_ty)))
@@ -135,8 +136,8 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
     }
 }
 
-/// Quote back a type
-pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
+/// Quote back a term into normal form
+pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcNormal, NbeError> {
     let Nf { term, ann } = nf;
 
     // We don't look inside the `term` when reading back functions and pairs.
@@ -147,7 +148,9 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
     // [eta-conversion]: https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
 
     match (&*term.inner, &*ann.inner) {
-        (&Value::Neutral(ref term, _), &Value::Neutral(_, _)) => read_back_neutral(size, term),
+        (&Value::Neutral(ref term, _), &Value::Neutral(_, _)) => Ok(RcNormal::from(
+            Normal::Neutral(read_back_neutral(size, term)?),
+        )),
 
         // Functions
         (_, &Value::FunType(ref ident, ref param_ty, ref body_ty)) => {
@@ -155,7 +158,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             let body = do_app(&term, param.clone())?;
             let body_ty = do_closure(body_ty, param)?;
 
-            Ok(RcTerm::from(Term::FunIntro(
+            Ok(RcNormal::from(Normal::FunIntro(
                 ident.clone(),
                 read_back_nf(size + 1, Nf::new(body, body_ty))?,
             )))
@@ -168,7 +171,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             let snd = do_pair_snd(&term)?;
             let snd_ty = do_closure(snd_ty, fst.clone())?;
 
-            Ok(RcTerm::from(Term::PairIntro(
+            Ok(RcNormal::from(Normal::PairIntro(
                 read_back_nf(size, Nf::new(fst, fst_ty))?,
                 read_back_nf(size, Nf::new(snd, snd_ty))?,
             )))
@@ -180,7 +183,7 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             let param_ty = param_ty.clone();
             let body_ty = do_closure(body_ty, param)?;
 
-            Ok(RcTerm::from(Term::FunType(
+            Ok(RcNormal::from(Normal::FunType(
                 ident.clone(),
                 read_back_nf(size, Nf::new(param_ty, ann.clone()))?,
                 read_back_nf(size + 1, Nf::new(body_ty, ann.clone()))?,
@@ -191,37 +194,45 @@ pub fn read_back_nf(size: u32, nf: Nf) -> Result<RcTerm, NbeError> {
             let fst_ty = fst_ty.clone();
             let snd_ty = do_closure(snd_ty, fst)?;
 
-            Ok(RcTerm::from(Term::PairType(
+            Ok(RcNormal::from(Normal::PairType(
                 ident.clone(),
                 read_back_nf(size, Nf::new(fst_ty, ann.clone()))?,
                 read_back_nf(size + 1, Nf::new(snd_ty, ann.clone()))?,
             )))
         },
-        (&Value::Universe(level), &Value::Universe(_)) => Ok(RcTerm::from(Term::Universe(level))),
-        (&Value::Neutral(ref term, _), &Value::Universe(_)) => read_back_neutral(size, term),
+        (&Value::Universe(level), &Value::Universe(_)) => {
+            Ok(RcNormal::from(Normal::Universe(level)))
+        },
+        (&Value::Neutral(ref term, _), &Value::Universe(_)) => Ok(RcNormal::from(Normal::Neutral(
+            read_back_neutral(size, term)?,
+        ))),
 
         _ => Err(NbeError::new("read_back_nf: ill-typed")),
     }
 }
 
-/// Quote back a neutral term
-fn read_back_neutral(size: u32, neutral: &RcNeutral) -> Result<RcTerm, NbeError> {
+/// Quote back a neutral term into normal form
+pub fn read_back_neutral(
+    size: u32,
+    neutral: &domain::RcNeutral,
+) -> Result<normal::RcNeutral, NbeError> {
     match &*neutral.inner {
-        Neutral::Var(ref ident, DbLevel(level)) => Ok(RcTerm::from(Term::Var(
-            ident.clone(),
-            DbIndex(size - level),
-        ))),
-        Neutral::FunApp(ref fun, ref arg) => Ok(RcTerm::from(Term::FunApp(
-            read_back_neutral(size, fun)?,
-            read_back_nf(size, arg.clone())?,
-        ))),
-        Neutral::PairFst(ref pair) => {
-            let pair = read_back_neutral(size, pair)?;
-            Ok(RcTerm::from(Term::PairFst(pair)))
+        domain::Neutral::Var(ref ident, DbLevel(level)) => Ok(normal::RcNeutral::from(
+            normal::Neutral::Var(ident.clone(), DbIndex(size - level)),
+        )),
+        domain::Neutral::FunApp(ref fun, ref arg) => {
+            Ok(normal::RcNeutral::from(normal::Neutral::FunApp(
+                read_back_neutral(size, fun)?,
+                read_back_nf(size, arg.clone())?,
+            )))
         },
-        Neutral::PairSnd(ref pair) => {
+        domain::Neutral::PairFst(ref pair) => {
             let pair = read_back_neutral(size, pair)?;
-            Ok(RcTerm::from(Term::PairSnd(pair)))
+            Ok(normal::RcNeutral::from(normal::Neutral::PairFst(pair)))
+        },
+        domain::Neutral::PairSnd(ref pair) => {
+            let pair = read_back_neutral(size, pair)?;
+            Ok(normal::RcNeutral::from(normal::Neutral::PairSnd(pair)))
         },
     }
 }
@@ -278,7 +289,7 @@ fn initial_env(env: &core::Env) -> Result<Env, NbeError> {
 }
 
 /// Do a full normalization
-pub fn normalize(env: &core::Env, term: &RcTerm, ann: &RcTerm) -> Result<RcTerm, NbeError> {
+pub fn normalize(env: &core::Env, term: &RcTerm, ann: &RcTerm) -> Result<RcNormal, NbeError> {
     let env = initial_env(env)?;
     let term = eval(term, &env)?;
     let ann = eval(ann, &env)?;
