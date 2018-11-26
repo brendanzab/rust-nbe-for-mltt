@@ -1,4 +1,8 @@
 //! Normalization by evaluation
+//!
+//! Here we implement a full normalization algorithm by first implementing
+//! evaluation to `Value`s in weak-head-normal-form, and then reading it back
+//! `Normal` terms.
 
 use syntax::core::{self, RcTerm, Term};
 use syntax::domain::{self, Closure, Env, Nf, RcType, RcValue, Value};
@@ -288,7 +292,7 @@ fn initial_env(env: &core::Env) -> Result<Env, NbeError> {
     Ok(new_env)
 }
 
-/// Do a full normalization
+/// Do a full normalization by first evaluating, and then reading back the result
 pub fn normalize(env: &core::Env, term: &RcTerm, ann: &RcTerm) -> Result<RcNormal, NbeError> {
     let env = initial_env(env)?;
     let term = eval(term, &env)?;

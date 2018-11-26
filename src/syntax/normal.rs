@@ -27,6 +27,9 @@ impl RcNormal {
 /// Terms that are in _normal form_
 ///
 /// These are terms that have been fully evaluated under binders.
+///
+/// We use debruijn indices to allow these terms to be trivially compared for
+/// alpha equality.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Normal {
     /// Neutral values, annotated with a type
