@@ -107,27 +107,13 @@ pub enum Neutral {
     Var(IdentHint, DbLevel),
 
     /// Apply a function to an argument
-    FunApp(RcNeutral, Nf),
+    ///
+    /// We annotate the argument with a type with a so that we can eta-expand
+    /// it appropriately during readback
+    FunApp(RcNeutral, RcValue, RcType),
 
     /// Project the first element of a pair
     PairFst(RcNeutral),
     /// Project the second element of a pair
     PairSnd(RcNeutral),
-}
-
-/// Associates a type with a value so that later during quotation we can eta
-/// expand it appropriately
-#[derive(Debug, Clone, PartialEq)]
-pub struct Nf {
-    pub term: RcValue,
-    pub ann: RcType,
-}
-
-impl Nf {
-    pub fn new(term: impl Into<RcValue>, ann: impl Into<RcType>) -> Nf {
-        Nf {
-            term: term.into(),
-            ann: ann.into(),
-        }
-    }
 }
