@@ -45,10 +45,7 @@ fn desugar_env<'a>(
     match *concrete_term {
         concrete::Term::Var(ref ident) => match env.lookup_ident(ident) {
             None => Err(DesugarError::UnboundVar(ident.clone())),
-            Some(index) => Ok(core::RcTerm::from(core::Term::Var(
-                IdentHint(Some(ident.clone())),
-                index,
-            ))),
+            Some(index) => Ok(core::RcTerm::from(core::Term::Var(index))),
         },
         concrete::Term::Let(ref ident, ref def, ref body) => {
             let def = desugar_env(def, env)?;

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use syntax::normal::{Neutral, Normal, RcNeutral, RcNormal};
 use syntax::{DbIndex, IdentHint, UniverseLevel};
 
-pub type Env = im::Vector<(IdentHint, RcTerm)>;
+pub type Env = im::Vector<RcTerm>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
@@ -24,7 +24,7 @@ impl From<Term> for RcTerm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// Variables
-    Var(IdentHint, DbIndex),
+    Var(DbIndex),
     /// Let bindings
     Let(IdentHint, RcTerm, RcTerm),
     /// A term that is explicitly annotated with a type
@@ -81,7 +81,7 @@ impl<'a> From<&'a RcNormal> for RcTerm {
 impl<'a> From<&'a RcNeutral> for RcTerm {
     fn from(src: &'a RcNeutral) -> RcTerm {
         match *src.inner {
-            Neutral::Var(ref ident, index) => RcTerm::from(Term::Var(ident.clone(), index)),
+            Neutral::Var(index) => RcTerm::from(Term::Var(index)),
             Neutral::FunApp(ref fun, ref arg) => {
                 RcTerm::from(Term::FunApp(RcTerm::from(fun), RcTerm::from(arg)))
             },
@@ -101,7 +101,7 @@ impl RcTerm {
 impl Term {
     /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
-        // Using precedence climbing here (mirroring the language grammar) in
+        // Using precedence climbing (mirroring the language grammar) in
         // order to cut down on extraneous parentheses.
 
         fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
@@ -189,7 +189,7 @@ impl Term {
 
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Var(_, DbIndex(index)) => Doc::as_string(format!("@{}", index)),
+                Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
                 Term::PairIntro(ref fst, ref snd) => Doc::nil()
                     .append("<")
                     .append(to_doc_term(&*fst.inner))

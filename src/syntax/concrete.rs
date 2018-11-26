@@ -55,7 +55,7 @@ pub enum Term {
 impl Term {
     /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
-        // Using precedence climbing here (mirroring the language grammar) in
+        // Using precedence climbing (mirroring the language grammar) in
         // order to cut down on extraneous parentheses.
 
         fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {

@@ -30,12 +30,8 @@ impl From<Value> for RcValue {
 
 impl RcValue {
     /// Construct a variable
-    pub fn var(
-        ident: impl Into<IdentHint>,
-        level: impl Into<DbLevel>,
-        ann: impl Into<RcValue>,
-    ) -> RcValue {
-        RcValue::from(Value::var(ident, level, ann))
+    pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> RcValue {
+        RcValue::from(Value::var(level, ann))
     }
 }
 
@@ -64,15 +60,8 @@ pub enum Value {
 
 impl Value {
     /// Construct a variable
-    pub fn var(
-        ident: impl Into<IdentHint>,
-        level: impl Into<DbLevel>,
-        ann: impl Into<RcValue>,
-    ) -> Value {
-        Value::Neutral(
-            RcNeutral::from(Neutral::Var(ident.into(), level.into())),
-            ann.into(),
-        )
+    pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> Value {
+        Value::Neutral(RcNeutral::from(Neutral::Var(level.into())), ann.into())
     }
 }
 
@@ -104,7 +93,7 @@ impl From<Neutral> for RcNeutral {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Neutral {
     /// Variables
-    Var(IdentHint, DbLevel),
+    Var(DbLevel),
 
     /// Apply a function to an argument
     ///

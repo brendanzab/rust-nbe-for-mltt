@@ -92,7 +92,7 @@ pub fn do_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
 /// Evaluate a syntactic term into a semantic value
 pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
     match *term.inner {
-        Term::Var(_, DbIndex(index)) => match env.get(index as usize) {
+        Term::Var(DbIndex(index)) => match env.get(index as usize) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
@@ -159,7 +159,7 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
 
         // Functions
         (_, &Value::FunType(ref ident, ref param_ty, ref body_ty)) => {
-            let param = RcValue::var(ident.clone(), DbLevel(size), param_ty.clone());
+            let param = RcValue::var(DbLevel(size), param_ty.clone());
             let body = do_app(&term, param.clone())?;
             let body_ty = do_closure(body_ty, param)?;
 
@@ -184,7 +184,7 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
 
         // Types
         (&Value::FunType(ref ident, ref param_ty, ref body_ty), &Value::Universe(_)) => {
-            let param = RcValue::var(ident.clone(), DbLevel(size), param_ty.clone());
+            let param = RcValue::var(DbLevel(size), param_ty.clone());
             let param_ty = param_ty.clone();
             let body_ty = do_closure(body_ty, param)?;
 
@@ -195,7 +195,7 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
             )))
         },
         (&Value::PairType(ref ident, ref fst_ty, ref snd_ty), &Value::Universe(_)) => {
-            let fst = RcValue::var(ident.clone(), DbLevel(size), fst_ty.clone());
+            let fst = RcValue::var(DbLevel(size), fst_ty.clone());
             let fst_ty = fst_ty.clone();
             let snd_ty = do_closure(snd_ty, fst)?;
 
@@ -222,9 +222,9 @@ pub fn read_back_neutral(
     neutral: &domain::RcNeutral,
 ) -> Result<normal::RcNeutral, NbeError> {
     match &*neutral.inner {
-        domain::Neutral::Var(ref ident, DbLevel(level)) => Ok(normal::RcNeutral::from(
-            normal::Neutral::Var(ident.clone(), DbIndex(size - level)),
-        )),
+        domain::Neutral::Var(DbLevel(level)) => Ok(normal::RcNeutral::from(normal::Neutral::Var(
+            DbIndex(size - level),
+        ))),
         domain::Neutral::FunApp(ref fun, ref arg, ref arg_ty) => {
             Ok(normal::RcNeutral::from(normal::Neutral::FunApp(
                 read_back_neutral(size, fun)?,
@@ -255,7 +255,7 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             &Value::FunType(_, ref param_ty1, ref body_ty1),
             &Value::FunType(_, ref param_ty2, ref body_ty2),
         ) => {
-            let param = RcValue::var(None, DbLevel(size), param_ty2.clone());
+            let param = RcValue::var(DbLevel(size), param_ty2.clone());
 
             Ok(check_subtype(size, param_ty2, param_ty1)? && {
                 let body_ty1 = do_closure(body_ty1, param.clone())?;
@@ -267,7 +267,7 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             &Value::PairType(_, ref fst_ty1, ref snd_ty1),
             &Value::PairType(_, ref fst_ty2, ref snd_ty2),
         ) => {
-            let fst = RcValue::var(None, DbLevel(size), fst_ty1.clone());
+            let fst = RcValue::var(DbLevel(size), fst_ty1.clone());
 
             Ok(check_subtype(size, fst_ty1, fst_ty2)? && {
                 let snd_ty1 = do_closure(snd_ty1, fst.clone())?;
@@ -284,9 +284,9 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
 fn initial_env(env: &core::Env) -> Result<Env, NbeError> {
     let mut new_env = Env::new();
 
-    for (ref ident, ref ann) in env {
+    for ann in env {
         let index = DbLevel((env.len() - new_env.len()) as u32);
-        let ann = RcValue::var(ident.clone(), index, eval(ann, &new_env)?);
+        let ann = RcValue::var(index, eval(ann, &new_env)?);
         new_env.push_front(ann);
     }
 

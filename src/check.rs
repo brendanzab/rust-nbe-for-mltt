@@ -68,22 +68,21 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, expected_ty: &RcType) -> Resul
             check(&body_env, size + 1, body, expected_ty)
         },
 
-        Term::FunType(ref ident, ref ann_ty, ref body_ty)
-        | Term::PairType(ref ident, ref ann_ty, ref body_ty) => {
+        Term::FunType(_, ref ann_ty, ref body_ty) | Term::PairType(_, ref ann_ty, ref body_ty) => {
             check(env, size, ann_ty, expected_ty)?;
             let ann_ty_value = nbe::eval(ann_ty, &env_to_domain_env(env))?;
 
             let mut body_ty_env = env.clone();
             body_ty_env.push_front(Entry::Term {
-                term: RcValue::var(ident.clone(), DbLevel(size), ann_ty_value.clone()),
+                term: RcValue::var(DbLevel(size), ann_ty_value.clone()),
                 ann: ann_ty_value,
             });
 
             check(&body_ty_env, size + 1, body_ty, expected_ty)
         },
         Term::FunIntro(_, ref body) => match *expected_ty.inner {
-            Value::FunType(ref ident, ref param_ty, ref body_ty) => {
-                let param = RcValue::var(ident.clone(), DbLevel(size), param_ty.clone());
+            Value::FunType(_, ref param_ty, ref body_ty) => {
+                let param = RcValue::var(DbLevel(size), param_ty.clone());
                 let body_ty = nbe::do_closure(body_ty, param.clone())?;
 
                 let mut body_env = env.clone();
@@ -125,7 +124,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, expected_ty: &RcType) -> Resul
 /// Synthesize the type of the term
 pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcType, TypeError> {
     match *term.inner {
-        Term::Var(_, DbIndex(index)) => match env.get(index as usize) {
+        Term::Var(DbIndex(index)) => match env.get(index as usize) {
             None => Err(TypeError::UnboundVariable),
             Some(Entry::Term { ref ann, .. }) | Some(Entry::TopLevel { ref ann, .. }) => {
                 Ok(ann.clone())
@@ -202,14 +201,13 @@ pub fn check_ty(env: &Env, size: u32, term: &RcTerm) -> Result<(), TypeError> {
             check_ty(&body_env, size + 1, body)
         },
 
-        Term::FunType(ref ident, ref ann, ref body)
-        | Term::PairType(ref ident, ref ann, ref body) => {
+        Term::FunType(_, ref ann, ref body) | Term::PairType(_, ref ann, ref body) => {
             check_ty(env, size, ann)?;
             let ann_value = nbe::eval(ann, &env_to_domain_env(env))?;
 
             let mut body_env = env.clone();
             body_env.push_front(Entry::Term {
-                term: RcValue::var(ident.clone(), DbLevel(size), ann_value.clone()),
+                term: RcValue::var(DbLevel(size), ann_value.clone()),
                 ann: ann_value,
             });
 

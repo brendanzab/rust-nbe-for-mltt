@@ -19,8 +19,8 @@ impl From<Normal> for RcNormal {
 
 impl RcNormal {
     /// Construct a variable
-    pub fn var(ident: impl Into<IdentHint>, level: impl Into<DbIndex>) -> RcNormal {
-        RcNormal::from(Normal::var(ident, level))
+    pub fn var(level: impl Into<DbIndex>) -> RcNormal {
+        RcNormal::from(Normal::var(level))
     }
 }
 
@@ -51,8 +51,8 @@ pub enum Normal {
 
 impl Normal {
     /// Construct a variable
-    pub fn var(ident: impl Into<IdentHint>, level: impl Into<DbIndex>) -> Normal {
-        Normal::Neutral(RcNeutral::from(Neutral::Var(ident.into(), level.into())))
+    pub fn var(level: impl Into<DbIndex>) -> Normal {
+        Normal::Neutral(RcNeutral::from(Neutral::Var(level.into())))
     }
 }
 
@@ -76,7 +76,7 @@ impl From<Neutral> for RcNeutral {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Neutral {
     /// Variables
-    Var(IdentHint, DbIndex),
+    Var(DbIndex),
 
     /// Apply a function to an argument
     FunApp(RcNeutral, RcNormal),
