@@ -83,7 +83,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, expected_ty: &RcType) -> Resul
         Term::FunIntro(_, ref body) => match *expected_ty.inner {
             Value::FunType(_, ref param_ty, ref body_ty) => {
                 let param = RcValue::var(DbLevel(size), param_ty.clone());
-                let body_ty = nbe::do_closure(body_ty, param.clone())?;
+                let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
 
                 let mut body_env = env.clone();
                 body_env.push_front(Entry::Term {
@@ -102,7 +102,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, expected_ty: &RcType) -> Resul
             Value::PairType(_, ref fst_ty, ref snd_ty) => {
                 check(env, size, fst, fst_ty)?;
                 let fst_value = nbe::eval(fst, &env_to_domain_env(env))?;
-                check(env, size, snd, &nbe::do_closure(snd_ty, fst_value)?)
+                check(env, size, snd, &nbe::do_closure_app(snd_ty, fst_value)?)
             },
             _ => Err(TypeError::ExpectedPairType {
                 found: expected_ty.clone(),
@@ -151,7 +151,7 @@ pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcType, TypeError> {
                 Value::FunType(_, ref arg_ty, ref body_ty) => {
                     check(env, size, arg, arg_ty)?;
                     let arg_value = nbe::eval(arg, &env_to_domain_env(env))?;
-                    Ok(nbe::do_closure(body_ty, arg_value)?)
+                    Ok(nbe::do_closure_app(body_ty, arg_value)?)
                 },
                 _ => Err(TypeError::ExpectedFunType {
                     found: fun_ty.clone(),
@@ -176,7 +176,7 @@ pub fn synth(env: &Env, size: u32, term: &RcTerm) -> Result<RcType, TypeError> {
                         &RcTerm::from(Term::PairFst(pair.clone())),
                         &env_to_domain_env(env),
                     )?;
-                    Ok(nbe::do_closure(snd_ty, fst)?)
+                    Ok(nbe::do_closure_app(snd_ty, fst)?)
                 },
                 _ => Err(TypeError::ExpectedPairType {
                     found: pair_ty.clone(),

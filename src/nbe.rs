@@ -51,7 +51,7 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
             Value::PairType(_, _, ref snd_ty) => {
                 let fst = do_pair_fst(pair)?;
                 let snd = domain::RcNeutral::from(domain::Neutral::PairSnd(pair_ne.clone()));
-                let snd_ty = do_closure(snd_ty, fst)?;
+                let snd_ty = do_closure_app(snd_ty, fst)?;
 
                 Ok(RcValue::from(Value::Neutral(snd, snd_ty)))
             },
@@ -61,17 +61,17 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
     }
 }
 
-/// Run a closure with the given argument
-pub fn do_closure(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
+/// Apply a closure to an argument
+pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
     env.push_front(arg);
     eval(&closure.term, &env)
 }
 
-/// Apply an argument to a function
-pub fn do_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
+/// Apply a function to an argument
+pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
     match *fun.inner {
-        Value::FunIntro(_, ref body) => do_closure(body, arg),
+        Value::FunIntro(_, ref body) => do_closure_app(body, arg),
         Value::Neutral(ref fun, ref fun_ty) => match *fun_ty.inner {
             Value::FunType(_, ref param_ty, ref body_ty) => {
                 let body = domain::RcNeutral::from(domain::Neutral::FunApp(
@@ -79,7 +79,7 @@ pub fn do_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
                     arg.clone(),
                     param_ty.clone(),
                 ));
-                let body_ty = do_closure(body_ty, arg)?;
+                let body_ty = do_closure_app(body_ty, arg)?;
 
                 Ok(RcValue::from(Value::Neutral(body, body_ty)))
             },
@@ -114,7 +114,7 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
             ident.clone(),
             Closure::new(body.clone(), env.clone()),
         ))),
-        Term::FunApp(ref fun, ref arg) => do_app(&eval(fun, env)?, eval(arg, env)?),
+        Term::FunApp(ref fun, ref arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
 
         // Pairs
         Term::PairType(ref ident, ref fst_ty, ref snd_ty) => Ok(RcValue::from(Value::PairType(
@@ -151,8 +151,8 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
         // Functions
         (_, &Value::FunType(ref ident, ref param_ty, ref body_ty)) => {
             let param = RcValue::var(DbLevel(size), param_ty.clone());
-            let body = do_app(&term, param.clone())?;
-            let body_ty = do_closure(body_ty, param)?;
+            let body = do_fun_app(&term, param.clone())?;
+            let body_ty = do_closure_app(body_ty, param)?;
 
             Ok(RcNormal::from(Normal::FunIntro(
                 ident.clone(),
@@ -165,7 +165,7 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
             let fst = do_pair_fst(&term)?;
             let fst_ty = fst_ty.clone();
             let snd = do_pair_snd(&term)?;
-            let snd_ty = do_closure(snd_ty, fst.clone())?;
+            let snd_ty = do_closure_app(snd_ty, fst.clone())?;
 
             Ok(RcNormal::from(Normal::PairIntro(
                 read_back_nf(size, &fst, &fst_ty)?,
@@ -177,7 +177,7 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
         (&Value::FunType(ref ident, ref param_ty, ref body_ty), &Value::Universe(_)) => {
             let param = RcValue::var(DbLevel(size), param_ty.clone());
             let param_ty = param_ty.clone();
-            let body_ty = do_closure(body_ty, param)?;
+            let body_ty = do_closure_app(body_ty, param)?;
 
             Ok(RcNormal::from(Normal::FunType(
                 ident.clone(),
@@ -188,7 +188,7 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
         (&Value::PairType(ref ident, ref fst_ty, ref snd_ty), &Value::Universe(_)) => {
             let fst = RcValue::var(DbLevel(size), fst_ty.clone());
             let fst_ty = fst_ty.clone();
-            let snd_ty = do_closure(snd_ty, fst)?;
+            let snd_ty = do_closure_app(snd_ty, fst)?;
 
             Ok(RcNormal::from(Normal::PairType(
                 ident.clone(),
@@ -249,8 +249,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             let param = RcValue::var(DbLevel(size), param_ty2.clone());
 
             Ok(check_subtype(size, param_ty2, param_ty1)? && {
-                let body_ty1 = do_closure(body_ty1, param.clone())?;
-                let body_ty2 = do_closure(body_ty2, param)?;
+                let body_ty1 = do_closure_app(body_ty1, param.clone())?;
+                let body_ty2 = do_closure_app(body_ty2, param)?;
                 check_subtype(size + 1, &body_ty1, &body_ty2)?
             })
         },
@@ -261,8 +261,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             let fst = RcValue::var(DbLevel(size), fst_ty1.clone());
 
             Ok(check_subtype(size, fst_ty1, fst_ty2)? && {
-                let snd_ty1 = do_closure(snd_ty1, fst.clone())?;
-                let snd_ty2 = do_closure(snd_ty2, fst)?;
+                let snd_ty1 = do_closure_app(snd_ty1, fst.clone())?;
+                let snd_ty2 = do_closure_app(snd_ty2, fst)?;
                 check_subtype(size + 1, &snd_ty1, &snd_ty2)?
             })
         },
