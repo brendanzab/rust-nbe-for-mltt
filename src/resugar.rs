@@ -31,84 +31,88 @@ impl Env {
     }
 }
 
-pub fn resugar(env: &mut Env, term: &core::RcTerm) -> concrete::Term {
+pub fn resugar(term: &core::RcTerm) -> concrete::Term {
+    resugar_env(term, &mut Env::new())
+}
+
+pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     // Using precedence climbing (mirroring the language grammar) in
     // order to cut down on extraneous parentheses.
 
-    fn resugar_term(env: &mut Env, term: &core::RcTerm) -> concrete::Term {
+    fn resugar_term(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::Check(ref term, ref ann) => concrete::Term::PairIntro(
-                Box::new(resugar_expr(env, term)),
-                Box::new(resugar_app(env, ann)),
+                Box::new(resugar_expr(term, env)),
+                Box::new(resugar_app(ann, env)),
             ),
-            _ => resugar_expr(env, term),
+            _ => resugar_expr(term, env),
         }
     }
 
-    fn resugar_expr(env: &mut Env, term: &core::RcTerm) -> concrete::Term {
+    fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::Let(ref ident, ref def, ref body) => {
-                let def = resugar_app(env, def);
-                let (ident, body) = env.with_scope(ident, |env| resugar_term(env, body));
+                let def = resugar_app(def, env);
+                let (ident, body) = env.with_scope(ident, |env| resugar_term(body, env));
                 concrete::Term::Let(ident, Box::new(def), Box::new(body))
             },
             core::Term::FunIntro(ref ident, ref body) => {
-                let (ident, body) = env.with_scope(ident, |env| resugar_app(env, body));
+                let (ident, body) = env.with_scope(ident, |env| resugar_app(body, env));
                 concrete::Term::FunIntro(ident, Box::new(body))
             },
-            _ => resugar_arrow(env, term),
+            _ => resugar_arrow(term, env),
         }
     }
 
-    fn resugar_arrow(env: &mut Env, term: &core::RcTerm) -> concrete::Term {
+    fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::FunType(ref ident, ref param_ty, ref body_ty) => {
-                let param_ty = resugar_term(env, param_ty);
-                let (ident, body_ty) = env.with_scope(ident, |env| resugar_app(env, body_ty));
+                let param_ty = resugar_term(param_ty, env);
+                let (ident, body_ty) = env.with_scope(ident, |env| resugar_app(body_ty, env));
                 // TODO: only use `ident` if it is used in `body_ty`
                 concrete::Term::FunType(Some(ident), Box::new(param_ty), Box::new(body_ty))
             },
             core::Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
-                let fst_ty = resugar_term(env, fst_ty);
-                let (ident, snd_ty) = env.with_scope(ident, |env| resugar_app(env, snd_ty));
+                let fst_ty = resugar_term(fst_ty, env);
+                let (ident, snd_ty) = env.with_scope(ident, |env| resugar_app(snd_ty, env));
                 // TODO: only use `ident` if it is used in `body_ty`
                 concrete::Term::PairType(Some(ident), Box::new(fst_ty), Box::new(snd_ty))
             },
-            _ => resugar_app(env, term),
+            _ => resugar_app(term, env),
         }
     }
 
-    fn resugar_app(env: &mut Env, term: &core::RcTerm) -> concrete::Term {
+    fn resugar_app(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
-            core::Term::FunApp(ref fun, ref arg) => match resugar_term(env, fun) {
+            core::Term::FunApp(ref fun, ref arg) => match resugar_term(fun, env) {
                 concrete::Term::FunApp(fun, mut args) => {
-                    args.push(resugar_atomic(env, arg));
+                    args.push(resugar_atomic(arg, env));
                     concrete::Term::FunApp(fun, args)
                 },
-                fun => concrete::Term::FunApp(Box::new(fun), vec![resugar_atomic(env, arg)]),
+                fun => concrete::Term::FunApp(Box::new(fun), vec![resugar_atomic(arg, env)]),
             },
-            _ => resugar_atomic(env, term),
+            _ => resugar_atomic(term, env),
         }
     }
 
-    fn resugar_atomic(env: &mut Env, term: &core::RcTerm) -> concrete::Term {
+    fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::Var(index) => concrete::Term::Var(env.on_var(index)),
             core::Term::PairIntro(ref fst, ref snd) => concrete::Term::PairIntro(
-                Box::new(resugar_term(env, fst)),
-                Box::new(resugar_term(env, snd)),
+                Box::new(resugar_term(fst, env)),
+                Box::new(resugar_term(snd, env)),
             ),
             core::Term::PairFst(ref pair) => {
-                concrete::Term::PairFst(Box::new(resugar_atomic(env, pair)))
+                concrete::Term::PairFst(Box::new(resugar_atomic(pair, env)))
             },
             core::Term::PairSnd(ref pair) => {
-                concrete::Term::PairSnd(Box::new(resugar_atomic(env, pair)))
+                concrete::Term::PairSnd(Box::new(resugar_atomic(pair, env)))
             },
             core::Term::Universe(UniverseLevel(0)) => concrete::Term::Universe(None),
             core::Term::Universe(level) => concrete::Term::Universe(Some(level)),
-            _ => concrete::Term::Parens(Box::new(resugar_term(env, term))),
+            _ => concrete::Term::Parens(Box::new(resugar_term(term, env))),
         }
     }
 
-    resugar_term(env, term)
+    resugar_term(term, env)
 }

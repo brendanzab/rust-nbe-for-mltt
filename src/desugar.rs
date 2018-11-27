@@ -34,15 +34,15 @@ pub enum DesugarError {
     UnboundVar(Ident),
 }
 
-pub fn desugar(concrete_term: &concrete::Term) -> Result<core::RcTerm, DesugarError> {
-    desugar_env(concrete_term, &mut Env::new())
+pub fn desugar(term: &concrete::Term) -> Result<core::RcTerm, DesugarError> {
+    desugar_env(term, &mut Env::new())
 }
 
 fn desugar_env<'a>(
-    concrete_term: &'a concrete::Term,
+    term: &'a concrete::Term,
     env: &mut Env<'a>,
 ) -> Result<core::RcTerm, DesugarError> {
-    match *concrete_term {
+    match *term {
         concrete::Term::Var(ref ident) => match env.lookup_ident(ident) {
             None => Err(DesugarError::UnboundVar(ident.clone())),
             Some(index) => Ok(core::RcTerm::from(core::Term::Var(index))),
