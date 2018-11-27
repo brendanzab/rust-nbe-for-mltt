@@ -9,7 +9,7 @@ impl<'a> Env<'a> {
         Env { idents: Vec::new() }
     }
 
-    fn with_ident<T>(
+    fn with_binding<T>(
         &mut self,
         ident: impl Into<Option<&'a Ident>>,
         f: impl Fn(&mut Env<'a>) -> T,
@@ -49,7 +49,7 @@ fn desugar_env<'a>(
         },
         concrete::Term::Let(ref ident, ref def, ref body) => {
             let def = desugar_env(def, env)?;
-            let body = env.with_ident(ident, |env| desugar_env(body, env))?;
+            let body = env.with_binding(ident, |env| desugar_env(body, env))?;
             Ok(core::RcTerm::from(core::Term::Let(
                 IdentHint(Some(ident.clone())),
                 def,
@@ -65,7 +65,7 @@ fn desugar_env<'a>(
         // Functions
         concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => {
             let param_ty = desugar_env(param_ty, env)?;
-            let body_ty = env.with_ident(ident, |env| desugar_env(body_ty, env))?;
+            let body_ty = env.with_binding(ident, |env| desugar_env(body_ty, env))?;
             Ok(core::RcTerm::from(core::Term::FunType(
                 IdentHint(ident.clone()),
                 param_ty,
@@ -73,7 +73,7 @@ fn desugar_env<'a>(
             )))
         },
         concrete::Term::FunIntro(ref ident, ref body) => {
-            let body = env.with_ident(ident, |env| desugar_env(body, env))?;
+            let body = env.with_binding(ident, |env| desugar_env(body, env))?;
             Ok(core::RcTerm::from(core::Term::FunIntro(
                 IdentHint(Some(ident.clone())),
                 body,
@@ -91,7 +91,7 @@ fn desugar_env<'a>(
         // Pairs
         concrete::Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
             let fst_ty = desugar_env(fst_ty, env)?;
-            let snd_ty = env.with_ident(ident, |env| desugar_env(snd_ty, env))?;
+            let snd_ty = env.with_binding(ident, |env| desugar_env(snd_ty, env))?;
             Ok(core::RcTerm::from(core::Term::PairType(
                 IdentHint(ident.clone()),
                 fst_ty,

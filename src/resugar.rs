@@ -13,14 +13,14 @@ impl Env {
         }
     }
 
-    pub fn on_var(&self, index: DbIndex) -> Ident {
+    pub fn lookup_index(&self, index: DbIndex) -> Ident {
         match self.idents.get(index.0 as usize) {
             Some(ident) => ident.clone(),
             None => Ident(format!("free{}", index.0)),
         }
     }
 
-    pub fn with_scope<T>(&mut self, _ident: &IdentHint, f: impl Fn(&mut Env) -> T) -> (Ident, T) {
+    pub fn with_binding<T>(&mut self, _ident: &IdentHint, f: impl Fn(&mut Env) -> T) -> (Ident, T) {
         self.counter += 1;
         // TODO: use ident hint to improve variable names
         let ident = Ident(format!("x{}", self.counter));
@@ -53,11 +53,11 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::Let(ref ident, ref def, ref body) => {
                 let def = resugar_app(def, env);
-                let (ident, body) = env.with_scope(ident, |env| resugar_term(body, env));
+                let (ident, body) = env.with_binding(ident, |env| resugar_term(body, env));
                 concrete::Term::Let(ident, Box::new(def), Box::new(body))
             },
             core::Term::FunIntro(ref ident, ref body) => {
-                let (ident, body) = env.with_scope(ident, |env| resugar_app(body, env));
+                let (ident, body) = env.with_binding(ident, |env| resugar_app(body, env));
                 concrete::Term::FunIntro(ident, Box::new(body))
             },
             _ => resugar_arrow(term, env),
@@ -68,13 +68,13 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::FunType(ref ident, ref param_ty, ref body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
-                let (ident, body_ty) = env.with_scope(ident, |env| resugar_app(body_ty, env));
+                let (ident, body_ty) = env.with_binding(ident, |env| resugar_app(body_ty, env));
                 // TODO: only use `ident` if it is used in `body_ty`
                 concrete::Term::FunType(Some(ident), Box::new(param_ty), Box::new(body_ty))
             },
             core::Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
                 let fst_ty = resugar_term(fst_ty, env);
-                let (ident, snd_ty) = env.with_scope(ident, |env| resugar_app(snd_ty, env));
+                let (ident, snd_ty) = env.with_binding(ident, |env| resugar_app(snd_ty, env));
                 // TODO: only use `ident` if it is used in `body_ty`
                 concrete::Term::PairType(Some(ident), Box::new(fst_ty), Box::new(snd_ty))
             },
@@ -97,7 +97,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
 
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
-            core::Term::Var(index) => concrete::Term::Var(env.on_var(index)),
+            core::Term::Var(index) => concrete::Term::Var(env.lookup_index(index)),
             core::Term::PairIntro(ref fst, ref snd) => concrete::Term::PairIntro(
                 Box::new(resugar_term(fst, env)),
                 Box::new(resugar_term(snd, env)),
