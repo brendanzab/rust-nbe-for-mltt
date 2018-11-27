@@ -5,7 +5,7 @@
 //! `Normal` terms.
 
 use syntax::core::{self, RcTerm, Term};
-use syntax::domain::{self, Closure, Env, RcType, RcValue, Value};
+use syntax::domain::{self, Closure, RcType, RcValue, Value};
 use syntax::normal::{self, Normal, RcNormal};
 use syntax::{DbIndex, DbLevel};
 
@@ -90,7 +90,7 @@ pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
 }
 
 /// Evaluate a syntactic term into a semantic value
-pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
+pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
     match *term.inner {
         Term::Var(DbIndex(index)) => match env.get(index as usize) {
             Some(value) => Ok(value.clone()),
@@ -105,27 +105,35 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
         Term::Check(ref term, _) => eval(term, env),
 
         // Functions
-        Term::FunType(ref ident, ref param_ty, ref body_ty) => Ok(RcValue::from(Value::FunType(
-            ident.clone(),
-            eval(param_ty, env)?,
-            Closure::new(body_ty.clone(), env.clone()),
-        ))),
-        Term::FunIntro(ref ident, ref body) => Ok(RcValue::from(Value::FunIntro(
-            ident.clone(),
-            Closure::new(body.clone(), env.clone()),
-        ))),
+        Term::FunType(ref ident, ref param_ty, ref body_ty) => {
+            let ident = ident.clone();
+            let param_ty = eval(param_ty, env)?;
+            let body_ty = Closure::new(body_ty.clone(), env.clone());
+
+            Ok(RcValue::from(Value::FunType(ident, param_ty, body_ty)))
+        },
+        Term::FunIntro(ref ident, ref body) => {
+            let ident = ident.clone();
+            let body = Closure::new(body.clone(), env.clone());
+
+            Ok(RcValue::from(Value::FunIntro(ident, body)))
+        },
         Term::FunApp(ref fun, ref arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
 
         // Pairs
-        Term::PairType(ref ident, ref fst_ty, ref snd_ty) => Ok(RcValue::from(Value::PairType(
-            ident.clone(),
-            eval(fst_ty, env)?,
-            Closure::new(snd_ty.clone(), env.clone()),
-        ))),
-        Term::PairIntro(ref fst, ref snd) => Ok(RcValue::from(Value::PairIntro(
-            eval(fst, env)?,
-            eval(snd, env)?,
-        ))),
+        Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
+            let ident = ident.clone();
+            let fst_ty = eval(fst_ty, env)?;
+            let snd_ty = Closure::new(snd_ty.clone(), env.clone());
+
+            Ok(RcValue::from(Value::PairType(ident, fst_ty, snd_ty)))
+        },
+        Term::PairIntro(ref fst, ref snd) => {
+            let fst = eval(fst, env)?;
+            let snd = eval(snd, env)?;
+
+            Ok(RcValue::from(Value::PairIntro(fst, snd)))
+        },
         Term::PairFst(ref pair) => do_pair_fst(&eval(pair, env)?),
         Term::PairSnd(ref pair) => do_pair_snd(&eval(pair, env)?),
 
@@ -144,9 +152,11 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
     // [eta-conversion]: https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
 
     match (&*term.inner, &*ann.inner) {
-        (&Value::Neutral(ref term, _), &Value::Neutral(_, _)) => Ok(RcNormal::from(
-            Normal::Neutral(read_back_neutral(size, term)?),
-        )),
+        (&Value::Neutral(ref term, _), &Value::Neutral(_, _)) => {
+            let neutral = Normal::Neutral(read_back_neutral(size, term)?);
+
+            Ok(RcNormal::from(neutral))
+        },
 
         // Functions
         (_, &Value::FunType(ref ident, ref param_ty, ref body_ty)) => {
@@ -199,9 +209,11 @@ pub fn read_back_nf(size: u32, term: &RcValue, ann: &RcType) -> Result<RcNormal,
         (&Value::Universe(level), &Value::Universe(_)) => {
             Ok(RcNormal::from(Normal::Universe(level)))
         },
-        (&Value::Neutral(ref term, _), &Value::Universe(_)) => Ok(RcNormal::from(Normal::Neutral(
-            read_back_neutral(size, term)?,
-        ))),
+        (&Value::Neutral(ref term, _), &Value::Universe(_)) => {
+            let neutral = read_back_neutral(size, term)?;
+
+            Ok(RcNormal::from(Normal::Neutral(neutral)))
+        },
 
         _ => Err(NbeError::new("read_back_nf: ill-typed")),
     }
@@ -213,21 +225,25 @@ pub fn read_back_neutral(
     neutral: &domain::RcNeutral,
 ) -> Result<normal::RcNeutral, NbeError> {
     match &*neutral.inner {
-        domain::Neutral::Var(DbLevel(level)) => Ok(normal::RcNeutral::from(normal::Neutral::Var(
-            DbIndex(size - level),
-        ))),
+        domain::Neutral::Var(DbLevel(level)) => {
+            let index = DbIndex(size - level);
+
+            Ok(normal::RcNeutral::from(normal::Neutral::Var(index)))
+        },
         domain::Neutral::FunApp(ref fun, ref arg, ref arg_ty) => {
-            Ok(normal::RcNeutral::from(normal::Neutral::FunApp(
-                read_back_neutral(size, fun)?,
-                read_back_nf(size, arg, arg_ty)?,
-            )))
+            let fun = read_back_neutral(size, fun)?;
+            let arg = read_back_nf(size, arg, arg_ty)?;
+
+            Ok(normal::RcNeutral::from(normal::Neutral::FunApp(fun, arg)))
         },
         domain::Neutral::PairFst(ref pair) => {
             let pair = read_back_neutral(size, pair)?;
+
             Ok(normal::RcNeutral::from(normal::Neutral::PairFst(pair)))
         },
         domain::Neutral::PairSnd(ref pair) => {
             let pair = read_back_neutral(size, pair)?;
+
             Ok(normal::RcNeutral::from(normal::Neutral::PairSnd(pair)))
         },
     }
@@ -272,8 +288,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
 }
 
 /// Convert a core environment into the initial environment for normalization
-fn initial_env(env: &core::Env) -> Result<Env, NbeError> {
-    let mut new_env = Env::new();
+fn initial_env(env: &core::Env) -> Result<domain::Env, NbeError> {
+    let mut new_env = domain::Env::new();
 
     for ann in env {
         let index = DbLevel((env.len() - new_env.len()) as u32);
