@@ -28,7 +28,7 @@ DeBruijn levels in the syntax of the semantic domain.
 - [ ] Add a parser for the concrete syntax
 - [x] Desugaring of concrete syntax to core syntax
 - [ ] Resugaring of core syntax to concrete syntax
-- [ ] Pretty printing
+- [x] Pretty printing
 - [ ] Add a REPL
 - [ ] Type checking and normalization tests
 - [ ] Experiment with using visitors

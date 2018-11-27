@@ -53,97 +53,130 @@ pub enum Term {
 }
 
 impl Term {
-    // FIXME: Precedences
+    /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
-        match *self {
-            Term::Var(Ident(ref ident)) => Doc::as_string(ident),
-            Term::Let(Ident(ref ident), ref def, ref body) => Doc::nil()
-                .append("let")
-                .append(Doc::as_string(ident))
-                .append(Doc::space())
-                .append("=")
-                .append(Doc::space())
-                .append(def.to_doc())
-                .append(Doc::space())
-                .append("in")
-                .append(Doc::space())
-                .append(body.to_doc()),
-            Term::Check(ref term, ref ann) => Doc::nil()
-                .append(term.to_doc())
-                .append(Doc::space())
-                .append(":")
-                .append(Doc::space())
-                .append(ann.to_doc()),
-            Term::Parens(ref term) => Doc::text("(").append(term.to_doc()).append(")"),
-            Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
-                .append(param_ty.to_doc())
-                .append(Doc::space())
-                .append("->")
-                .append(Doc::space())
-                .append(body_ty.to_doc()),
-            Term::FunType(Some(Ident(ref ident)), ref param_ty, ref body_ty) => Doc::nil()
-                .append(Doc::group(
-                    Doc::nil()
-                        .append("(")
-                        .append(Doc::as_string(ident))
-                        .append(Doc::space())
-                        .append(":")
-                        .append(Doc::space())
-                        .append(param_ty.to_doc())
-                        .append(")"),
-                ))
-                .append(Doc::space())
-                .append("->")
-                .append(Doc::space())
-                .append(body_ty.to_doc()),
-            Term::FunIntro(Ident(ref ident), ref body) => Doc::nil()
-                .append("\\")
-                .append(Doc::as_string(ident))
-                .append(Doc::space())
-                .append("=>")
-                .append(Doc::space())
-                .append(body.to_doc()),
-            Term::FunApp(ref fun, ref args) => Doc::nil()
-                .append(fun.to_doc())
-                .append(Doc::space())
-                .append(Doc::intersperse(
-                    args.iter().map(Term::to_doc),
-                    Doc::space(),
-                )),
-            Term::PairType(None, ref fst_ty, ref snd_ty) => Doc::nil()
-                .append(fst_ty.to_doc())
-                .append(Doc::space())
-                .append("*")
-                .append(Doc::space())
-                .append(snd_ty.to_doc()),
-            Term::PairType(Some(Ident(ref ident)), ref fst_ty, ref snd_ty) => Doc::nil()
-                .append(Doc::group(
-                    Doc::nil()
-                        .append("(")
-                        .append(Doc::as_string(ident))
-                        .append(Doc::space())
-                        .append(":")
-                        .append(Doc::space())
-                        .append(fst_ty.to_doc())
-                        .append(")"),
-                ))
-                .append(Doc::space())
-                .append("*")
-                .append(Doc::space())
-                .append(snd_ty.to_doc()),
-            Term::PairIntro(ref fst, ref snd) => Doc::nil()
-                .append("<")
-                .append(fst.to_doc())
-                .append(",")
-                .append(Doc::space())
-                .append(snd.to_doc())
-                .append(">"),
-            Term::PairFst(ref pair) => pair.to_doc().append(".1"),
-            Term::PairSnd(ref pair) => pair.to_doc().append(".2"),
-            Term::Universe(None) => Doc::text("Type"),
-            Term::Universe(Some(UniverseLevel(level))) => {
-                Doc::text("Type^").append(Doc::as_string(level))
-            },
+        // Using precedence climbing here (mirroring the language grammar) in
+        // order to cut down on extraneous parentheses.
+
+        fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
+            match *term {
+                Term::Check(ref term, ref ann) => Doc::nil()
+                    .append(to_doc_expr(term))
+                    .append(Doc::space())
+                    .append(":")
+                    .append(Doc::space())
+                    .append(to_doc_app(ann)),
+                _ => to_doc_expr(term),
+            }
         }
+
+        fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
+            match *term {
+                Term::Let(Ident(ref ident), ref def, ref body) => Doc::nil()
+                    .append("let")
+                    .append(Doc::space())
+                    .append(Doc::as_string(ident))
+                    .append(Doc::space())
+                    .append("=")
+                    .append(Doc::space())
+                    .append(to_doc_app(def))
+                    .append(Doc::space())
+                    .append("in")
+                    .append(Doc::space())
+                    .append(to_doc_term(body)),
+                Term::FunIntro(Ident(ref ident), ref body) => Doc::nil()
+                    .append("\\")
+                    .append(Doc::as_string(ident))
+                    .append(Doc::space())
+                    .append("=>")
+                    .append(Doc::space())
+                    .append(to_doc_app(body)),
+                _ => to_doc_arrow(term),
+            }
+        }
+
+        fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
+            match *term {
+                Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
+                    .append(to_doc_app(param_ty))
+                    .append(Doc::space())
+                    .append("->")
+                    .append(Doc::space())
+                    .append(to_doc_app(body_ty)),
+                Term::FunType(Some(Ident(ref ident)), ref param_ty, ref body_ty) => Doc::nil()
+                    .append(Doc::group(
+                        Doc::nil()
+                            .append("(")
+                            .append(Doc::as_string(ident))
+                            .append(Doc::space())
+                            .append(":")
+                            .append(Doc::space())
+                            .append(to_doc_term(param_ty))
+                            .append(")"),
+                    ))
+                    .append(Doc::space())
+                    .append("->")
+                    .append(Doc::space())
+                    .append(to_doc_app(body_ty)),
+                Term::PairType(None, ref fst_ty, ref snd_ty) => Doc::nil()
+                    .append(to_doc_term(fst_ty))
+                    .append(Doc::space())
+                    .append("*")
+                    .append(Doc::space())
+                    .append(to_doc_term(snd_ty)),
+                Term::PairType(Some(Ident(ref ident)), ref fst_ty, ref snd_ty) => Doc::nil()
+                    .append(Doc::group(
+                        Doc::nil()
+                            .append("(")
+                            .append(Doc::as_string(ident))
+                            .append(Doc::space())
+                            .append(":")
+                            .append(Doc::space())
+                            .append(to_doc_term(fst_ty))
+                            .append(")"),
+                    ))
+                    .append(Doc::space())
+                    .append("*")
+                    .append(Doc::space())
+                    .append(to_doc_app(snd_ty)),
+                _ => to_doc_app(term),
+            }
+        }
+
+        fn to_doc_app(term: &Term) -> Doc<BoxDoc<()>> {
+            match *term {
+                Term::FunApp(ref fun, ref args) => Doc::nil()
+                    .append(to_doc_term(fun))
+                    .append(Doc::space())
+                    .append(Doc::intersperse(
+                        args.iter().map(to_doc_atomic),
+                        Doc::space(),
+                    )),
+                _ => to_doc_atomic(term),
+            }
+        }
+
+        fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
+            match *term {
+                Term::Var(Ident(ref ident)) => Doc::as_string(ident),
+                Term::Parens(ref term) => Doc::text("(").append(to_doc_term(term)).append(")"),
+                Term::PairIntro(ref fst, ref snd) => Doc::nil()
+                    .append("<")
+                    .append(to_doc_term(fst))
+                    .append(",")
+                    .append(Doc::space())
+                    .append(to_doc_term(snd))
+                    .append(">"),
+                Term::PairFst(ref pair) => to_doc_atomic(pair).append(".1"),
+                Term::PairSnd(ref pair) => to_doc_atomic(pair).append(".2"),
+                Term::Universe(None) => Doc::text("Type"),
+                Term::Universe(Some(UniverseLevel(level))) => {
+                    Doc::text("Type^").append(Doc::as_string(level))
+                },
+                _ => Doc::text("(").append(to_doc_term(term)).append(")"),
+            }
+        }
+
+        to_doc_term(self)
     }
 }
