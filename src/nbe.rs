@@ -108,17 +108,11 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
         Term::FunType(ref ident, ref param_ty, ref body_ty) => Ok(RcValue::from(Value::FunType(
             ident.clone(),
             eval(param_ty, env)?,
-            Closure {
-                term: body_ty.clone(),
-                env: env.clone(),
-            },
+            Closure::new(body_ty.clone(), env.clone()),
         ))),
         Term::FunIntro(ref ident, ref body) => Ok(RcValue::from(Value::FunIntro(
             ident.clone(),
-            Closure {
-                term: body.clone(),
-                env: env.clone(),
-            },
+            Closure::new(body.clone(), env.clone()),
         ))),
         Term::FunApp(ref fun, ref arg) => do_app(&eval(fun, env)?, eval(arg, env)?),
 
@@ -126,10 +120,7 @@ pub fn eval(term: &RcTerm, env: &Env) -> Result<RcValue, NbeError> {
         Term::PairType(ref ident, ref fst_ty, ref snd_ty) => Ok(RcValue::from(Value::PairType(
             ident.clone(),
             eval(fst_ty, env)?,
-            Closure {
-                term: snd_ty.clone(),
-                env: env.clone(),
-            },
+            Closure::new(snd_ty.clone(), env.clone()),
         ))),
         Term::PairIntro(ref fst, ref snd) => Ok(RcValue::from(Value::PairIntro(
             eval(fst, env)?,

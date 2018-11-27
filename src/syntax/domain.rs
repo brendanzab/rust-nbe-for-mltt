@@ -15,6 +15,12 @@ pub struct Closure {
     pub env: Env,
 }
 
+impl Closure {
+    pub fn new(term: RcTerm, env: Env) -> Closure {
+        Closure { term, env }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcValue {
     pub inner: Rc<Value>,
