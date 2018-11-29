@@ -8,7 +8,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "nbe-for-mltt"
+name = "mltt-concrete"
+version = "0.1.0"
+dependencies = [
+ "mltt-core 0.1.0",
+ "pretty 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "mltt-core"
 version = "0.1.0"
 dependencies = [
  "im 12.2.0 (registry+https://github.com/rust-lang/crates.io-index)",

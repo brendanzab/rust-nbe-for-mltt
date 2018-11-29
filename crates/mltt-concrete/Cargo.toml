@@ -1,0 +1,11 @@
+[package]
+name = "mltt-concrete"
+version = "0.1.0"
+authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
+license = "MIT"
+edition = "2018"
+publish = false
+
+[dependencies]
+mltt-core = { path = "../mltt-core" }
+pretty = "0.5.2"

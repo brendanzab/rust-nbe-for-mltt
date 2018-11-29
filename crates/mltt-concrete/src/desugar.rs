@@ -1,7 +1,9 @@
-use crate::syntax::{concrete, core, DbIndex, Ident, IdentHint, UniverseLevel};
+use mltt_core::syntax::{core, DbIndex, IdentHint, UniverseLevel};
+
+use crate::syntax::concrete;
 
 struct Env<'a> {
-    idents: Vec<Option<&'a Ident>>,
+    idents: Vec<Option<&'a String>>,
 }
 
 impl<'a> Env<'a> {
@@ -11,7 +13,7 @@ impl<'a> Env<'a> {
 
     fn with_binding<T>(
         &mut self,
-        ident: impl Into<Option<&'a Ident>>,
+        ident: impl Into<Option<&'a String>>,
         f: impl Fn(&mut Env<'a>) -> T,
     ) -> T {
         self.idents.push(ident.into());
@@ -20,7 +22,7 @@ impl<'a> Env<'a> {
         result
     }
 
-    fn lookup_ident(&self, ident: &Ident) -> Option<DbIndex> {
+    fn lookup_ident(&self, ident: &String) -> Option<DbIndex> {
         self.idents
             .iter()
             .rev()
@@ -31,7 +33,7 @@ impl<'a> Env<'a> {
 }
 
 pub enum DesugarError {
-    UnboundVar(Ident),
+    UnboundVar(String),
 }
 
 pub fn desugar(term: &concrete::Term) -> Result<core::RcTerm, DesugarError> {
@@ -115,7 +117,7 @@ fn desugar_env<'a>(
         // Universes
         concrete::Term::Universe(level) => match level {
             None => Ok(core::RcTerm::from(core::Term::Universe(UniverseLevel(0)))),
-            Some(level) => Ok(core::RcTerm::from(core::Term::Universe(level))),
+            Some(level) => Ok(core::RcTerm::from(core::Term::Universe(UniverseLevel(level)))),
         },
     }
 }

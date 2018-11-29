@@ -2,14 +2,9 @@
 //!
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
-pub mod concrete;
-pub mod core;
 pub mod domain;
 pub mod normal;
-
-/// A name that identifies a variable
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Ident(pub String);
+pub mod core;
 
 /// A name hint that can be used for pretty printing later on
 ///
@@ -18,10 +13,10 @@ pub struct Ident(pub String);
 ///
 /// [alpha-equivalence]: https://en.wikipedia.org/wiki/Lambda_calculus#Alpha_equivalence
 #[derive(Debug, Clone, Eq)]
-pub struct IdentHint(pub Option<Ident>);
+pub struct IdentHint(pub Option<String>);
 
-impl From<Option<Ident>> for IdentHint {
-    fn from(src: Option<Ident>) -> IdentHint {
+impl From<Option<String>> for IdentHint {
+    fn from(src: Option<String>) -> IdentHint {
         IdentHint(src)
     }
 }

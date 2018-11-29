@@ -1,8 +1,8 @@
 use im;
 
 use crate::nbe::{self, NbeError};
-use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, RcType, RcValue, Value};
+use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::{DbIndex, DbLevel, UniverseLevel};
 
 #[derive(Debug, Clone)]

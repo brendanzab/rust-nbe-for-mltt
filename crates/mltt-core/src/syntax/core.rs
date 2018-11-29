@@ -1,4 +1,4 @@
-//! The surface syntax
+//! The unchecked core syntax
 
 use pretty::{BoxDoc, Doc};
 use std::rc::Rc;
@@ -21,6 +21,7 @@ impl From<Term> for RcTerm {
     }
 }
 
+/// Core terms
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// Variables

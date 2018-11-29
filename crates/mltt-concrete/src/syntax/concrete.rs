@@ -2,14 +2,12 @@
 
 use pretty::{BoxDoc, Doc};
 
-use crate::syntax::{Ident, UniverseLevel};
-
 pub type Signature = Vec<Item>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
-    Definition { name: Ident, def: Term, ann: Term },
-    NormalizeDefinition(Ident),
+    Definition { name: String, def: Term, ann: Term },
+    NormalizeDefinition(String),
     NormalizeTerm { term: Term, ann: Term },
     Quit,
 }
@@ -18,9 +16,9 @@ pub enum Item {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     /// Variables
-    Var(Ident),
+    Var(String),
     /// Let bindings
-    Let(Ident, Box<Term>, Box<Term>),
+    Let(String, Box<Term>, Box<Term>),
     /// A term that is explicitly annotated with a type
     Check(Box<Term>, Box<Term>),
     /// A parenthesized term
@@ -29,18 +27,18 @@ pub enum Term {
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(Option<Ident>, Box<Term>, Box<Term>),
+    FunType(Option<String>, Box<Term>, Box<Term>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
-    FunIntro(Ident, Box<Term>),
+    FunIntro(String, Box<Term>),
     /// Apply a function to an argument
     FunApp(Box<Term>, Vec<Term>),
 
     /// Dependent pair type
     ///
     /// Also known as a _sigma type_ or _dependent sum type_
-    PairType(Option<Ident>, Box<Term>, Box<Term>),
+    PairType(Option<String>, Box<Term>, Box<Term>),
     /// Introduce a pair
     PairIntro(Box<Term>, Box<Term>),
     /// Project the first element of a pair
@@ -49,7 +47,7 @@ pub enum Term {
     PairSnd(Box<Term>),
 
     /// Universe of types
-    Universe(Option<UniverseLevel>),
+    Universe(Option<u32>),
 }
 
 impl Term {
@@ -72,7 +70,7 @@ impl Term {
 
         fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Let(Ident(ref ident), ref def, ref body) => Doc::nil()
+                Term::Let(ref ident, ref def, ref body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
                     .append(Doc::as_string(ident))
@@ -84,7 +82,7 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(body)),
-                Term::FunIntro(Ident(ref ident), ref body) => Doc::nil()
+                Term::FunIntro(ref ident, ref body) => Doc::nil()
                     .append("\\")
                     .append(Doc::as_string(ident))
                     .append(Doc::space())
@@ -103,7 +101,7 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty)),
-                Term::FunType(Some(Ident(ref ident)), ref param_ty, ref body_ty) => Doc::nil()
+                Term::FunType(Some(ref ident), ref param_ty, ref body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")
@@ -124,7 +122,7 @@ impl Term {
                     .append("*")
                     .append(Doc::space())
                     .append(to_doc_term(snd_ty)),
-                Term::PairType(Some(Ident(ref ident)), ref fst_ty, ref snd_ty) => Doc::nil()
+                Term::PairType(Some(ref ident), ref fst_ty, ref snd_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")
@@ -158,7 +156,7 @@ impl Term {
 
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Var(Ident(ref ident)) => Doc::as_string(ident),
+                Term::Var(ref ident) => Doc::as_string(ident),
                 Term::Parens(ref term) => Doc::text("(").append(to_doc_term(term)).append(")"),
                 Term::PairIntro(ref fst, ref snd) => Doc::nil()
                     .append("<")
@@ -170,9 +168,7 @@ impl Term {
                 Term::PairFst(ref pair) => to_doc_atomic(pair).append(".1"),
                 Term::PairSnd(ref pair) => to_doc_atomic(pair).append(".2"),
                 Term::Universe(None) => Doc::text("Type"),
-                Term::Universe(Some(UniverseLevel(level))) => {
-                    Doc::text("Type^").append(Doc::as_string(level))
-                },
+                Term::Universe(Some(level)) => Doc::text("Type^").append(Doc::as_string(level)),
                 _ => Doc::text("(").append(to_doc_term(term)).append(")"),
             }
         }

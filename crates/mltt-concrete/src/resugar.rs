@@ -1,8 +1,10 @@
-use crate::syntax::{concrete, core, DbIndex, Ident, IdentHint, UniverseLevel};
+use mltt_core::syntax::{core, DbIndex, IdentHint, UniverseLevel};
+
+use crate::syntax::concrete;
 
 pub struct Env {
     counter: usize,
-    idents: Vec<Ident>,
+    idents: Vec<String>,
 }
 
 impl Env {
@@ -13,17 +15,21 @@ impl Env {
         }
     }
 
-    pub fn lookup_index(&self, index: DbIndex) -> Ident {
+    pub fn lookup_index(&self, index: DbIndex) -> String {
         match self.idents.get(index.0 as usize) {
             Some(ident) => ident.clone(),
-            None => Ident(format!("free{}", index.0)),
+            None => format!("free{}", index.0),
         }
     }
 
-    pub fn with_binding<T>(&mut self, _ident: &IdentHint, f: impl Fn(&mut Env) -> T) -> (Ident, T) {
+    pub fn with_binding<T>(
+        &mut self,
+        _ident: &IdentHint,
+        f: impl Fn(&mut Env) -> T,
+    ) -> (String, T) {
         self.counter += 1;
         // TODO: use ident hint to improve variable names
-        let ident = Ident(format!("x{}", self.counter));
+        let ident = format!("x{}", self.counter);
         self.idents.push(ident.clone());
         let result = f(self);
         self.idents.pop();
@@ -109,7 +115,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
                 concrete::Term::PairSnd(Box::new(resugar_atomic(pair, env)))
             },
             core::Term::Universe(UniverseLevel(0)) => concrete::Term::Universe(None),
-            core::Term::Universe(level) => concrete::Term::Universe(Some(level)),
+            core::Term::Universe(UniverseLevel(level)) => concrete::Term::Universe(Some(level)),
             _ => concrete::Term::Parens(Box::new(resugar_term(term, env))),
         }
     }
