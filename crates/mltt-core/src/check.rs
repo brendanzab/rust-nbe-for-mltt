@@ -1,8 +1,8 @@
 use im;
 
 use crate::nbe::{self, NbeError};
-use crate::syntax::domain::{self, RcType, RcValue, Value};
 use crate::syntax::core::{RcTerm, Term};
+use crate::syntax::domain::{self, RcType, RcValue, Value};
 use crate::syntax::{DbIndex, DbLevel, UniverseLevel};
 
 #[derive(Debug, Clone)]
@@ -74,7 +74,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, expected_ty: &RcType) -> Resul
 
             let mut body_ty_env = env.clone();
             body_ty_env.push_front(Entry::Term {
-                term: RcValue::var(DbLevel(size), ann_ty_value.clone()),
+                term: RcValue::var(DbLevel(size)),
                 ann: ann_ty_value,
             });
 
@@ -82,7 +82,7 @@ pub fn check(env: &Env, size: u32, term: &RcTerm, expected_ty: &RcType) -> Resul
         },
         Term::FunIntro(_, ref body) => match *expected_ty.inner {
             Value::FunType(_, ref param_ty, ref body_ty) => {
-                let param = RcValue::var(DbLevel(size), param_ty.clone());
+                let param = RcValue::var(DbLevel(size));
                 let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
 
                 let mut body_env = env.clone();
@@ -207,7 +207,7 @@ pub fn check_ty(env: &Env, size: u32, term: &RcTerm) -> Result<(), TypeError> {
 
             let mut body_env = env.clone();
             body_env.push_front(Entry::Term {
-                term: RcValue::var(DbLevel(size), ann_value.clone()),
+                term: RcValue::var(DbLevel(size)),
                 ann: ann_value,
             });
 

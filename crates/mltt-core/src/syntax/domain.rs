@@ -36,8 +36,8 @@ impl From<Value> for RcValue {
 
 impl RcValue {
     /// Construct a variable
-    pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> RcValue {
-        RcValue::from(Value::var(level, ann))
+    pub fn var(level: impl Into<DbLevel>) -> RcValue {
+        RcValue::from(Value::var(level))
     }
 }
 
@@ -47,8 +47,8 @@ impl RcValue {
 /// or _canonical values_.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    /// Neutral values, annotated with a type
-    Neutral(RcNeutral, RcType),
+    /// Neutral values
+    Neutral(RcNeutral),
 
     /// Dependent function types
     FunType(IdentHint, RcType, Closure),
@@ -66,8 +66,8 @@ pub enum Value {
 
 impl Value {
     /// Construct a variable
-    pub fn var(level: impl Into<DbLevel>, ann: impl Into<RcValue>) -> Value {
-        Value::Neutral(RcNeutral::from(Neutral::Var(level.into())), ann.into())
+    pub fn var(level: impl Into<DbLevel>) -> Value {
+        Value::Neutral(RcNeutral::from(Neutral::Var(level.into())))
     }
 }
 
@@ -102,10 +102,7 @@ pub enum Neutral {
     Var(DbLevel),
 
     /// Apply a function to an argument
-    ///
-    /// We annotate the argument with a type with a so that we can eta-expand
-    /// it appropriately during readback
-    FunApp(RcNeutral, RcValue, RcType),
+    FunApp(RcNeutral, RcValue),
 
     /// Project the first element of a pair
     PairFst(RcNeutral),
