@@ -47,25 +47,34 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
 
     fn resugar_term(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
-            core::Term::PairIntro(
-                ref fst,
-                ref snd, /* ref ident, ref fst_ty, ref snd_ty */
-            ) => concrete::Term::PairIntro(
-                Box::new(resugar_term(fst, env)),
-                Box::new(resugar_term(snd, env)),
-            ),
+            core::Term::PairIntro(ref fst, ref snd, ref ident, ref fst_ty, ref snd_ty) => {
+                let pair = concrete::Term::PairIntro(
+                    Box::new(resugar_term(fst, env)),
+                    Box::new(resugar_term(snd, env)),
+                );
+
+                let pair_ty = {
+                    let fst_ty = resugar_term(fst_ty, env);
+                    let (ident, snd_ty) = env.with_binding(ident, |env| resugar_app(snd_ty, env));
+                    // TODO: only use `ident` if it is used in `body_ty`
+                    concrete::Term::PairType(Some(ident), Box::new(fst_ty), Box::new(snd_ty))
+                };
+
+                concrete::Term::Check(Box::new(pair), Box::new(pair_ty))
+            },
             _ => resugar_expr(term, env),
         }
     }
 
     fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
-            core::Term::Let(ref ident, ref def, /* ref def_ty, */ ref body) => {
+            core::Term::Let(ref ident, ref def, ref def_ty, ref body) => {
                 let def = resugar_app(def, env);
                 let (ident, body) = env.with_binding(ident, |env| resugar_term(body, env));
                 concrete::Term::Let(ident, Box::new(def), Box::new(body))
             },
-            core::Term::FunIntro(ref ident, /* ref param_ty, */ ref body) => {
+            core::Term::FunIntro(ref ident, ref param_ty, ref body) => {
+                let param_ty = resugar_app(param_ty, env);
                 let (ident, body) = env.with_binding(ident, |env| resugar_app(body, env));
                 concrete::Term::FunIntro(ident, Box::new(body))
             },

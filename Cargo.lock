@@ -11,6 +11,7 @@ dependencies = [
 name = "mltt-concrete"
 version = "0.1.0"
 dependencies = [
+ "im 12.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "mltt-core 0.1.0",
  "pretty 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

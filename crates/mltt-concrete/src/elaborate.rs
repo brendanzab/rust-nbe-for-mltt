@@ -83,7 +83,10 @@ pub fn check(
                 check(&context, size + 1, raw_body, expected_ty)?
             };
 
-            Ok(core::RcTerm::from(core::Term::Let(ident, def, body)))
+            Ok(core::RcTerm::from(core::Term::Let(
+                ident, def, def_ty, // FIXME: expected `core::RcTerm`, found `domain::RcValue`
+                body,
+            )))
         },
 
         raw::Term::FunType(ref ident, ref raw_param_ty, ref raw_body_ty) => {
@@ -111,7 +114,11 @@ pub fn check(
                     check(&context, size + 1, body, &body_ty)?
                 };
 
-                Ok(core::RcTerm::from(core::Term::FunIntro(ident, body)))
+                Ok(core::RcTerm::from(core::Term::FunIntro(
+                    ident,
+                    param_ty.clone(), // FIXME: expected `core::RcTerm`, found `domain::RcValue`
+                    body,
+                )))
             },
             _ => Err(TypeError::ExpectedFunType {
                 found: expected_ty.clone(),
@@ -134,12 +141,19 @@ pub fn check(
         },
         raw::Term::PairIntro(ref raw_fst, ref raw_snd) => match *expected_ty.inner {
             Value::PairType(_, ref fst_ty, ref snd_ty) => {
+                let ident = ident.clone();
                 let fst = check(context, size, raw_fst, fst_ty)?;
                 let fst_value = nbe::eval(&fst, &context.values)?;
                 let snd_ty_value = nbe::do_closure_app(snd_ty, fst_value)?;
                 let snd = check(context, size, raw_snd, &snd_ty_value)?;
 
-                Ok(core::RcTerm::from(core::Term::PairIntro(fst, snd)))
+                Ok(core::RcTerm::from(core::Term::PairIntro(
+                    fst,
+                    snd,
+                    ident,
+                    fst_ty.clone(), // FIXME: expected `core::RcTerm`, found `domain::RcValue`
+                    snd_ty.clone(), // FIXME: expected `core::RcTerm`, found `domain::Closure`
+                )))
             },
             _ => Err(TypeError::ExpectedPairType {
                 found: expected_ty.clone(),
@@ -186,7 +200,11 @@ pub fn synth(
             };
 
             Ok((
-                core::RcTerm::from(core::Term::Let(ident, def, body)),
+                core::RcTerm::from(core::Term::Let(
+                    ident, def,
+                    def_ty, // FIXME: expected `core::RcTerm`, found `domain::RcValue`
+                    body,
+                )),
                 body_ty,
             ))
         },
@@ -263,7 +281,10 @@ pub fn check_ty(
                 check_ty(&context, size + 1, raw_body)?
             };
 
-            Ok(core::RcTerm::from(core::Term::Let(ident, def, body)))
+            Ok(core::RcTerm::from(core::Term::Let(
+                ident, def, def_ty, // FIXME: expected `core::RcTerm`, found `domain::RcValue`
+                body,
+            )))
         },
 
         raw::Term::FunType(ref ident, ref raw_param_ty, ref raw_body_ty) => {
