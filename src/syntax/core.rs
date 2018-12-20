@@ -3,8 +3,8 @@
 use pretty::{BoxDoc, Doc};
 use std::rc::Rc;
 
-use syntax::normal::{Neutral, Normal, RcNeutral, RcNormal};
-use syntax::{DbIndex, IdentHint, UniverseLevel};
+use crate::syntax::normal::{Neutral, Normal, RcNeutral, RcNormal};
+use crate::syntax::{DbIndex, IdentHint, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
 

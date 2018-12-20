@@ -3,8 +3,8 @@
 use im;
 use std::rc::Rc;
 
-use syntax::core::RcTerm;
-use syntax::{DbLevel, IdentHint, UniverseLevel};
+use crate::syntax::core::RcTerm;
+use crate::syntax::{DbLevel, IdentHint, UniverseLevel};
 
 pub type Env = im::Vector<RcValue>;
 

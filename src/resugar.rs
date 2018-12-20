@@ -1,4 +1,4 @@
-use syntax::{concrete, core, DbIndex, Ident, IdentHint, UniverseLevel};
+use crate::syntax::{concrete, core, DbIndex, Ident, IdentHint, UniverseLevel};
 
 pub struct Env {
     counter: usize,

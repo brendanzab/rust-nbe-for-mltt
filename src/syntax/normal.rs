@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use syntax::{DbIndex, IdentHint, UniverseLevel};
+use crate::syntax::{DbIndex, IdentHint, UniverseLevel};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcNormal {

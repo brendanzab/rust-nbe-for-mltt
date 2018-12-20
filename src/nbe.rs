@@ -4,10 +4,10 @@
 //! evaluation to `Value`s in weak-head-normal-form, and then reading it back
 //! `Normal` terms.
 
-use syntax::core::{self, RcTerm, Term};
-use syntax::domain::{self, Closure, RcType, RcValue, Value};
-use syntax::normal::{self, Normal, RcNormal};
-use syntax::{DbIndex, DbLevel};
+use crate::syntax::core::{self, RcTerm, Term};
+use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
+use crate::syntax::normal::{self, Normal, RcNormal};
+use crate::syntax::{DbIndex, DbLevel};
 
 /// An error produced during normalization
 ///

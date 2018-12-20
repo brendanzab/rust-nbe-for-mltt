@@ -1,9 +1,9 @@
 use im;
 
-use nbe::{self, NbeError};
-use syntax::core::{RcTerm, Term};
-use syntax::domain::{self, RcType, RcValue, Value};
-use syntax::{DbIndex, DbLevel, UniverseLevel};
+use crate::nbe::{self, NbeError};
+use crate::syntax::core::{RcTerm, Term};
+use crate::syntax::domain::{self, RcType, RcValue, Value};
+use crate::syntax::{DbIndex, DbLevel, UniverseLevel};
 
 #[derive(Debug, Clone)]
 pub enum Entry {

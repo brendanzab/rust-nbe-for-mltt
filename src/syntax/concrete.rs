@@ -2,7 +2,7 @@
 
 use pretty::{BoxDoc, Doc};
 
-use syntax::{Ident, UniverseLevel};
+use crate::syntax::{Ident, UniverseLevel};
 
 pub type Signature = Vec<Item>;
 

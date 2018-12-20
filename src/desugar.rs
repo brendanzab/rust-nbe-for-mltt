@@ -1,4 +1,4 @@
-use syntax::{concrete, core, DbIndex, Ident, IdentHint, UniverseLevel};
+use crate::syntax::{concrete, core, DbIndex, Ident, IdentHint, UniverseLevel};
 
 struct Env<'a> {
     idents: Vec<Option<&'a Ident>>,
