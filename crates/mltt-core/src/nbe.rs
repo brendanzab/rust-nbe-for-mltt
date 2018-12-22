@@ -76,13 +76,12 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
-        Term::Let(_, ref def, ref body) => {
+        Term::Let(_, ref def, /* _, */ ref body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
             env.push_front(def);
             eval(body, &env)
         },
-        Term::Check(ref term, _) => eval(term, env),
 
         // Functions
         Term::FunType(ref ident, ref param_ty, ref body_ty) => {
@@ -92,7 +91,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 
             Ok(RcValue::from(Value::FunType(ident, param_ty, body_ty)))
         },
-        Term::FunIntro(ref ident, ref body) => {
+        Term::FunIntro(ref ident, /*  _, */ ref body) => {
             let ident = ident.clone();
             let body = Closure::new(body.clone(), env.clone());
 
@@ -108,7 +107,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 
             Ok(RcValue::from(Value::PairType(ident, fst_ty, snd_ty)))
         },
-        Term::PairIntro(ref fst, ref snd) => {
+        Term::PairIntro(ref fst, ref snd /* _, _, _ */) => {
             let fst = eval(fst, env)?;
             let snd = eval(snd, env)?;
 

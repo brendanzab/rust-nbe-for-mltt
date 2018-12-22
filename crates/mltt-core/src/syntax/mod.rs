@@ -2,9 +2,9 @@
 //!
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
+pub mod core;
 pub mod domain;
 pub mod normal;
-pub mod core;
 
 /// A name hint that can be used for pretty printing later on
 ///

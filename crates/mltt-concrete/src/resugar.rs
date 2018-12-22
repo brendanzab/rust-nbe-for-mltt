@@ -47,9 +47,12 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
 
     fn resugar_term(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
-            core::Term::Check(ref term, ref ann) => concrete::Term::PairIntro(
-                Box::new(resugar_expr(term, env)),
-                Box::new(resugar_app(ann, env)),
+            core::Term::PairIntro(
+                ref fst,
+                ref snd, /* ref ident, ref fst_ty, ref snd_ty */
+            ) => concrete::Term::PairIntro(
+                Box::new(resugar_term(fst, env)),
+                Box::new(resugar_term(snd, env)),
             ),
             _ => resugar_expr(term, env),
         }
@@ -57,12 +60,12 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
 
     fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
-            core::Term::Let(ref ident, ref def, ref body) => {
+            core::Term::Let(ref ident, ref def, /* ref def_ty, */ ref body) => {
                 let def = resugar_app(def, env);
                 let (ident, body) = env.with_binding(ident, |env| resugar_term(body, env));
                 concrete::Term::Let(ident, Box::new(def), Box::new(body))
             },
-            core::Term::FunIntro(ref ident, ref body) => {
+            core::Term::FunIntro(ref ident, /* ref param_ty, */ ref body) => {
                 let (ident, body) = env.with_binding(ident, |env| resugar_app(body, env));
                 concrete::Term::FunIntro(ident, Box::new(body))
             },
@@ -104,10 +107,6 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         match *term.inner {
             core::Term::Var(index) => concrete::Term::Var(env.lookup_index(index)),
-            core::Term::PairIntro(ref fst, ref snd) => concrete::Term::PairIntro(
-                Box::new(resugar_term(fst, env)),
-                Box::new(resugar_term(snd, env)),
-            ),
             core::Term::PairFst(ref pair) => {
                 concrete::Term::PairFst(Box::new(resugar_atomic(pair, env)))
             },

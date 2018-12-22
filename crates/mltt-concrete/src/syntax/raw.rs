@@ -1,11 +1,9 @@
-//! The checked core syntax
+//! The unchecked raw syntax
 
 use pretty::{BoxDoc, Doc};
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, IdentHint, UniverseLevel};
-
-pub type Env = im::Vector<RcTerm>;
+use mltt_core::syntax::{DbIndex, IdentHint, UniverseLevel};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
@@ -20,26 +18,27 @@ impl From<Term> for RcTerm {
     }
 }
 
-/// Core terms
-// TODO: explicitly annotate with types
+/// Raw terms
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// Variables
     Var(DbIndex),
     /// Let bindings
-    Let(IdentHint, RcTerm, /* RcTerm, */ RcTerm),
+    Let(IdentHint, RcTerm, RcTerm),
+    /// A term that is explicitly annotated with a type
+    Check(RcTerm, RcTerm),
 
     /// Dependent function types
     FunType(IdentHint, RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(IdentHint, /* RcTerm, */ RcTerm),
+    FunIntro(IdentHint, RcTerm),
     /// Apply a function to an argument
     FunApp(RcTerm, RcTerm),
 
     /// Dependent pair types
     PairType(IdentHint, RcTerm, RcTerm),
     /// Introduce a pair
-    PairIntro(RcTerm, RcTerm /* TODO: IdentHint, RcTerm, RcTerm */),
+    PairIntro(RcTerm, RcTerm),
     /// Project the first element of a pair
     PairFst(RcTerm),
     /// Project the second element of a pair
@@ -64,6 +63,12 @@ impl Term {
 
         fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
+                Term::Check(ref term, ref ann) => Doc::nil()
+                    .append(to_doc_expr(&*term.inner))
+                    .append(Doc::space())
+                    .append(":")
+                    .append(Doc::space())
+                    .append(to_doc_app(&*ann.inner)),
                 _ => to_doc_expr(term),
             }
         }
