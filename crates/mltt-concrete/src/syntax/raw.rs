@@ -26,7 +26,7 @@ pub enum Term {
     /// Let bindings
     Let(IdentHint, RcTerm, RcTerm),
     /// A term that is explicitly annotated with a type
-    Check(RcTerm, RcTerm),
+    Ann(RcTerm, RcTerm),
 
     /// Dependent function types
     FunType(IdentHint, RcTerm, RcTerm),
@@ -63,7 +63,7 @@ impl Term {
 
         fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Check(ref term, ref ann) => Doc::nil()
+                Term::Ann(ref term, ref ann) => Doc::nil()
                     .append(to_doc_expr(&*term.inner))
                     .append(Doc::space())
                     .append(":")

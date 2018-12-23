@@ -56,11 +56,11 @@ fn desugar_env<'a>(
 
             Ok(raw::RcTerm::from(raw::Term::Let(ident_hint, def, body)))
         },
-        concrete::Term::Check(ref term, ref ann) => {
+        concrete::Term::Ann(ref term, ref ann) => {
             let term = desugar_env(term, env)?;
             let ann = desugar_env(ann, env)?;
 
-            Ok(raw::RcTerm::from(raw::Term::Check(term, ann)))
+            Ok(raw::RcTerm::from(raw::Term::Ann(term, ann)))
         },
         concrete::Term::Parens(ref term) => desugar_env(term, env),
 

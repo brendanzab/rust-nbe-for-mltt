@@ -190,7 +190,7 @@ pub fn synth(
                 body_ty,
             ))
         },
-        raw::Term::Check(ref raw_term, ref raw_ann) => {
+        raw::Term::Ann(ref raw_term, ref raw_ann) => {
             let ann = check_ty(context, size, raw_ann)?;
             let ann_value = nbe::eval(&ann, &context.values)?;
             let term = check(context, size, raw_term, &ann_value)?;

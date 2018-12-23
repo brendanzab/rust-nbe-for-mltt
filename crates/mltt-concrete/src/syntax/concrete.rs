@@ -20,7 +20,7 @@ pub enum Term {
     /// Let bindings
     Let(String, Box<Term>, Box<Term>),
     /// A term that is explicitly annotated with a type
-    Check(Box<Term>, Box<Term>),
+    Ann(Box<Term>, Box<Term>),
     /// A parenthesized term
     Parens(Box<Term>),
 
@@ -58,7 +58,7 @@ impl Term {
 
         fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Check(ref term, ref ann) => Doc::nil()
+                Term::Ann(ref term, ref ann) => Doc::nil()
                     .append(to_doc_expr(term))
                     .append(Doc::space())
                     .append(":")
