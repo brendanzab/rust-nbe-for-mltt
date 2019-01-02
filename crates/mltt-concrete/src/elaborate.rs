@@ -18,34 +18,30 @@ use crate::syntax::raw;
 /// Local elaboration context
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context<'term> {
-    names: im::Vector<Option<&'term String>>,
     values: domain::Env,
-    tys: domain::Env,
+    tys: im::Vector<(Option<&'term String>, RcType)>,
 }
 
 impl<'term> Context<'term> {
     pub fn new() -> Context<'term> {
         Context {
-            names: im::Vector::new(),
             values: domain::Env::new(),
-            tys: domain::Env::new(),
+            tys: im::Vector::new(),
         }
     }
 
     pub fn insert(&mut self, ident: impl Into<Option<&'term String>>, value: RcValue, ty: RcType) {
-        self.names.push_front(ident.into());
         self.values.push_front(value);
-        self.tys.push_front(ty);
+        self.tys.push_front((ident.into(), ty));
     }
 
     pub fn lookup_ty(&self, ident: &str) -> Option<(DbIndex, &RcType)> {
-        let index = self
-            .names
-            .iter()
-            .map(|n| n.map(String::as_str))
-            .position(|n| Some(ident) == n)?;
-        let ty = self.tys.get(index)?;
-        Some((DbIndex(index as u32), ty))
+        for (i, &(ref n, ref ty)) in self.tys.iter().enumerate() {
+            if Some(ident) == n.map(String::as_str) {
+                return Some((DbIndex(i as u32), ty));
+            }
+        }
+        None
     }
 }
 
