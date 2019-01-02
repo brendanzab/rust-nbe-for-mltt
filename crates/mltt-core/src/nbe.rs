@@ -60,7 +60,7 @@ pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeErr
 /// Apply a function to an argument
 pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
     match *fun.inner {
-        Value::FunIntro(_, ref body) => do_closure_app(body, arg),
+        Value::FunIntro(ref body) => do_closure_app(body, arg),
         Value::Neutral(ref fun) => {
             let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), arg.clone()));
             Ok(RcValue::from(Value::Neutral(body)))
@@ -76,7 +76,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
-        Term::Let(_, ref def, /* _, */ ref body) => {
+        Term::Let(ref def, /* _, */ ref body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
             env.push_front(def);
@@ -84,28 +84,25 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         },
 
         // Functions
-        Term::FunType(ref ident, ref param_ty, ref body_ty) => {
-            let ident = ident.clone();
+        Term::FunType(ref param_ty, ref body_ty) => {
             let param_ty = eval(param_ty, env)?;
             let body_ty = Closure::new(body_ty.clone(), env.clone());
 
-            Ok(RcValue::from(Value::FunType(ident, param_ty, body_ty)))
+            Ok(RcValue::from(Value::FunType(param_ty, body_ty)))
         },
-        Term::FunIntro(ref ident, /*  _, */ ref body) => {
-            let ident = ident.clone();
+        Term::FunIntro(/*  _, */ ref body) => {
             let body = Closure::new(body.clone(), env.clone());
 
-            Ok(RcValue::from(Value::FunIntro(ident, body)))
+            Ok(RcValue::from(Value::FunIntro(body)))
         },
         Term::FunApp(ref fun, ref arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
 
         // Pairs
-        Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
-            let ident = ident.clone();
+        Term::PairType(ref fst_ty, ref snd_ty) => {
             let fst_ty = eval(fst_ty, env)?;
             let snd_ty = Closure::new(snd_ty.clone(), env.clone());
 
-            Ok(RcValue::from(Value::PairType(ident, fst_ty, snd_ty)))
+            Ok(RcValue::from(Value::PairType(fst_ty, snd_ty)))
         },
         Term::PairIntro(ref fst, ref snd /* _, _, _ */) => {
             let fst = eval(fst, env)?;
@@ -131,32 +128,30 @@ pub fn read_back_term(size: u32, term: &RcValue) -> Result<RcNormal, NbeError> {
         },
 
         // Functions
-        Value::FunType(ref ident, ref param_ty, ref body_ty) => {
+        Value::FunType(ref param_ty, ref body_ty) => {
             let param = RcValue::var(DbLevel(size));
             let param_ty = param_ty.clone();
             let body_ty = do_closure_app(body_ty, param)?;
 
             Ok(RcNormal::from(Normal::FunType(
-                ident.clone(),
                 read_back_term(size, &param_ty)?,
                 read_back_term(size + 1, &body_ty)?,
             )))
         },
-        Value::FunIntro(ref ident, ref body) => {
+        Value::FunIntro(ref body) => {
             let param = RcValue::var(DbLevel(size));
             let body = read_back_term(size + 1, &do_closure_app(body, param.clone())?)?;
 
-            Ok(RcNormal::from(Normal::FunIntro(ident.clone(), body)))
+            Ok(RcNormal::from(Normal::FunIntro(body)))
         },
 
         // Pairs
-        Value::PairType(ref ident, ref fst_ty, ref snd_ty) => {
+        Value::PairType(ref fst_ty, ref snd_ty) => {
             let fst = RcValue::var(DbLevel(size));
             let fst_ty = fst_ty.clone();
             let snd_ty = do_closure_app(snd_ty, fst)?;
 
             Ok(RcNormal::from(Normal::PairType(
-                ident.clone(),
                 read_back_term(size, &fst_ty)?,
                 read_back_term(size + 1, &snd_ty)?,
             )))
@@ -213,8 +208,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             Ok(term1 == term2)
         },
         (
-            &Value::FunType(_, ref param_ty1, ref body_ty1),
-            &Value::FunType(_, ref param_ty2, ref body_ty2),
+            &Value::FunType(ref param_ty1, ref body_ty1),
+            &Value::FunType(ref param_ty2, ref body_ty2),
         ) => {
             let param = RcValue::var(DbLevel(size));
 
@@ -225,8 +220,8 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             })
         },
         (
-            &Value::PairType(_, ref fst_ty1, ref snd_ty1),
-            &Value::PairType(_, ref fst_ty2, ref snd_ty2),
+            &Value::PairType(ref fst_ty1, ref snd_ty1),
+            &Value::PairType(ref fst_ty2, ref snd_ty2),
         ) => {
             let fst = RcValue::var(DbLevel(size));
 

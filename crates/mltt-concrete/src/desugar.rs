@@ -1,123 +1,69 @@
-use mltt_core::syntax::{DbIndex, IdentHint, UniverseLevel};
+use mltt_core::syntax::UniverseLevel;
 
 use crate::syntax::{concrete, raw};
 
-struct Env<'a> {
-    idents: Vec<Option<&'a String>>,
-}
-
-impl<'a> Env<'a> {
-    fn new() -> Env<'a> {
-        Env { idents: Vec::new() }
-    }
-
-    fn with_binding<T>(
-        &mut self,
-        ident: impl Into<Option<&'a String>>,
-        f: impl Fn(&mut Env<'a>) -> T,
-    ) -> T {
-        self.idents.push(ident.into());
-        let result = f(self);
-        self.idents.pop();
-        result
-    }
-
-    fn lookup_ident(&self, ident: &String) -> Option<DbIndex> {
-        self.idents
-            .iter()
-            .rev()
-            .enumerate()
-            .find(|(_, i)| **i == Some(ident))
-            .map(|(index, _)| DbIndex(index as u32))
-    }
-}
-
-pub enum DesugarError {
-    UnboundVar(String),
-}
-
-pub fn desugar(term: &concrete::Term) -> Result<raw::RcTerm, DesugarError> {
-    desugar_env(term, &mut Env::new())
-}
-
-fn desugar_env<'a>(
-    term: &'a concrete::Term,
-    env: &mut Env<'a>,
-) -> Result<raw::RcTerm, DesugarError> {
+pub fn desugar(term: &concrete::Term) -> raw::RcTerm {
     match *term {
-        concrete::Term::Var(ref ident) => match env.lookup_ident(ident) {
-            None => Err(DesugarError::UnboundVar(ident.clone())),
-            Some(index) => Ok(raw::RcTerm::from(raw::Term::Var(index))),
-        },
+        concrete::Term::Var(ref ident) => raw::RcTerm::from(raw::Term::Var(ident.clone())),
         concrete::Term::Let(ref ident, ref def, ref body) => {
-            let ident_hint = IdentHint(Some(ident.clone()));
-            let def = desugar_env(def, env)?;
-            let body = env.with_binding(ident, |env| desugar_env(body, env))?;
+            let def = desugar(def);
+            let body = desugar(body);
 
-            Ok(raw::RcTerm::from(raw::Term::Let(ident_hint, def, body)))
+            raw::RcTerm::from(raw::Term::Let(ident.clone(), def, body))
         },
         concrete::Term::Ann(ref term, ref ann) => {
-            let term = desugar_env(term, env)?;
-            let ann = desugar_env(ann, env)?;
+            let term = desugar(term);
+            let ann = desugar(ann);
 
-            Ok(raw::RcTerm::from(raw::Term::Ann(term, ann)))
+            raw::RcTerm::from(raw::Term::Ann(term, ann))
         },
-        concrete::Term::Parens(ref term) => desugar_env(term, env),
+        concrete::Term::Parens(ref term) => desugar(term),
 
         // Functions
         concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => {
-            let ident_hint = IdentHint(ident.clone());
-            let param_ty = desugar_env(param_ty, env)?;
-            let body_ty = env.with_binding(ident, |env| desugar_env(body_ty, env))?;
+            let param_ty = desugar(param_ty);
+            let body_ty = desugar(body_ty);
 
-            Ok(raw::RcTerm::from(raw::Term::FunType(
-                ident_hint, param_ty, body_ty,
-            )))
+            raw::RcTerm::from(raw::Term::FunType(ident.clone(), param_ty, body_ty))
         },
         concrete::Term::FunIntro(ref ident, ref body) => {
-            let ident_hint = IdentHint(Some(ident.clone()));
-            let body = env.with_binding(ident, |env| desugar_env(body, env))?;
+            let body = desugar(body);
 
-            Ok(raw::RcTerm::from(raw::Term::FunIntro(ident_hint, body)))
+            raw::RcTerm::from(raw::Term::FunIntro(ident.clone(), body))
         },
-        concrete::Term::FunApp(ref fun, ref args) => {
-            args.iter().fold(desugar_env(fun, env), |acc, arg| {
-                let arg = desugar_env(arg, env)?;
-                Ok(raw::RcTerm::from(raw::Term::FunApp(acc?, arg)))
-            })
-        },
+        concrete::Term::FunApp(ref fun, ref args) => args.iter().fold(desugar(fun), |acc, arg| {
+            let arg = desugar(arg);
+            raw::RcTerm::from(raw::Term::FunApp(acc, arg))
+        }),
 
         // Pairs
         concrete::Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
-            let ident_hint = IdentHint(ident.clone());
-            let fst_ty = desugar_env(fst_ty, env)?;
-            let snd_ty = env.with_binding(ident, |env| desugar_env(snd_ty, env))?;
+            let fst_ty = desugar(fst_ty);
+            let snd_ty = desugar(snd_ty);
 
-            Ok(raw::RcTerm::from(raw::Term::PairType(
-                ident_hint, fst_ty, snd_ty,
-            )))
+            raw::RcTerm::from(raw::Term::PairType(ident.clone(), fst_ty, snd_ty))
         },
         concrete::Term::PairIntro(ref fst, ref snd) => {
-            let fst = desugar_env(fst, env)?;
-            let snd = desugar_env(snd, env)?;
+            let fst = desugar(fst);
+            let snd = desugar(snd);
 
-            Ok(raw::RcTerm::from(raw::Term::PairIntro(fst, snd)))
+            raw::RcTerm::from(raw::Term::PairIntro(fst, snd))
         },
         concrete::Term::PairFst(ref pair) => {
-            let pair = desugar_env(pair, env)?;
+            let pair = desugar(pair);
 
-            Ok(raw::RcTerm::from(raw::Term::PairFst(pair)))
+            raw::RcTerm::from(raw::Term::PairFst(pair))
         },
         concrete::Term::PairSnd(ref pair) => {
-            let pair = desugar_env(pair, env)?;
+            let pair = desugar(pair);
 
-            Ok(raw::RcTerm::from(raw::Term::PairSnd(pair)))
+            raw::RcTerm::from(raw::Term::PairSnd(pair))
         },
 
         // Universes
         concrete::Term::Universe(level) => match level {
-            None => Ok(raw::RcTerm::from(raw::Term::Universe(UniverseLevel(0)))),
-            Some(level) => Ok(raw::RcTerm::from(raw::Term::Universe(UniverseLevel(level)))),
+            None => raw::RcTerm::from(raw::Term::Universe(UniverseLevel(0))),
+            Some(level) => raw::RcTerm::from(raw::Term::Universe(UniverseLevel(level))),
         },
     }
 }

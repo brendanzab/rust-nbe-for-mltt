@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, IdentHint, UniverseLevel};
+use crate::syntax::{DbIndex, UniverseLevel};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcNormal {
@@ -36,12 +36,12 @@ pub enum Normal {
     Neutral(RcNeutral),
 
     /// Dependent function types
-    FunType(IdentHint, RcNormal, RcNormal),
+    FunType(RcNormal, RcNormal),
     /// Introduce a function
-    FunIntro(IdentHint, RcNormal),
+    FunIntro(RcNormal),
 
     /// Dependent pair types
-    PairType(IdentHint, RcNormal, RcNormal),
+    PairType(RcNormal, RcNormal),
     /// Introduce a pair
     PairIntro(RcNormal, RcNormal),
 

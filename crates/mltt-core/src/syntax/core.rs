@@ -3,7 +3,7 @@
 use pretty::{BoxDoc, Doc};
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, IdentHint, UniverseLevel};
+use crate::syntax::{DbIndex, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
 
@@ -27,19 +27,19 @@ pub enum Term {
     /// Variables
     Var(DbIndex),
     /// Let bindings
-    Let(IdentHint, RcTerm, /* RcTerm, */ RcTerm),
+    Let(RcTerm, /* RcTerm, */ RcTerm),
 
     /// Dependent function types
-    FunType(IdentHint, RcTerm, RcTerm),
+    FunType(RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(IdentHint, /* RcTerm, */ RcTerm),
+    FunIntro(/* RcTerm, */ RcTerm),
     /// Apply a function to an argument
     FunApp(RcTerm, RcTerm),
 
     /// Dependent pair types
-    PairType(IdentHint, RcTerm, RcTerm),
+    PairType(RcTerm, RcTerm),
     /// Introduce a pair
-    PairIntro(RcTerm, RcTerm /* TODO: IdentHint, RcTerm, RcTerm */),
+    PairIntro(RcTerm, RcTerm),
     /// Project the first element of a pair
     PairFst(RcTerm),
     /// Project the second element of a pair
@@ -70,7 +70,7 @@ impl Term {
 
         fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Let(_, ref def, ref body) => Doc::nil()
+                Term::Let(ref def, ref body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
                     .append("_")
@@ -82,7 +82,7 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(&*body.inner)),
-                Term::FunIntro(_, ref body) => Doc::nil()
+                Term::FunIntro(ref body) => Doc::nil()
                     .append("\\")
                     .append("_")
                     .append(Doc::space())
@@ -95,7 +95,7 @@ impl Term {
 
         fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::FunType(_, ref param_ty, ref body_ty) => Doc::nil()
+                Term::FunType(ref param_ty, ref body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")
@@ -110,7 +110,7 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(&*body_ty.inner)),
-                Term::PairType(_, ref fst_ty, ref snd_ty) => Doc::nil()
+                Term::PairType(ref fst_ty, ref snd_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")

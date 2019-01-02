@@ -1,3 +1,8 @@
+//! Bidirectional type checking of the core syntax
+//!
+//! This is used to verify that the core syntax is correctly formed, for
+//! debugging purposes.
+
 use im;
 
 use crate::nbe::{self, NbeError};

@@ -4,7 +4,7 @@ use im;
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{DbLevel, IdentHint, UniverseLevel};
+use crate::syntax::{DbLevel, UniverseLevel};
 
 pub type Env = im::Vector<RcValue>;
 
@@ -51,12 +51,12 @@ pub enum Value {
     Neutral(RcNeutral),
 
     /// Dependent function types
-    FunType(IdentHint, RcType, Closure),
+    FunType(RcType, Closure),
     /// Introduce a function
-    FunIntro(IdentHint, Closure),
+    FunIntro(Closure),
 
     /// Dependent pair types
-    PairType(IdentHint, RcType, Closure),
+    PairType(RcType, Closure),
     /// Introduce a pair
     PairIntro(RcValue, RcValue),
 

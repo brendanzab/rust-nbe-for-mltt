@@ -3,7 +3,7 @@
 use pretty::{BoxDoc, Doc};
 use std::rc::Rc;
 
-use mltt_core::syntax::{DbIndex, IdentHint, UniverseLevel};
+use mltt_core::syntax::UniverseLevel;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
@@ -22,21 +22,21 @@ impl From<Term> for RcTerm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// Variables
-    Var(DbIndex),
+    Var(String),
     /// Let bindings
-    Let(IdentHint, RcTerm, RcTerm),
+    Let(String, RcTerm, RcTerm),
     /// A term that is explicitly annotated with a type
     Ann(RcTerm, RcTerm),
 
     /// Dependent function types
-    FunType(IdentHint, RcTerm, RcTerm),
+    FunType(Option<String>, RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(IdentHint, RcTerm),
+    FunIntro(String, RcTerm),
     /// Apply a function to an argument
     FunApp(RcTerm, RcTerm),
 
     /// Dependent pair types
-    PairType(IdentHint, RcTerm, RcTerm),
+    PairType(Option<String>, RcTerm, RcTerm),
     /// Introduce a pair
     PairIntro(RcTerm, RcTerm),
     /// Project the first element of a pair
@@ -75,10 +75,10 @@ impl Term {
 
         fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Let(_, ref def, ref body) => Doc::nil()
+                Term::Let(ref ident, ref def, ref body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append("_")
+                    .append(Doc::as_string(ident))
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())
@@ -100,17 +100,23 @@ impl Term {
 
         fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::FunType(_, ref param_ty, ref body_ty) => Doc::nil()
+                Term::FunType(Some(ref ident), ref param_ty, ref body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")
-                            .append("_")
+                            .append(Doc::as_string(ident))
                             .append(Doc::space())
                             .append(":")
                             .append(Doc::space())
                             .append(to_doc_term(&*param_ty.inner))
                             .append(")"),
                     ))
+                    .append(Doc::space())
+                    .append("->")
+                    .append(Doc::space())
+                    .append(to_doc_app(&*body_ty.inner)),
+                Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
+                    .append(to_doc_app(&*param_ty.inner))
                     .append(Doc::space())
                     .append("->")
                     .append(Doc::space())
@@ -146,7 +152,7 @@ impl Term {
 
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
+                Term::Var(ref ident) => Doc::as_string(ident),
                 Term::PairIntro(ref fst, ref snd) => Doc::nil()
                     .append("<")
                     .append(to_doc_term(&*fst.inner))
