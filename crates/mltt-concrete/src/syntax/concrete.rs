@@ -2,14 +2,9 @@
 
 use pretty::{BoxDoc, Doc};
 
-pub type Signature = Vec<Item>;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
-    Definition { name: String, def: Term, ann: Term },
-    NormalizeDefinition(String),
-    NormalizeTerm { term: Term, ann: Term },
-    Quit,
+    Definition { name: String, ann: Term, def: Term },
 }
 
 /// Concrete terms
