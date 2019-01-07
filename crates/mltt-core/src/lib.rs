@@ -1,4 +1,4 @@
 pub mod syntax;
 
-pub mod check;
 pub mod nbe;
+pub mod validate;
