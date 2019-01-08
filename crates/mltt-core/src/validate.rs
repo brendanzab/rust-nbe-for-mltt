@@ -4,6 +4,8 @@
 //! debugging purposes.
 
 use im;
+use std::error::Error;
+use std::fmt;
 
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{self, RcTerm, Term};
@@ -90,6 +92,32 @@ pub enum TypeError {
 impl From<NbeError> for TypeError {
     fn from(src: NbeError) -> TypeError {
         TypeError::Nbe(src)
+    }
+}
+
+impl Error for TypeError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match *self {
+            TypeError::Nbe(ref error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for TypeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
+            TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
+            TypeError::ExpectedUniverse { over, .. } => match over {
+                None => write!(f, "expected universe"),
+                Some(level) => write!(f, "expected universe over level `{}`", level.0),
+            },
+            TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
+            TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
+            TypeError::UnboundVariable => write!(f, "unbound variable"),
+            TypeError::Nbe(ref err) => err.fmt(f),
+        }
     }
 }
 

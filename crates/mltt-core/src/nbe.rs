@@ -4,6 +4,9 @@
 //! evaluation to `Value`s in weak-head-normal-form, and then reading it back
 //! `Normal` terms.
 
+use std::error::Error;
+use std::fmt;
+
 use crate::syntax::core::{self, RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
 use crate::syntax::normal::{self, Normal, RcNormal};
@@ -23,6 +26,14 @@ impl NbeError {
         NbeError {
             message: message.into(),
         }
+    }
+}
+
+impl Error for NbeError {}
+
+impl fmt::Display for NbeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "failed to normalize: {}", self.message)
     }
 }
 

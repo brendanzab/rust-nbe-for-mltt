@@ -12,6 +12,8 @@ use mltt_core::nbe::{self, NbeError};
 use mltt_core::syntax::core;
 use mltt_core::syntax::domain::{self, RcType, RcValue, Value};
 use mltt_core::syntax::{DbIndex, DbLevel, UniverseLevel};
+use std::error::Error;
+use std::fmt;
 
 use crate::syntax::raw;
 
@@ -106,6 +108,32 @@ pub enum TypeError {
 impl From<NbeError> for TypeError {
     fn from(src: NbeError) -> TypeError {
         TypeError::Nbe(src)
+    }
+}
+
+impl Error for TypeError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match *self {
+            TypeError::Nbe(ref error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for TypeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
+            TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
+            TypeError::ExpectedUniverse { over, .. } => match over {
+                None => write!(f, "expected universe"),
+                Some(level) => write!(f, "expected universe over level `{}`", level.0),
+            },
+            TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
+            TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
+            TypeError::UnboundVariable(ref name) => write!(f, "unbound variable `{}`", name),
+            TypeError::Nbe(ref err) => err.fmt(f),
+        }
     }
 }
 
