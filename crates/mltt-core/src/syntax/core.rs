@@ -1,6 +1,7 @@
 //! The checked core syntax
 
 use pretty::{BoxDoc, Doc};
+use std::fmt;
 use std::rc::Rc;
 
 use crate::syntax::{DbIndex, UniverseLevel};
@@ -17,6 +18,12 @@ impl From<Term> for RcTerm {
         RcTerm {
             inner: Rc::new(src),
         }
+    }
+}
+
+impl fmt::Display for RcTerm {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.inner.fmt(f)
     }
 }
 
@@ -159,5 +166,11 @@ impl Term {
         }
 
         to_doc_term(self)
+    }
+}
+
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.to_doc().pretty(100_000).fmt(f)
     }
 }

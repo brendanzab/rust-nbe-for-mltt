@@ -1,9 +1,9 @@
 //! The unchecked raw syntax
 
-use pretty::{BoxDoc, Doc};
-use std::rc::Rc;
-
 use mltt_core::syntax::UniverseLevel;
+use pretty::{BoxDoc, Doc};
+use std::fmt;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
@@ -15,6 +15,12 @@ impl From<Term> for RcTerm {
         RcTerm {
             inner: Rc::new(src),
         }
+    }
+}
+
+impl fmt::Display for RcTerm {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.inner.fmt(f)
     }
 }
 
@@ -170,5 +176,11 @@ impl Term {
         }
 
         to_doc_term(self)
+    }
+}
+
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.to_doc().pretty(100_000).fmt(f)
     }
 }
