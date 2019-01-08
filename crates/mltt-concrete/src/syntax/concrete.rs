@@ -65,10 +65,10 @@ impl Term {
 
         fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Let(ref ident, ref def, ref body) => Doc::nil()
+                Term::Let(ref name, ref def, ref body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append(Doc::as_string(ident))
+                    .append(Doc::as_string(name))
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())
@@ -77,9 +77,9 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(body)),
-                Term::FunIntro(ref ident, ref body) => Doc::nil()
+                Term::FunIntro(ref name, ref body) => Doc::nil()
                     .append("\\")
-                    .append(Doc::as_string(ident))
+                    .append(Doc::as_string(name))
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())
@@ -96,11 +96,11 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty)),
-                Term::FunType(Some(ref ident), ref param_ty, ref body_ty) => Doc::nil()
+                Term::FunType(Some(ref name), ref param_ty, ref body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")
-                            .append(Doc::as_string(ident))
+                            .append(Doc::as_string(name))
                             .append(Doc::space())
                             .append(":")
                             .append(Doc::space())
@@ -117,11 +117,11 @@ impl Term {
                     .append("*")
                     .append(Doc::space())
                     .append(to_doc_term(snd_ty)),
-                Term::PairType(Some(ref ident), ref fst_ty, ref snd_ty) => Doc::nil()
+                Term::PairType(Some(ref name), ref fst_ty, ref snd_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")
-                            .append(Doc::as_string(ident))
+                            .append(Doc::as_string(name))
                             .append(Doc::space())
                             .append(":")
                             .append(Doc::space())
@@ -151,7 +151,7 @@ impl Term {
 
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::Var(ref ident) => Doc::as_string(ident),
+                Term::Var(ref name) => Doc::as_string(name),
                 Term::Parens(ref term) => Doc::text("(").append(to_doc_term(term)).append(")"),
                 Term::PairIntro(ref fst, ref snd) => Doc::nil()
                     .append("<")

@@ -119,7 +119,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 }
 
 /// Quote back a term into normal form
-pub fn read_back_term(size: u32, term: &RcValue) -> Result<RcNormal, NbeError> {
+pub fn read_back_term(size: DbLevel, term: &RcValue) -> Result<RcNormal, NbeError> {
     match *term.inner {
         Value::Neutral(ref term) => {
             let neutral = read_back_neutral(size, term)?;
@@ -129,7 +129,7 @@ pub fn read_back_term(size: u32, term: &RcValue) -> Result<RcNormal, NbeError> {
 
         // Functions
         Value::FunType(ref param_ty, ref body_ty) => {
-            let param = RcValue::var(DbLevel(size));
+            let param = RcValue::var(size);
             let param_ty = param_ty.clone();
             let body_ty = do_closure_app(body_ty, param)?;
 
@@ -139,7 +139,7 @@ pub fn read_back_term(size: u32, term: &RcValue) -> Result<RcNormal, NbeError> {
             )))
         },
         Value::FunIntro(ref body) => {
-            let param = RcValue::var(DbLevel(size));
+            let param = RcValue::var(size);
             let body = read_back_term(size + 1, &do_closure_app(body, param.clone())?)?;
 
             Ok(RcNormal::from(Normal::FunIntro(body)))
@@ -147,7 +147,7 @@ pub fn read_back_term(size: u32, term: &RcValue) -> Result<RcNormal, NbeError> {
 
         // Pairs
         Value::PairType(ref fst_ty, ref snd_ty) => {
-            let fst = RcValue::var(DbLevel(size));
+            let fst = RcValue::var(size);
             let fst_ty = fst_ty.clone();
             let snd_ty = do_closure_app(snd_ty, fst)?;
 
@@ -170,12 +170,12 @@ pub fn read_back_term(size: u32, term: &RcValue) -> Result<RcNormal, NbeError> {
 
 /// Quote back a neutral term into normal form
 pub fn read_back_neutral(
-    size: u32,
+    size: DbLevel,
     neutral: &domain::RcNeutral,
 ) -> Result<normal::RcNeutral, NbeError> {
     match &*neutral.inner {
         domain::Neutral::Var(DbLevel(level)) => {
-            let index = DbIndex(size - level);
+            let index = DbIndex(size.0 - level);
 
             Ok(normal::RcNeutral::from(normal::Neutral::Var(index)))
         },
@@ -199,7 +199,7 @@ pub fn read_back_neutral(
 }
 
 /// Check whether a semantic type is a subtype of another
-pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
+pub fn check_subtype(size: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
     match (&*ty1.inner, &*ty2.inner) {
         (&Value::Neutral(ref term1), &Value::Neutral(ref term2)) => {
             let term1 = read_back_neutral(size, term1)?;
@@ -211,7 +211,7 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             &Value::FunType(ref param_ty1, ref body_ty1),
             &Value::FunType(ref param_ty2, ref body_ty2),
         ) => {
-            let param = RcValue::var(DbLevel(size));
+            let param = RcValue::var(size);
 
             Ok(check_subtype(size, param_ty2, param_ty1)? && {
                 let body_ty1 = do_closure_app(body_ty1, param.clone())?;
@@ -223,7 +223,7 @@ pub fn check_subtype(size: u32, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeE
             &Value::PairType(ref fst_ty1, ref snd_ty1),
             &Value::PairType(ref fst_ty2, ref snd_ty2),
         ) => {
-            let fst = RcValue::var(DbLevel(size));
+            let fst = RcValue::var(size);
 
             Ok(check_subtype(size, fst_ty1, fst_ty2)? && {
                 let snd_ty1 = do_closure_app(snd_ty1, fst.clone())?;
@@ -254,5 +254,5 @@ pub fn normalize(env: &core::Env, term: &RcTerm) -> Result<RcNormal, NbeError> {
     let env = initial_env(env)?;
     let term = eval(term, &env)?;
 
-    read_back_term(env.len() as u32, &term)
+    read_back_term(DbLevel(env.len() as u32), &term)
 }
