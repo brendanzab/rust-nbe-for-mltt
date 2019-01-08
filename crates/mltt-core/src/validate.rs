@@ -50,6 +50,13 @@ impl Context {
         self.binders.push_front(ty);
     }
 
+    /// Add a new binder to the context, returning a value that points to the parameter
+    pub fn insert_binder(&mut self, ty: RcType) -> RcValue {
+        let param = RcValue::var(self.size());
+        self.insert_local(param.clone(), ty);
+        param
+    }
+
     /// Lookup the type annotation of a binder in the context
     pub fn lookup_binder(&self, index: DbIndex) -> Option<&RcType> {
         self.binders.get(index.0 as usize)
@@ -136,17 +143,15 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             let ann_ty_value = context.eval(ann_ty)?;
 
             let mut body_ty_context = context.clone();
-            body_ty_context.insert_local(RcValue::var(context.size()), ann_ty_value);
+            body_ty_context.insert_binder(ann_ty_value);
 
             check_term(&body_ty_context, body_ty, expected_ty)
         },
         Term::FunIntro(ref body) => match *expected_ty.inner {
             Value::FunType(ref param_ty, ref body_ty) => {
-                let param = RcValue::var(context.size());
-                let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
-
                 let mut body_context = context.clone();
-                body_context.insert_local(param, param_ty.clone());
+                let param = body_context.insert_binder(param_ty.clone());
+                let body_ty = nbe::do_closure_app(body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
             },
@@ -187,7 +192,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         },
         Term::Let(ref def, ref body) => {
             let mut body_context = context.clone();
-            body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
+            let def_ty = synth_term(context, def)?;
+            body_context.insert_local(context.eval(def)?, def_ty);
 
             synth_term(&body_context, body)
         },
@@ -247,7 +253,7 @@ pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> 
             let ann_value = context.eval(ann)?;
 
             let mut body_context = context.clone();
-            body_context.insert_local(RcValue::var(context.size()), ann_value);
+            body_context.insert_binder(ann_value);
 
             check_term_ty(&body_context, body)
         },

@@ -60,8 +60,15 @@ impl<'term> Context<'term> {
         self.binders.push_front((name.into(), ty));
     }
 
-    /// Lookup the de-bruijn index and the type annotation of a binder in the context using a
-    /// user-defined name
+    /// Add a new binder to the context, returning a value that points to the parameter
+    pub fn insert_binder(&mut self, name: impl Into<Option<&'term String>>, ty: RcType) -> RcValue {
+        let param = RcValue::var(self.size());
+        self.insert_local(name, param.clone(), ty);
+        param
+    }
+
+    /// Lookup the de-bruijn index and the type annotation of a binder in the
+    /// context using a user-defined name
     pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &RcType)> {
         for (i, &(ref n, ref ty)) in self.binders.iter().enumerate() {
             if Some(name) == n.map(String::as_str) {
@@ -161,7 +168,7 @@ pub fn check_term<'term>(
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
                 let mut context = context.clone();
-                context.insert_local(name, RcValue::var(context.size()), param_ty_value);
+                context.insert_binder(name, param_ty_value);
                 check_term_ty(&context, raw_body_ty)?
             };
 
@@ -169,13 +176,10 @@ pub fn check_term<'term>(
         },
         raw::Term::FunIntro(ref name, ref body) => match *expected_ty.inner {
             Value::FunType(ref param_ty, ref body_ty) => {
-                let param = RcValue::var(context.size());
+                let mut context = context.clone();
+                let param = context.insert_binder(name, param_ty.clone());
                 let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
-                let body = {
-                    let mut context = context.clone();
-                    context.insert_local(name, param, param_ty.clone());
-                    check_term(&context, body, &body_ty)?
-                };
+                let body = check_term(&context, body, &body_ty)?;
 
                 Ok(core::RcTerm::from(core::Term::FunIntro(body)))
             },
@@ -189,7 +193,7 @@ pub fn check_term<'term>(
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
                 let mut context = context.clone();
-                context.insert_local(name, RcValue::var(context.size()), fst_ty_value);
+                context.insert_binder(name, fst_ty_value);
                 check_term_ty(&context, raw_snd_ty)?
             };
 
@@ -327,7 +331,7 @@ pub fn check_term_ty<'term>(
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
                 let mut context = context.clone();
-                context.insert_local(name, RcValue::var(context.size()), param_ty_value);
+                context.insert_binder(name, param_ty_value);
                 check_term_ty(&context, raw_body_ty)?
             };
 
@@ -339,7 +343,7 @@ pub fn check_term_ty<'term>(
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
                 let mut snd_ty_context = context.clone();
-                snd_ty_context.insert_local(name, RcValue::var(context.size()), fst_ty_value);
+                snd_ty_context.insert_binder(name, fst_ty_value);
                 check_term_ty(&snd_ty_context, raw_snd_ty)?
             };
 
