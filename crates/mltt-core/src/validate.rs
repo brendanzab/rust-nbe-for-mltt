@@ -16,7 +16,7 @@ use crate::syntax::{DbIndex, DbLevel, UniverseLevel};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context {
     /// Number of local entries
-    size: u32,
+    level: DbLevel,
     /// Values to be used during evaluation
     values: domain::Env,
     /// Type annotations of the binders we have passed over
@@ -27,15 +27,15 @@ impl Context {
     /// Create a new, empty context
     pub fn new() -> Context {
         Context {
-            size: 0,
+            level: DbLevel(0),
             values: domain::Env::new(),
             binders: im::Vector::new(),
         }
     }
 
     /// Number of local entries in the context
-    pub fn size(&self) -> DbLevel {
-        DbLevel(self.size)
+    pub fn level(&self) -> DbLevel {
+        self.level
     }
 
     /// Values to be used during evaluation
@@ -45,14 +45,14 @@ impl Context {
 
     /// Add a new local entry to the context
     pub fn insert_local(&mut self, value: RcValue, ty: RcType) {
-        self.size += 1;
+        self.level += 1;
         self.values.push_front(value);
         self.binders.push_front(ty);
     }
 
     /// Add a new binder to the context, returning a value that points to the parameter
     pub fn insert_binder(&mut self, ty: RcType) -> RcValue {
-        let param = RcValue::var(self.size());
+        let param = RcValue::var(self.level());
         self.insert_local(param.clone(), ty);
         param
     }
@@ -69,7 +69,7 @@ impl Context {
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
     pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.size(), ty1, ty2)? {
+        if nbe::check_subtype(self.level(), ty1, ty2)? {
             Ok(())
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))
