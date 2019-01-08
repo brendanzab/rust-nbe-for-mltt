@@ -236,6 +236,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             }
         },
 
+        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + 1))),
+
         _ => Err(TypeError::AmbiguousTerm(term.clone())),
     }
 }

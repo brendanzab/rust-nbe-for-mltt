@@ -4,6 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
+use crate::syntax::normal;
 use crate::syntax::{DbIndex, Literal, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
@@ -181,5 +182,42 @@ impl Term {
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.to_doc().pretty(100_000).fmt(f)
+    }
+}
+
+impl From<&'_ normal::RcNormal> for RcTerm {
+    fn from(src: &normal::RcNormal) -> RcTerm {
+        RcTerm::from(src.as_ref())
+    }
+}
+
+impl From<&'_ normal::Normal> for RcTerm {
+    fn from(src: &normal::Normal) -> RcTerm {
+        match src {
+            normal::Normal::Neutral(neutral) => RcTerm::from(neutral),
+            normal::Normal::Literal(..) => unimplemented!(),
+            normal::Normal::FunType(..) => unimplemented!(),
+            normal::Normal::FunIntro(..) => unimplemented!(),
+            normal::Normal::PairType(..) => unimplemented!(),
+            normal::Normal::PairIntro(..) => unimplemented!(),
+            normal::Normal::Universe(level) => RcTerm::from(Term::Universe(*level)),
+        }
+    }
+}
+
+impl From<&'_ normal::RcNeutral> for RcTerm {
+    fn from(src: &normal::RcNeutral) -> RcTerm {
+        RcTerm::from(src.as_ref())
+    }
+}
+
+impl From<&'_ normal::Neutral> for RcTerm {
+    fn from(src: &normal::Neutral) -> RcTerm {
+        match src {
+            normal::Neutral::Var(index) => RcTerm::from(Term::Var(*index)),
+            normal::Neutral::FunApp(..) => unimplemented!(),
+            normal::Neutral::PairFst(pair) => RcTerm::from(Term::PairFst(RcTerm::from(pair))),
+            normal::Neutral::PairSnd(pair) => RcTerm::from(Term::PairSnd(RcTerm::from(pair))),
+        }
     }
 }

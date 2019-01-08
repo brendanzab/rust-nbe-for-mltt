@@ -9,3 +9,6 @@ publish = false
 [dependencies]
 im = "12.2.0"
 pretty = "0.5.2"
+
+[dev-dependencies]
+proptest = "0.9.0"
