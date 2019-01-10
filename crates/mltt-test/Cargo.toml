@@ -1,0 +1,11 @@
+[package]
+name = "mltt-test"
+version = "0.1.0"
+authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
+license = "MIT"
+edition = "2018"
+publish = false
+
+[dependencies]
+mltt-test-generate = { path = "../mltt-test-generate" }
+mltt-test-harness = { path = "../mltt-test-harness" }
