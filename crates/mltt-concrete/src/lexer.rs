@@ -9,11 +9,11 @@ fn is_symbol(ch: char) -> bool {
     }
 }
 
-fn is_ident_start(ch: char) -> bool {
+fn is_name_start(ch: char) -> bool {
     ch.is_ascii_alphabetic() || ch == '_' || ch == '-'
 }
 
-fn is_ident_continue(ch: char) -> bool {
+fn is_name_continue(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
 }
 
@@ -85,7 +85,7 @@ impl fmt::Display for LexerError {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token<S> {
     // Data
-    Ident(S),
+    Name(S),
     DocComment(S),
     StringLiteral(String),
     CharLiteral(char),
@@ -134,7 +134,7 @@ pub enum Token<S> {
 impl<S: fmt::Display> fmt::Display for Token<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Token::Ident(ref name) => write!(f, "{}", name),
+            Token::Name(ref name) => write!(f, "{}", name),
             Token::DocComment(ref comment) => write!(f, "||| {}", comment),
             Token::StringLiteral(ref value) => write!(f, "{:?}", value),
             Token::CharLiteral(ref value) => write!(f, "'{:?}'", value),
@@ -179,7 +179,7 @@ impl<S: fmt::Display> fmt::Display for Token<S> {
 impl<'input> From<Token<&'input str>> for Token<String> {
     fn from(src: Token<&'input str>) -> Token<String> {
         match src {
-            Token::Ident(name) => Token::Ident(name.to_owned()),
+            Token::Name(name) => Token::Name(name.to_owned()),
             Token::DocComment(comment) => Token::DocComment(comment.to_owned()),
             Token::StringLiteral(value) => Token::StringLiteral(value),
             Token::CharLiteral(value) => Token::CharLiteral(value),
@@ -313,11 +313,11 @@ impl<'input> Lexer<'input> {
         (start, Token::DocComment(comment), end)
     }
 
-    /// Consume an identifier
-    fn ident(&mut self, start: usize) -> SpannedToken<'input> {
-        let (end, ident) = self.take_while(start, is_ident_continue);
+    /// Consume an name
+    fn name(&mut self, start: usize) -> SpannedToken<'input> {
+        let (end, name) = self.take_while(start, is_name_continue);
 
-        let token = match ident {
+        let token = match name {
             "as" => Token::As,
             "case" => Token::Case,
             "else" => Token::Else,
@@ -330,7 +330,7 @@ impl<'input> Lexer<'input> {
             "then" => Token::Then,
             "Type" => Token::Type,
             "where" => Token::Where,
-            ident => Token::Ident(ident),
+            name => Token::Name(name),
         };
 
         (start, token, end)
@@ -504,7 +504,7 @@ impl<'input> Iterator for Lexer<'input> {
                 '0' if self.test_lookahead(|x| x == 'b') => self.bin_literal(start),
                 '0' if self.test_lookahead(|x| x == 'o') => self.oct_literal(start),
                 '0' if self.test_lookahead(|x| x == 'x') => self.hex_literal(start),
-                ch if is_ident_start(ch) => Ok(self.ident(start)),
+                ch if is_name_start(ch) => Ok(self.name(start)),
                 ch if is_dec_digit(ch) => self.dec_literal(start),
                 ch if ch.is_whitespace() => continue,
                 _ => Err(LexerError::UnexpectedCharacter { start, found: ch }),
@@ -539,7 +539,7 @@ mod tests {
     fn data() {
         test! {
             "  hello-hahaha8ABC  ",
-            "  ~~~~~~~~~~~~~~~~  " => Token::Ident("hello-hahaha8ABC"),
+            "  ~~~~~~~~~~~~~~~~  " => Token::Name("hello-hahaha8ABC"),
         };
     }
 

@@ -4,12 +4,12 @@ use crate::syntax::{concrete, raw};
 
 pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
     match *term {
-        concrete::Term::Var(ref ident) => raw::RcTerm::from(raw::Term::Var(ident.clone())),
-        concrete::Term::Let(ref ident, ref def, ref body) => {
+        concrete::Term::Var(ref name) => raw::RcTerm::from(raw::Term::Var(name.clone())),
+        concrete::Term::Let(ref name, ref def, ref body) => {
             let def = desugar_term(def);
             let body = desugar_term(body);
 
-            raw::RcTerm::from(raw::Term::Let(ident.clone(), def, body))
+            raw::RcTerm::from(raw::Term::Let(name.clone(), def, body))
         },
         concrete::Term::Ann(ref term, ref ann) => {
             let term = desugar_term(term);
@@ -20,11 +20,11 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
         concrete::Term::Parens(ref term) => desugar_term(term),
 
         // Functions
-        concrete::Term::FunType(ref ident, ref param_ty, ref body_ty) => {
+        concrete::Term::FunType(ref name, ref param_ty, ref body_ty) => {
             let param_ty = desugar_term(param_ty);
             let body_ty = desugar_term(body_ty);
 
-            raw::RcTerm::from(raw::Term::FunType(Some(ident.clone()), param_ty, body_ty))
+            raw::RcTerm::from(raw::Term::FunType(Some(name.clone()), param_ty, body_ty))
         },
         concrete::Term::FunArrowType(ref param_ty, ref body_ty) => {
             let param_ty = desugar_term(param_ty);
@@ -32,10 +32,10 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
 
             raw::RcTerm::from(raw::Term::FunType(None, param_ty, body_ty))
         },
-        concrete::Term::FunIntro(ref ident, ref body) => {
+        concrete::Term::FunIntro(ref name, ref body) => {
             let body = desugar_term(body);
 
-            raw::RcTerm::from(raw::Term::FunIntro(ident.clone(), body))
+            raw::RcTerm::from(raw::Term::FunIntro(name.clone(), body))
         },
         concrete::Term::FunApp(ref fun, ref args) => {
             args.iter().fold(desugar_term(fun), |acc, arg| {
@@ -45,11 +45,11 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
         },
 
         // Pairs
-        concrete::Term::PairType(ref ident, ref fst_ty, ref snd_ty) => {
+        concrete::Term::PairType(ref name, ref fst_ty, ref snd_ty) => {
             let fst_ty = desugar_term(fst_ty);
             let snd_ty = desugar_term(snd_ty);
 
-            raw::RcTerm::from(raw::Term::PairType(ident.clone(), fst_ty, snd_ty))
+            raw::RcTerm::from(raw::Term::PairType(name.clone(), fst_ty, snd_ty))
         },
         concrete::Term::PairIntro(ref fst, ref snd) => {
             let fst = desugar_term(fst);
