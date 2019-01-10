@@ -23,7 +23,9 @@ pub enum Term {
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(Option<String>, Box<Term>, Box<Term>),
+    FunType(String, Box<Term>, Box<Term>),
+    /// Non-dependent function types
+    FunArrowType(Box<Term>, Box<Term>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
@@ -91,13 +93,13 @@ impl Term {
 
         fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
             match *term {
-                Term::FunType(None, ref param_ty, ref body_ty) => Doc::nil()
+                Term::FunArrowType(ref param_ty, ref body_ty) => Doc::nil()
                     .append(to_doc_app(param_ty))
                     .append(Doc::space())
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty)),
-                Term::FunType(Some(ref name), ref param_ty, ref body_ty) => Doc::nil()
+                Term::FunType(ref name, ref param_ty, ref body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("(")

@@ -74,7 +74,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
                 let param_ty = resugar_term(param_ty, env);
                 let (ident, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
                 // TODO: only use `ident` if it is used in `body_ty`
-                concrete::Term::FunType(Some(ident), Box::new(param_ty), Box::new(body_ty))
+                concrete::Term::FunType(ident, Box::new(param_ty), Box::new(body_ty))
             },
             core::Term::PairType(ref fst_ty, ref snd_ty) => {
                 let fst_ty = resugar_term(fst_ty, env);

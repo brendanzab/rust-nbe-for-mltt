@@ -24,7 +24,13 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
             let param_ty = desugar_term(param_ty);
             let body_ty = desugar_term(body_ty);
 
-            raw::RcTerm::from(raw::Term::FunType(ident.clone(), param_ty, body_ty))
+            raw::RcTerm::from(raw::Term::FunType(Some(ident.clone()), param_ty, body_ty))
+        },
+        concrete::Term::FunArrowType(ref param_ty, ref body_ty) => {
+            let param_ty = desugar_term(param_ty);
+            let body_ty = desugar_term(body_ty);
+
+            raw::RcTerm::from(raw::Term::FunType(None, param_ty, body_ty))
         },
         concrete::Term::FunIntro(ref ident, ref body) => {
             let body = desugar_term(body);
