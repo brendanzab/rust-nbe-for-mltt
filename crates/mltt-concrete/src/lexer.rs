@@ -1,4 +1,4 @@
-use mltt_span::{ByteIndex, ByteSize, Span};
+use mltt_span::{ByteIndex, ByteSize, FileId, Span};
 use std::fmt;
 use std::str::{CharIndices, FromStr};
 
@@ -225,6 +225,7 @@ impl<'input> From<Token<&'input str>> for Token<String> {
 /// An iterator over a source string that yields `Token`s for subsequent use by
 /// the parser
 pub struct Lexer<'input> {
+    file_id: FileId,
     src: &'input str,
     chars: CharIndices<'input>,
     lookahead: Option<(usize, char)>,
@@ -232,10 +233,11 @@ pub struct Lexer<'input> {
 
 impl<'input> Lexer<'input> {
     /// Create a new lexer from the source string
-    pub fn new(src: &'input str) -> Self {
+    pub fn new(file_id: FileId, src: &'input str) -> Self {
         let mut chars = src.char_indices();
 
         Lexer {
+            file_id,
             src,
             lookahead: chars.next(),
             chars,
@@ -369,7 +371,7 @@ impl<'input> Lexer<'input> {
         }
 
         Err(LexerError::UnterminatedStringLiteral {
-            span: Span::new(start, end),
+            span: Span::new(self.file_id, start, end),
         })
     }
 
@@ -379,7 +381,7 @@ impl<'input> Lexer<'input> {
             Some((next, '\\')) => self.escape_code(next)?,
             Some((next, '\'')) => {
                 return Err(LexerError::EmptyCharLiteral {
-                    span: Span::new(start, next + ByteSize::from_char_utf8('\'')),
+                    span: Span::new(self.file_id, start, next + ByteSize::from_char_utf8('\'')),
                 });
             },
             Some((_, ch)) => ch,
@@ -393,7 +395,7 @@ impl<'input> Lexer<'input> {
                 end + ByteSize::from_char_utf8('\''),
             )),
             Some((next, ch)) => Err(LexerError::UnterminatedCharLiteral {
-                span: Span::new(start, next + ByteSize::from_char_utf8(ch)),
+                span: Span::new(self.file_id, start, next + ByteSize::from_char_utf8(ch)),
             }),
             None => Err(LexerError::UnexpectedEof { end: start }),
         }
@@ -408,7 +410,7 @@ impl<'input> Lexer<'input> {
         let (end, src) = self.take_while(start + ByteSize::from(2), is_bin_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedBinLiteral {
-                span: Span::new(start, end),
+                span: Span::new(self.file_id, start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 2).unwrap();
@@ -425,7 +427,7 @@ impl<'input> Lexer<'input> {
         let (end, src) = self.take_while(start + ByteSize::from(2), is_oct_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedOctLiteral {
-                span: Span::new(start, end),
+                span: Span::new(self.file_id, start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 8).unwrap();
@@ -449,7 +451,7 @@ impl<'input> Lexer<'input> {
             match u64::from_str_radix(src, 10) {
                 Ok(value) => Ok((start, Token::DecIntLiteral(value), end)),
                 Err(_) => Err(LexerError::IntegerLiteralOverflow {
-                    span: Span::new(start, end),
+                    span: Span::new(self.file_id, start, end),
                     value: src.to_string(),
                 }),
             }
@@ -465,7 +467,7 @@ impl<'input> Lexer<'input> {
         let (end, src) = self.take_while(start + ByteSize::from(2), is_hex_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedHexLiteral {
-                span: Span::new(start, end),
+                span: Span::new(self.file_id, start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 16).unwrap();
@@ -531,6 +533,8 @@ impl<'input> Iterator for Lexer<'input> {
 
 #[cfg(test)]
 mod tests {
+    use mltt_span::Files;
+
     use super::*;
 
     /// A handy macro to give us a nice syntax for declaring test cases
@@ -538,7 +542,9 @@ mod tests {
     /// This was inspired by the tests in the LALRPOP lexer
     macro_rules! test {
         ($src:expr, $($span:expr => $token:expr,)*) => {{
-            let lexed_tokens: Vec<_> = Lexer::new(&$src).collect();
+            let mut files = Files::new();
+            let file_id = files.add("test", $src);
+            let lexed_tokens: Vec<_> = Lexer::new(file_id, &files[file_id].contents).collect();
             let expected_tokens = vec![$({
                 let start = ByteIndex::from($span.find("~").unwrap());
                 let end = ByteIndex::from($span.rfind("~").unwrap()) + ByteSize::from(1);

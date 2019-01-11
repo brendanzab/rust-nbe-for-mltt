@@ -3,6 +3,7 @@
 use mltt_concrete::lexer::Lexer;
 // use mltt_concrete::parser;
 // use mltt_core::validate;
+use mltt_span::Files;
 use std::fs;
 use std::path::Path;
 
@@ -11,7 +12,11 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
     let src = fs::read_to_string(&test_path)
         .unwrap_or_else(|err| panic!("error reading `{}`: {}", test_path.display(), err));
 
-    Lexer::new(&src).for_each(|token| println!("{}", token.unwrap().1));
+    let mut files = Files::new();
+    let file_id = files.add("test", src);
+
+    Lexer::new(file_id, &files[file_id].contents)
+        .for_each(|token| println!("{}", token.unwrap().1));
 
     // TODO:
 
