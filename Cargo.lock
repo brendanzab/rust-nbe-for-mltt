@@ -108,6 +108,7 @@ name = "mltt-test-harness"
 version = "0.1.0"
 dependencies = [
  "mltt-concrete 0.1.0",
+ "mltt-core 0.1.0",
 ]
 
 [[package]]

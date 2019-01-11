@@ -8,3 +8,4 @@ publish = false
 
 [dependencies]
 mltt-concrete = { path = "../mltt-concrete"}
+mltt-core = { path = "../mltt-core"}
