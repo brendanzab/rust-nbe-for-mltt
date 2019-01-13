@@ -1,6 +1,6 @@
 use std::ops;
 
-use crate::{ByteIndex, ColumnIndex, LineIndex, Span};
+use crate::{ByteIndex, ColumnIndex, LineIndex, Location, Span};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileId(usize);
@@ -61,21 +61,18 @@ impl Files {
         None
     }
 
-    pub fn location(
-        &self,
-        file_id: FileId,
-        index: impl Into<ByteIndex>,
-    ) -> Option<language_reporting::Location> {
+    pub fn location(&self, file_id: FileId, byte: impl Into<ByteIndex>) -> Option<Location> {
         let source = &self[file_id].contents;
-        let index = index.into();
+        let byte = byte.into();
         let mut seen_lines = 0;
         let mut seen_bytes = 0;
 
         for (pos, _) in source.match_indices('\n') {
-            if pos > index.to_usize() {
-                return Some(language_reporting::Location {
-                    line: seen_lines,
-                    column: index.to_usize() - seen_bytes,
+            if pos > byte.to_usize() {
+                return Some(Location {
+                    byte,
+                    line: LineIndex::from(seen_lines),
+                    column: ColumnIndex::from(byte.to_usize() - seen_bytes),
                 });
             } else {
                 seen_lines += 1;
@@ -105,9 +102,10 @@ impl Files {
     }
 
     pub fn source(&self, span: Span<FileId>) -> Option<&str> {
-        let source = &self[span.file()].contents;
+        let start = span.start().to_usize();
+        let end = span.end().to_usize();
 
-        Some(&source[span.start().to_usize()..span.end().to_usize()])
+        Some(&self[span.file()].contents[start..end])
     }
 }
 
@@ -137,7 +135,10 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn location(&self, file_id: FileId, index: usize) -> Option<language_reporting::Location> {
-        Files::location(self, file_id, index)
+        Files::location(self, file_id, index).map(|location| language_reporting::Location {
+            line: location.line.to_usize(),
+            column: location.column.to_usize(),
+        })
     }
 
     fn line_span(&self, file_id: FileId, line: usize) -> Option<Span<FileId>> {
