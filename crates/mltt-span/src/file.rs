@@ -92,6 +92,7 @@ impl Files {
                 return Some(Location {
                     byte,
                     line: LineIndex::from(seen_lines),
+                    // FIXME: Column != byte width for larger unicode characters
                     column: ColumnIndex::from(byte.to_usize() - seen_bytes),
                 });
             } else {
