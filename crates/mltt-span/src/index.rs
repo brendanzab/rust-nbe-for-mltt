@@ -1,5 +1,6 @@
 use std::ops;
 
+/// Byte index into a text string
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ByteIndex(usize);
 
@@ -58,6 +59,7 @@ impl From<usize> for ByteSize {
     }
 }
 
+/// 0-based line number
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LineIndex(usize);
 
@@ -73,6 +75,7 @@ impl From<usize> for LineIndex {
     }
 }
 
+/// 0-based column number, in utf-8 characters
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColumnIndex(usize);
 
