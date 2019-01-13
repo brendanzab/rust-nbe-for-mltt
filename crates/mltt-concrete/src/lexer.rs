@@ -37,15 +37,15 @@ fn is_hex_digit(ch: char) -> bool {
 /// An error that occurred while lexing the source file
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LexerError {
-    UnexpectedCharacter { start: ByteIndex, found: char },
-    UnexpectedEof { end: ByteIndex },
+    UnexpectedCharacter { span: FileSpan, found: char },
+    UnexpectedEof { span: FileSpan },
     UnterminatedStringLiteral { span: FileSpan },
     UnterminatedCharLiteral { span: FileSpan },
     UnterminatedBinLiteral { span: FileSpan },
     UnterminatedOctLiteral { span: FileSpan },
     UnterminatedHexLiteral { span: FileSpan },
     EmptyCharLiteral { span: FileSpan },
-    UnknownEscapeCode { start: ByteIndex, found: char },
+    UnknownEscapeCode { span: FileSpan, found: char },
     IntegerLiteralOverflow { span: FileSpan, value: String },
 }
 
@@ -252,6 +252,71 @@ impl<'file> Lexer<'file> {
         self.file.span().end()
     }
 
+    fn error_unexpected_character(&self, start: ByteIndex, ch: char) -> LexerError {
+        let span = self.span(start, start + ByteSize::from_char_len_utf8(ch));
+        LexerError::UnexpectedCharacter { span, found: ch }
+    }
+
+    fn error_unexpected_eof(&self) -> LexerError {
+        let eof = self.eof();
+        LexerError::UnexpectedEof {
+            span: FileSpan::new(self.file.id(), eof, eof),
+        }
+    }
+
+    fn error_unterminated_string_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
+        LexerError::UnterminatedStringLiteral {
+            span: self.span(start, end),
+        }
+    }
+
+    fn error_unterminated_char_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
+        LexerError::UnterminatedCharLiteral {
+            span: self.span(start, end),
+        }
+    }
+
+    fn error_unterminated_bin_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
+        LexerError::UnterminatedBinLiteral {
+            span: self.span(start, end),
+        }
+    }
+
+    fn error_unterminated_oct_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
+        LexerError::UnterminatedOctLiteral {
+            span: self.span(start, end),
+        }
+    }
+
+    fn error_unterminated_hex_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
+        LexerError::UnterminatedHexLiteral {
+            span: self.span(start, end),
+        }
+    }
+
+    fn error_empty_char_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
+        LexerError::EmptyCharLiteral {
+            span: self.span(start, end),
+        }
+    }
+
+    fn error_unknown_escape_code(&self, start: ByteIndex, ch: char) -> LexerError {
+        let span = self.span(start, start + ByteSize::from_char_len_utf8(ch));
+        LexerError::UnknownEscapeCode { span, found: ch }
+    }
+
+    fn error_integer_literal_overflow(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+        value: &str,
+    ) -> LexerError {
+        LexerError::IntegerLiteralOverflow {
+            span: self.span(start, end),
+            value: value.to_owned(),
+        }
+    }
+
     /// Return the next character in the source string
     fn lookahead(&self) -> Option<(ByteIndex, char)> {
         self.lookahead.map(|(i, ch)| (ByteIndex::from(i), ch))
@@ -354,8 +419,8 @@ impl<'file> Lexer<'file> {
             Some((_, 'r')) => Ok('\r'),
             Some((_, 't')) => Ok('\t'),
             // TODO: Unicode escape codes
-            Some((start, ch)) => Err(LexerError::UnknownEscapeCode { start, found: ch }),
-            None => Err(LexerError::UnexpectedEof { end: start }),
+            Some((start, ch)) => Err(self.error_unknown_escape_code(start, ch)),
+            None => Err(self.error_unexpected_eof()),
         }
     }
 
@@ -373,9 +438,7 @@ impl<'file> Lexer<'file> {
             }
         }
 
-        Err(LexerError::UnterminatedStringLiteral {
-            span: self.span(start, end),
-        })
+        Err(self.error_unterminated_string_literal(start, end))
     }
 
     /// Consume a character literal
@@ -383,12 +446,13 @@ impl<'file> Lexer<'file> {
         let ch = match self.bump() {
             Some((next, '\\')) => self.escape_code(next)?,
             Some((next, '\'')) => {
-                return Err(LexerError::EmptyCharLiteral {
-                    span: self.span(start, next + ByteSize::from_char_len_utf8('\'')),
-                });
+                let end = next + ByteSize::from_char_len_utf8('\'');
+                return Err(self.error_empty_char_literal(start, end));
             },
             Some((_, ch)) => ch,
-            None => return Err(LexerError::UnexpectedEof { end: start }),
+            None => {
+                return Err(self.error_unexpected_eof());
+            },
         };
 
         match self.bump() {
@@ -397,10 +461,11 @@ impl<'file> Lexer<'file> {
                 Token::CharLiteral(ch),
                 end + ByteSize::from_char_len_utf8('\''),
             )),
-            Some((next, ch)) => Err(LexerError::UnterminatedCharLiteral {
-                span: self.span(start, next + ByteSize::from_char_len_utf8(ch)),
-            }),
-            None => Err(LexerError::UnexpectedEof { end: start }),
+            Some((next, ch)) => {
+                let end = next + ByteSize::from_char_len_utf8(ch);
+                Err(self.error_unterminated_char_literal(start, end))
+            },
+            None => Err(self.error_unexpected_eof()),
         }
     }
 
@@ -412,9 +477,7 @@ impl<'file> Lexer<'file> {
         self.bump(); // skip 'b'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0b"), is_bin_digit);
         if src.is_empty() {
-            Err(LexerError::UnterminatedBinLiteral {
-                span: self.span(start, end),
-            })
+            Err(self.error_unterminated_bin_literal(start, end))
         } else {
             let int = u64::from_str_radix(src, 2).unwrap();
             Ok((start, Token::BinIntLiteral(int), end))
@@ -429,9 +492,7 @@ impl<'file> Lexer<'file> {
         self.bump(); // skip 'o'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0o"), is_oct_digit);
         if src.is_empty() {
-            Err(LexerError::UnterminatedOctLiteral {
-                span: self.span(start, end),
-            })
+            Err(self.error_unterminated_oct_literal(start, end))
         } else {
             let int = u64::from_str_radix(src, 8).unwrap();
             Ok((start, Token::OctIntLiteral(int), end))
@@ -453,10 +514,7 @@ impl<'file> Lexer<'file> {
         } else {
             match u64::from_str_radix(src, 10) {
                 Ok(value) => Ok((start, Token::DecIntLiteral(value), end)),
-                Err(_) => Err(LexerError::IntegerLiteralOverflow {
-                    span: self.span(start, end),
-                    value: src.to_string(),
-                }),
+                Err(_) => Err(self.error_integer_literal_overflow(start, end, src)),
             }
         }
     }
@@ -469,9 +527,7 @@ impl<'file> Lexer<'file> {
         self.bump(); // skip 'x'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0x"), is_hex_digit);
         if src.is_empty() {
-            Err(LexerError::UnterminatedHexLiteral {
-                span: self.span(start, end),
-            })
+            Err(self.error_unterminated_hex_literal(start, end))
         } else {
             let int = u64::from_str_radix(src, 16).unwrap();
             Ok((start, Token::HexIntLiteral(int), end))
@@ -508,7 +564,7 @@ impl<'file> Iterator for Lexer<'file> {
                             self.take_until(start, |ch| ch == '\n');
                             continue;
                         },
-                        _ => Err(LexerError::UnexpectedCharacter { start, found: ch }),
+                        _ => Err(self.error_unexpected_character(start, ch)),
                     }
                 },
                 '\\' => Ok((start, Token::BSlash, end)),
@@ -526,7 +582,7 @@ impl<'file> Iterator for Lexer<'file> {
                 ch if is_name_start(ch) => Ok(self.name(start)),
                 ch if is_dec_digit(ch) => self.dec_literal(start),
                 ch if ch.is_whitespace() => continue,
-                _ => Err(LexerError::UnexpectedCharacter { start, found: ch }),
+                _ => Err(self.error_unexpected_character(start, ch)),
             });
         }
 
