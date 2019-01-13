@@ -125,7 +125,7 @@ impl Files {
         let start = span.start().to_usize();
         let end = span.end().to_usize();
 
-        Some(&self[span.file()].contents[start..end])
+        Some(&self[span.source()].contents[start..end])
     }
 }
 
@@ -134,7 +134,7 @@ impl language_reporting::ReportingFiles for Files {
     type FileId = FileId;
 
     fn file_id(&self, span: Span<FileId>) -> FileId {
-        span.file()
+        span.source()
     }
 
     fn file_name(&self, file_id: FileId) -> language_reporting::FileName {
