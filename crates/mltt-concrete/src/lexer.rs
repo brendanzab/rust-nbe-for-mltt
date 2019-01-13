@@ -39,14 +39,14 @@ fn is_hex_digit(ch: char) -> bool {
 pub enum LexerError {
     UnexpectedCharacter { start: ByteIndex, found: char },
     UnexpectedEof { end: ByteIndex },
-    UnterminatedStringLiteral { span: Span },
-    UnterminatedCharLiteral { span: Span },
-    UnterminatedBinLiteral { span: Span },
-    UnterminatedOctLiteral { span: Span },
-    UnterminatedHexLiteral { span: Span },
-    EmptyCharLiteral { span: Span },
+    UnterminatedStringLiteral { span: Span<FileId> },
+    UnterminatedCharLiteral { span: Span<FileId> },
+    UnterminatedBinLiteral { span: Span<FileId> },
+    UnterminatedOctLiteral { span: Span<FileId> },
+    UnterminatedHexLiteral { span: Span<FileId> },
+    EmptyCharLiteral { span: Span<FileId> },
     UnknownEscapeCode { start: ByteIndex, found: char },
-    IntegerLiteralOverflow { span: Span, value: String },
+    IntegerLiteralOverflow { span: Span<FileId>, value: String },
 }
 
 impl fmt::Display for LexerError {
