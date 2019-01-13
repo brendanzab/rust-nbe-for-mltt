@@ -1,3 +1,4 @@
+use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::fmt;
 use std::str::{CharIndices, FromStr};
@@ -32,54 +33,6 @@ fn is_dec_digit(ch: char) -> bool {
 
 fn is_hex_digit(ch: char) -> bool {
     ch.is_digit(16)
-}
-
-/// An error that occurred while lexing the source file
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LexerError {
-    UnexpectedCharacter { span: FileSpan, found: char },
-    UnexpectedEof { span: FileSpan },
-    UnterminatedStringLiteral { span: FileSpan },
-    UnterminatedCharLiteral { span: FileSpan },
-    UnterminatedBinLiteral { span: FileSpan },
-    UnterminatedOctLiteral { span: FileSpan },
-    UnterminatedHexLiteral { span: FileSpan },
-    EmptyCharLiteral { span: FileSpan },
-    UnknownEscapeCode { span: FileSpan, found: char },
-    IntegerLiteralOverflow { span: FileSpan, value: String },
-}
-
-impl fmt::Display for LexerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            LexerError::UnexpectedCharacter { found, .. } => {
-                write!(f, "An unexpected character {:?} was found.", found)
-            },
-            LexerError::UnexpectedEof { .. } => write!(f, "Unexpected end of file."),
-            LexerError::UnterminatedStringLiteral { .. } => {
-                write!(f, "Unterminated string literal.")
-            },
-            LexerError::UnterminatedCharLiteral { .. } => {
-                write!(f, "Unterminated character literal.")
-            },
-            LexerError::UnterminatedBinLiteral { .. } => {
-                write!(f, "Unterminated a binary literal.")
-            },
-            LexerError::UnterminatedOctLiteral { .. } => write!(f, "Unterminated a octal literal."),
-            LexerError::UnterminatedHexLiteral { .. } => {
-                write!(f, "Unterminated a hexadecimal literal.")
-            },
-            LexerError::EmptyCharLiteral { .. } => write!(f, "Empty character literal."),
-            LexerError::UnknownEscapeCode { found, .. } => {
-                write!(f, "An unknown escape code \\{} was found.", found)
-            },
-            LexerError::IntegerLiteralOverflow { ref value, .. } => write!(
-                f,
-                "An integer literal {} was too large for the target type.",
-                value
-            ),
-        }
-    }
 }
 
 /// A token in the source file, to be emitted by the `Lexer`
@@ -252,57 +205,72 @@ impl<'file> Lexer<'file> {
         self.file.span().end()
     }
 
-    fn error_unexpected_character(&self, start: ByteIndex, ch: char) -> LexerError {
-        let span = self.span(start, start + ByteSize::from_char_len_utf8(ch));
-        LexerError::UnexpectedCharacter { span, found: ch }
+    fn error_unexpected_character(&self, start: ByteIndex, found: char) -> Diagnostic<FileSpan> {
+        let end = start + ByteSize::from_char_len_utf8(found);
+        Diagnostic::new_error(format!("unexpected character `{:?}`", found))
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_unexpected_eof(&self) -> LexerError {
+    fn error_unexpected_eof(&self) -> Diagnostic<FileSpan> {
         let eof = self.eof();
-        LexerError::UnexpectedEof {
-            span: FileSpan::new(self.file.id(), eof, eof),
-        }
+        Diagnostic::new_error("unexpected end of file")
+            .with_label(Label::new_primary(self.span(eof, eof)))
     }
 
-    fn error_unterminated_string_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
-        LexerError::UnterminatedStringLiteral {
-            span: self.span(start, end),
-        }
+    fn error_unterminated_string_literal(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error("unterminated string literal")
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_unterminated_char_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
-        LexerError::UnterminatedCharLiteral {
-            span: self.span(start, end),
-        }
+    fn error_unterminated_char_literal(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error("unterminated character literal")
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_unterminated_bin_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
-        LexerError::UnterminatedBinLiteral {
-            span: self.span(start, end),
-        }
+    fn error_unterminated_bin_literal(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error("unterminated binary literal")
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_unterminated_oct_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
-        LexerError::UnterminatedOctLiteral {
-            span: self.span(start, end),
-        }
+    fn error_unterminated_oct_literal(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error("unterminated octal literal")
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_unterminated_hex_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
-        LexerError::UnterminatedHexLiteral {
-            span: self.span(start, end),
-        }
+    fn error_unterminated_hex_literal(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error("unterminated hexadecimal literal")
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_empty_char_literal(&self, start: ByteIndex, end: ByteIndex) -> LexerError {
-        LexerError::EmptyCharLiteral {
-            span: self.span(start, end),
-        }
+    fn error_empty_char_literal(&self, start: ByteIndex, end: ByteIndex) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error("empty character literal")
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
-    fn error_unknown_escape_code(&self, start: ByteIndex, ch: char) -> LexerError {
-        let span = self.span(start, start + ByteSize::from_char_len_utf8(ch));
-        LexerError::UnknownEscapeCode { span, found: ch }
+    fn error_unknown_escape_code(&self, start: ByteIndex, found: char) -> Diagnostic<FileSpan> {
+        let end = start + ByteSize::from_char_len_utf8(found);
+        Diagnostic::new_error(format!("unknown escape code `\\{}`", found))
+            .with_label(Label::new_primary(self.span(start, end)))
     }
 
     fn error_integer_literal_overflow(
@@ -310,11 +278,11 @@ impl<'file> Lexer<'file> {
         start: ByteIndex,
         end: ByteIndex,
         value: &str,
-    ) -> LexerError {
-        LexerError::IntegerLiteralOverflow {
-            span: self.span(start, end),
-            value: value.to_owned(),
-        }
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error(format!("integer literal overflow with value `{}`", value))
+            .with_label(
+                Label::new_primary(self.span(start, end)).with_message("overflowing literal"),
+            )
     }
 
     /// Return the next character in the source string
@@ -409,7 +377,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume an escape code
-    fn escape_code(&mut self, start: ByteIndex) -> Result<char, LexerError> {
+    fn escape_code(&mut self) -> Result<char, Diagnostic<FileSpan>> {
         match self.bump() {
             Some((_, '\'')) => Ok('\''),
             Some((_, '"')) => Ok('"'),
@@ -425,14 +393,17 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a string literal
-    fn string_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, LexerError> {
+    fn string_literal(
+        &mut self,
+        start: ByteIndex,
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         let mut string = String::new();
         let mut end = start;
 
         while let Some((next, ch)) = self.bump() {
             end = next + ByteSize::from_char_len_utf8(ch);
             match ch {
-                '\\' => string.push(self.escape_code(next)?),
+                '\\' => string.push(self.escape_code()?),
                 '"' => return Ok((start, Token::StringLiteral(string), end)),
                 ch => string.push(ch),
             }
@@ -442,9 +413,12 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a character literal
-    fn char_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, LexerError> {
+    fn char_literal(
+        &mut self,
+        start: ByteIndex,
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         let ch = match self.bump() {
-            Some((next, '\\')) => self.escape_code(next)?,
+            Some((_, '\\')) => self.escape_code()?,
             Some((next, '\'')) => {
                 let end = next + ByteSize::from_char_len_utf8('\'');
                 return Err(self.error_empty_char_literal(start, end));
@@ -473,7 +447,7 @@ impl<'file> Lexer<'file> {
     fn bin_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
         self.bump(); // skip 'b'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0b"), is_bin_digit);
         if src.is_empty() {
@@ -488,7 +462,7 @@ impl<'file> Lexer<'file> {
     fn oct_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
         self.bump(); // skip 'o'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0o"), is_oct_digit);
         if src.is_empty() {
@@ -500,7 +474,10 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a decimal literal
-    fn dec_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, LexerError> {
+    fn dec_literal(
+        &mut self,
+        start: ByteIndex,
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         let (end, src) = self.take_while(start, is_dec_digit);
 
         if let Some((_, '.')) = self.lookahead() {
@@ -523,7 +500,7 @@ impl<'file> Lexer<'file> {
     fn hex_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
         self.bump(); // skip 'x'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0x"), is_hex_digit);
         if src.is_empty() {
@@ -538,9 +515,9 @@ impl<'file> Lexer<'file> {
 pub type SpannedToken<'file> = (ByteIndex, Token<&'file str>, ByteIndex);
 
 impl<'file> Iterator for Lexer<'file> {
-    type Item = Result<SpannedToken<'file>, LexerError>;
+    type Item = Result<SpannedToken<'file>, Diagnostic<FileSpan>>;
 
-    fn next(&mut self) -> Option<Result<SpannedToken<'file>, LexerError>> {
+    fn next(&mut self) -> Option<Result<SpannedToken<'file>, Diagnostic<FileSpan>>> {
         while let Some((start, ch)) = self.bump() {
             let end = start + ByteSize::from_char_len_utf8(ch);
 
@@ -603,7 +580,9 @@ mod tests {
         ($src:expr, $($span:expr => $token:expr,)*) => {{
             let mut files = Files::new();
             let file_id = files.add("test", $src);
-            let lexed_tokens: Vec<_> = Lexer::new(&files[file_id]).collect();
+            let lexed_tokens: Vec<_> = Lexer::new(&files[file_id])
+                .map(|result| result.map_err(|err| format!("{:?}", err)))
+                .collect();
             let expected_tokens = vec![$({
                 let start = ByteIndex::from($span.find("~").unwrap());
                 let end = ByteIndex::from($span.rfind("~").unwrap()) + ByteSize::from(1);
