@@ -1,6 +1,6 @@
 use std::ops;
 
-use crate::{ByteIndex, ColumnIndex, LineIndex, Location, Span};
+use crate::{ByteIndex, ByteSize, ColumnIndex, LineIndex, LineSize, Location, Span};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileId(usize);
@@ -65,16 +65,16 @@ impl Files {
         let source = &self[file_id].contents;
         let line = line.into();
         let column = column.into();
-        let mut seen_lines = 0;
-        let mut seen_bytes = 0;
+        let mut current_line = LineIndex::from(0);
+        let mut current_byte = ByteIndex::from(0);
 
         for (pos, _) in source.match_indices('\n') {
-            if seen_lines == line.to_usize() {
-                // FIXME: Column != byte width for larger unicode characters
-                return Some(ByteIndex::from(seen_bytes + column.to_usize()));
+            let pos = ByteIndex::from(pos);
+            if current_line >= line {
+                return Some(column.to_byte_index(source, current_byte));
             } else {
-                seen_lines += 1;
-                seen_bytes = pos + 1;
+                current_line += LineSize::from(1);
+                current_byte = pos + ByteSize::from_char_utf8('\n');
             }
         }
 
@@ -84,20 +84,20 @@ impl Files {
     pub fn location(&self, file_id: FileId, byte: impl Into<ByteIndex>) -> Option<Location> {
         let source = &self[file_id].contents;
         let byte = byte.into();
-        let mut seen_lines = 0;
-        let mut seen_bytes = 0;
+        let mut current_line = LineIndex::from(0);
+        let mut current_byte = ByteIndex::from(0);
 
         for (pos, _) in source.match_indices('\n') {
-            if pos > byte.to_usize() {
+            let pos = ByteIndex::from(pos);
+            if pos > byte {
                 return Some(Location {
                     byte,
-                    line: LineIndex::from(seen_lines),
-                    // FIXME: Column != byte width for larger unicode characters
-                    column: ColumnIndex::from(byte.to_usize() - seen_bytes),
+                    line: LineIndex::from(current_line),
+                    column: ColumnIndex::from_str(source, byte, current_byte),
                 });
             } else {
-                seen_lines += 1;
-                seen_bytes = pos;
+                current_line += LineSize::from(1);
+                current_byte = pos;
             }
         }
 
@@ -107,15 +107,16 @@ impl Files {
     pub fn line_span(&self, file_id: FileId, line: impl Into<LineIndex>) -> Option<Span<FileId>> {
         let source = &self[file_id].contents;
         let line = line.into();
-        let mut seen_lines = 0;
-        let mut seen_bytes = 0;
+        let mut current_line = LineIndex::from(0);
+        let mut current_byte = ByteIndex::from(0);
 
         for (pos, _) in source.match_indices('\n') {
-            if seen_lines >= line.to_usize() {
-                return Some(Span::new(file_id, seen_bytes, pos));
+            let pos = ByteIndex::from(pos);
+            if current_line >= line {
+                return Some(Span::new(file_id, current_byte, pos));
             } else {
-                seen_lines += 1;
-                seen_bytes = pos + 1;
+                current_line += LineSize::from(1);
+                current_byte = pos + ByteSize::from_char_utf8('\n');
             }
         }
 
