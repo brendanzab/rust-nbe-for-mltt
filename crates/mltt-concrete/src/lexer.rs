@@ -1,4 +1,4 @@
-use mltt_span::{ByteIndex, ByteSize, FileId, Span};
+use mltt_span::{ByteIndex, ByteSize, File, FileId, Span};
 use std::fmt;
 use std::str::{CharIndices, FromStr};
 
@@ -177,8 +177,8 @@ impl<S: fmt::Display> fmt::Display for Token<S> {
     }
 }
 
-impl<'input> From<Token<&'input str>> for Token<String> {
-    fn from(src: Token<&'input str>) -> Token<String> {
+impl<'file> From<Token<&'file str>> for Token<String> {
+    fn from(src: Token<&'file str>) -> Token<String> {
         match src {
             Token::Name(name) => Token::Name(name.to_owned()),
             Token::DocComment(comment) => Token::DocComment(comment.to_owned()),
@@ -224,21 +224,19 @@ impl<'input> From<Token<&'input str>> for Token<String> {
 
 /// An iterator over a source string that yields `Token`s for subsequent use by
 /// the parser
-pub struct Lexer<'input> {
-    file_id: FileId,
-    src: &'input str,
-    chars: CharIndices<'input>,
+pub struct Lexer<'file> {
+    file: &'file File,
+    chars: CharIndices<'file>,
     lookahead: Option<(usize, char)>,
 }
 
-impl<'input> Lexer<'input> {
+impl<'file> Lexer<'file> {
     /// Create a new lexer from the source string
-    pub fn new(file_id: FileId, src: &'input str) -> Self {
-        let mut chars = src.char_indices();
+    pub fn new(file: &'file File) -> Self {
+        let mut chars = file.contents().char_indices();
 
         Lexer {
-            file_id,
-            src,
+            file,
             lookahead: chars.next(),
             chars,
         }
@@ -246,7 +244,7 @@ impl<'input> Lexer<'input> {
 
     /// Returns the index of the end of the file
     fn eof(&self) -> ByteIndex {
-        ByteIndex::from(self.src.len())
+        self.file.span().end()
     }
 
     /// Return the next character in the source string
@@ -263,8 +261,8 @@ impl<'input> Lexer<'input> {
     }
 
     /// Return a slice of the source string
-    fn slice(&self, start: ByteIndex, end: ByteIndex) -> &'input str {
-        &self.src[start.to_usize()..end.to_usize()]
+    fn slice(&self, start: ByteIndex, end: ByteIndex) -> &'file str {
+        &self.file.contents()[start.to_usize()..end.to_usize()]
     }
 
     /// Test a predicate against the next character in the source
@@ -278,7 +276,7 @@ impl<'input> Lexer<'input> {
     /// Consume characters while the predicate matches for the current
     /// character, then return the consumed slice and the end byte
     /// position.
-    fn take_while<F>(&mut self, start: ByteIndex, mut keep_going: F) -> (ByteIndex, &'input str)
+    fn take_while<F>(&mut self, start: ByteIndex, mut keep_going: F) -> (ByteIndex, &'file str)
     where
         F: FnMut(char) -> bool,
     {
@@ -288,7 +286,7 @@ impl<'input> Lexer<'input> {
     /// Consume characters until the predicate matches for the next character
     /// in the lookahead, then return the consumed slice and the end byte
     /// position.
-    fn take_until<F>(&mut self, start: ByteIndex, mut terminate: F) -> (ByteIndex, &'input str)
+    fn take_until<F>(&mut self, start: ByteIndex, mut terminate: F) -> (ByteIndex, &'file str)
     where
         F: FnMut(char) -> bool,
     {
@@ -305,7 +303,7 @@ impl<'input> Lexer<'input> {
     }
 
     /// Consume a doc comment
-    fn doc_comment(&mut self, start: ByteIndex) -> SpannedToken<'input> {
+    fn doc_comment(&mut self, start: ByteIndex) -> SpannedToken<'file> {
         let (end, mut comment) =
             self.take_until(start + ByteSize::from_str("|||"), |ch| ch == '\n');
 
@@ -318,7 +316,7 @@ impl<'input> Lexer<'input> {
     }
 
     /// Consume an name
-    fn name(&mut self, start: ByteIndex) -> SpannedToken<'input> {
+    fn name(&mut self, start: ByteIndex) -> SpannedToken<'file> {
         let (end, name) = self.take_while(start, is_name_continue);
 
         let token = match name {
@@ -357,7 +355,7 @@ impl<'input> Lexer<'input> {
     }
 
     /// Consume a string literal
-    fn string_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'input>, LexerError> {
+    fn string_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, LexerError> {
         let mut string = String::new();
         let mut end = start;
 
@@ -371,17 +369,17 @@ impl<'input> Lexer<'input> {
         }
 
         Err(LexerError::UnterminatedStringLiteral {
-            span: Span::new(self.file_id, start, end),
+            span: Span::new(self.file.id(), start, end),
         })
     }
 
     /// Consume a character literal
-    fn char_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'input>, LexerError> {
+    fn char_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, LexerError> {
         let ch = match self.bump() {
             Some((next, '\\')) => self.escape_code(next)?,
             Some((next, '\'')) => {
                 return Err(LexerError::EmptyCharLiteral {
-                    span: Span::new(self.file_id, start, next + ByteSize::from_char_utf8('\'')),
+                    span: Span::new(self.file.id(), start, next + ByteSize::from_char_utf8('\'')),
                 });
             },
             Some((_, ch)) => ch,
@@ -395,7 +393,7 @@ impl<'input> Lexer<'input> {
                 end + ByteSize::from_char_utf8('\''),
             )),
             Some((next, ch)) => Err(LexerError::UnterminatedCharLiteral {
-                span: Span::new(self.file_id, start, next + ByteSize::from_char_utf8(ch)),
+                span: Span::new(self.file.id(), start, next + ByteSize::from_char_utf8(ch)),
             }),
             None => Err(LexerError::UnexpectedEof { end: start }),
         }
@@ -405,12 +403,12 @@ impl<'input> Lexer<'input> {
     fn bin_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'input str>, ByteIndex), LexerError> {
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
         self.bump(); // skip 'b'
         let (end, src) = self.take_while(start + ByteSize::from(2), is_bin_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedBinLiteral {
-                span: Span::new(self.file_id, start, end),
+                span: Span::new(self.file.id(), start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 2).unwrap();
@@ -422,12 +420,12 @@ impl<'input> Lexer<'input> {
     fn oct_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'input str>, ByteIndex), LexerError> {
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
         self.bump(); // skip 'o'
         let (end, src) = self.take_while(start + ByteSize::from(2), is_oct_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedOctLiteral {
-                span: Span::new(self.file_id, start, end),
+                span: Span::new(self.file.id(), start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 8).unwrap();
@@ -436,7 +434,7 @@ impl<'input> Lexer<'input> {
     }
 
     /// Consume a decimal literal
-    fn dec_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'input>, LexerError> {
+    fn dec_literal(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, LexerError> {
         let (end, src) = self.take_while(start, is_dec_digit);
 
         if let Some((_, '.')) = self.lookahead() {
@@ -451,7 +449,7 @@ impl<'input> Lexer<'input> {
             match u64::from_str_radix(src, 10) {
                 Ok(value) => Ok((start, Token::DecIntLiteral(value), end)),
                 Err(_) => Err(LexerError::IntegerLiteralOverflow {
-                    span: Span::new(self.file_id, start, end),
+                    span: Span::new(self.file.id(), start, end),
                     value: src.to_string(),
                 }),
             }
@@ -462,12 +460,12 @@ impl<'input> Lexer<'input> {
     fn hex_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'input str>, ByteIndex), LexerError> {
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
         self.bump(); // skip 'x'
         let (end, src) = self.take_while(start + ByteSize::from(2), is_hex_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedHexLiteral {
-                span: Span::new(self.file_id, start, end),
+                span: Span::new(self.file.id(), start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 16).unwrap();
@@ -476,12 +474,12 @@ impl<'input> Lexer<'input> {
     }
 }
 
-pub type SpannedToken<'input> = (ByteIndex, Token<&'input str>, ByteIndex);
+pub type SpannedToken<'file> = (ByteIndex, Token<&'file str>, ByteIndex);
 
-impl<'input> Iterator for Lexer<'input> {
-    type Item = Result<SpannedToken<'input>, LexerError>;
+impl<'file> Iterator for Lexer<'file> {
+    type Item = Result<SpannedToken<'file>, LexerError>;
 
-    fn next(&mut self) -> Option<Result<SpannedToken<'input>, LexerError>> {
+    fn next(&mut self) -> Option<Result<SpannedToken<'file>, LexerError>> {
         while let Some((start, ch)) = self.bump() {
             let end = start + ByteSize::from_char_utf8(ch);
 
@@ -544,7 +542,7 @@ mod tests {
         ($src:expr, $($span:expr => $token:expr,)*) => {{
             let mut files = Files::new();
             let file_id = files.add("test", $src);
-            let lexed_tokens: Vec<_> = Lexer::new(file_id, &files[file_id].contents).collect();
+            let lexed_tokens: Vec<_> = Lexer::new(&files[file_id]).collect();
             let expected_tokens = vec![$({
                 let start = ByteIndex::from($span.find("~").unwrap());
                 let end = ByteIndex::from($span.rfind("~").unwrap()) + ByteSize::from(1);

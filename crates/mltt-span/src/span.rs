@@ -24,11 +24,8 @@ impl<File: Copy + PartialEq> Span<File> {
         Span::new(file, 0, 0)
     }
 
-    /// Gives the "EOF" span for a file with the given text. This is an empty
-    /// span pointing at the end.
-    pub fn eof(file: File, text: &str) -> Span<File> {
-        let len = text.len();
-        Span::new(file, len, len)
+    pub fn from_str(file: File, s: &str) -> Span<File> {
+        Span::new(file, 0, s.len())
     }
 
     pub fn with_start(&self, start: impl Into<ByteIndex>) -> Span<File> {

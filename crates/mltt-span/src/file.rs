@@ -13,8 +13,27 @@ impl FileId {
 
 #[derive(Debug, Clone)]
 pub struct File {
-    pub name: String,
-    pub contents: String,
+    id: FileId,
+    name: String,
+    contents: String,
+}
+
+impl File {
+    pub fn id(&self) -> FileId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn contents(&self) -> &str {
+        &self.contents
+    }
+
+    pub fn span(&self) -> Span<FileId> {
+        Span::from_str(self.id(), self.contents())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +49,7 @@ impl Files {
     pub fn add(&mut self, name: impl Into<String>, contents: impl Into<String>) -> FileId {
         let file_id = FileId(self.files.len());
         self.files.push(File {
+            id: file_id,
             name: name.into(),
             contents: contents.into(),
         });
@@ -127,7 +147,14 @@ impl language_reporting::ReportingFiles for Files {
         from_index: usize,
         to_index: usize,
     ) -> Option<Span<FileId>> {
-        Some(Span::new(file_id, from_index, to_index)) // FIXME: Check file span?
+        let file_span = self[file_id].span();
+        let span = Span::new(file_id, from_index, to_index);
+
+        if file_span.contains(span) {
+            Some(span)
+        } else {
+            None
+        }
     }
 
     fn byte_index(&self, file_id: FileId, line: usize, column: usize) -> Option<usize> {

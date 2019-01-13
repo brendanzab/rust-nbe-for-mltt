@@ -15,12 +15,11 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
     let mut files = Files::new();
     let file_id = files.add("test", src);
 
-    Lexer::new(file_id, &files[file_id].contents)
-        .for_each(|token| println!("{}", token.unwrap().1));
+    Lexer::new(&files[file_id]).for_each(|token| println!("{}", token.unwrap().1));
 
     // TODO:
 
-    // let (concrete_module, errors) = parser::parse_module(Lexer::new(&src));
+    // let (concrete_module, errors) = parser::parse_module(Lexer::new(&files[file_id]));
     // assert_eq!(errors, vec![]);
 
     // let raw_module = desugar::desugar_module(&raw_module);
