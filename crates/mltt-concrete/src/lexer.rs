@@ -1,4 +1,4 @@
-use mltt_span::{ByteIndex, ByteSize, File, FileId, Span};
+use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::fmt;
 use std::str::{CharIndices, FromStr};
 
@@ -39,14 +39,14 @@ fn is_hex_digit(ch: char) -> bool {
 pub enum LexerError {
     UnexpectedCharacter { start: ByteIndex, found: char },
     UnexpectedEof { end: ByteIndex },
-    UnterminatedStringLiteral { span: Span<FileId> },
-    UnterminatedCharLiteral { span: Span<FileId> },
-    UnterminatedBinLiteral { span: Span<FileId> },
-    UnterminatedOctLiteral { span: Span<FileId> },
-    UnterminatedHexLiteral { span: Span<FileId> },
-    EmptyCharLiteral { span: Span<FileId> },
+    UnterminatedStringLiteral { span: FileSpan },
+    UnterminatedCharLiteral { span: FileSpan },
+    UnterminatedBinLiteral { span: FileSpan },
+    UnterminatedOctLiteral { span: FileSpan },
+    UnterminatedHexLiteral { span: FileSpan },
+    EmptyCharLiteral { span: FileSpan },
     UnknownEscapeCode { start: ByteIndex, found: char },
-    IntegerLiteralOverflow { span: Span<FileId>, value: String },
+    IntegerLiteralOverflow { span: FileSpan, value: String },
 }
 
 impl fmt::Display for LexerError {
@@ -242,6 +242,11 @@ impl<'file> Lexer<'file> {
         }
     }
 
+    /// Returns a span in the source file
+    fn span(&self, start: ByteIndex, end: ByteIndex) -> FileSpan {
+        FileSpan::new(self.file.id(), start, end)
+    }
+
     /// Returns the index of the end of the file
     fn eof(&self) -> ByteIndex {
         self.file.span().end()
@@ -369,7 +374,7 @@ impl<'file> Lexer<'file> {
         }
 
         Err(LexerError::UnterminatedStringLiteral {
-            span: Span::new(self.file.id(), start, end),
+            span: self.span(start, end),
         })
     }
 
@@ -379,7 +384,7 @@ impl<'file> Lexer<'file> {
             Some((next, '\\')) => self.escape_code(next)?,
             Some((next, '\'')) => {
                 return Err(LexerError::EmptyCharLiteral {
-                    span: Span::new(self.file.id(), start, next + ByteSize::from_char_utf8('\'')),
+                    span: self.span(start, next + ByteSize::from_char_utf8('\'')),
                 });
             },
             Some((_, ch)) => ch,
@@ -393,7 +398,7 @@ impl<'file> Lexer<'file> {
                 end + ByteSize::from_char_utf8('\''),
             )),
             Some((next, ch)) => Err(LexerError::UnterminatedCharLiteral {
-                span: Span::new(self.file.id(), start, next + ByteSize::from_char_utf8(ch)),
+                span: self.span(start, next + ByteSize::from_char_utf8(ch)),
             }),
             None => Err(LexerError::UnexpectedEof { end: start }),
         }
@@ -408,7 +413,7 @@ impl<'file> Lexer<'file> {
         let (end, src) = self.take_while(start + ByteSize::from_str("0b"), is_bin_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedBinLiteral {
-                span: Span::new(self.file.id(), start, end),
+                span: self.span(start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 2).unwrap();
@@ -425,7 +430,7 @@ impl<'file> Lexer<'file> {
         let (end, src) = self.take_while(start + ByteSize::from_str("0o"), is_oct_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedOctLiteral {
-                span: Span::new(self.file.id(), start, end),
+                span: self.span(start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 8).unwrap();
@@ -449,7 +454,7 @@ impl<'file> Lexer<'file> {
             match u64::from_str_radix(src, 10) {
                 Ok(value) => Ok((start, Token::DecIntLiteral(value), end)),
                 Err(_) => Err(LexerError::IntegerLiteralOverflow {
-                    span: Span::new(self.file.id(), start, end),
+                    span: self.span(start, end),
                     value: src.to_string(),
                 }),
             }
@@ -465,7 +470,7 @@ impl<'file> Lexer<'file> {
         let (end, src) = self.take_while(start + ByteSize::from_str("0x"), is_hex_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedHexLiteral {
-                span: Span::new(self.file.id(), start, end),
+                span: self.span(start, end),
             })
         } else {
             let int = u64::from_str_radix(src, 16).unwrap();
