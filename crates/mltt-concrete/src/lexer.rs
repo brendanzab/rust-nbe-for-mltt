@@ -405,7 +405,7 @@ impl<'file> Lexer<'file> {
         start: ByteIndex,
     ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
         self.bump(); // skip 'b'
-        let (end, src) = self.take_while(start + ByteSize::from(2), is_bin_digit);
+        let (end, src) = self.take_while(start + ByteSize::from_str("0b"), is_bin_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedBinLiteral {
                 span: Span::new(self.file.id(), start, end),
@@ -422,7 +422,7 @@ impl<'file> Lexer<'file> {
         start: ByteIndex,
     ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
         self.bump(); // skip 'o'
-        let (end, src) = self.take_while(start + ByteSize::from(2), is_oct_digit);
+        let (end, src) = self.take_while(start + ByteSize::from_str("0o"), is_oct_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedOctLiteral {
                 span: Span::new(self.file.id(), start, end),
@@ -462,7 +462,7 @@ impl<'file> Lexer<'file> {
         start: ByteIndex,
     ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), LexerError> {
         self.bump(); // skip 'x'
-        let (end, src) = self.take_while(start + ByteSize::from(2), is_hex_digit);
+        let (end, src) = self.take_while(start + ByteSize::from_str("0x"), is_hex_digit);
         if src.is_empty() {
             Err(LexerError::UnterminatedHexLiteral {
                 span: Span::new(self.file.id(), start, end),
