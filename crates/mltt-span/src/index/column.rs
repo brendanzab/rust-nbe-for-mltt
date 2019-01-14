@@ -3,7 +3,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{ByteIndex, ByteSize};
 
-/// 0-based column number, in utf-8 characters
+/// 0-based column number, segmented using grapheme clusters
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ColumnIndex(usize);
 
