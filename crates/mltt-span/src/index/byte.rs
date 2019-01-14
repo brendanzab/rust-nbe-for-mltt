@@ -42,15 +42,15 @@ impl ops::Sub<ByteIndex> for ByteIndex {
 pub struct ByteSize(usize);
 
 impl ByteSize {
-    pub fn from_char_utf8(ch: char) -> ByteSize {
+    pub fn from_char_len_utf8(ch: char) -> ByteSize {
         ByteSize::from(ch.len_utf8())
     }
 
-    pub fn from_char_utf16(ch: char) -> ByteSize {
+    pub fn from_char_len_utf16(ch: char) -> ByteSize {
         ByteSize::from(ch.len_utf16())
     }
 
-    pub fn from_str(s: &str) -> ByteSize {
+    pub fn from_str_len_utf8(s: &str) -> ByteSize {
         ByteSize::from(s.len())
     }
 

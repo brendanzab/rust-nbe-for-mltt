@@ -80,7 +80,7 @@ impl Files {
                 return Some(column.to_byte_index(source, current_byte));
             } else {
                 current_line += LineSize::from(1);
-                current_byte = pos + ByteSize::from_char_utf8('\n');
+                current_byte = pos + ByteSize::from_char_len_utf8('\n');
             }
         }
 
@@ -122,7 +122,7 @@ impl Files {
                 return Some(Span::new(file_id, current_byte, pos));
             } else {
                 current_line += LineSize::from(1);
-                current_byte = pos + ByteSize::from_char_utf8('\n');
+                current_byte = pos + ByteSize::from_char_len_utf8('\n');
             }
         }
 

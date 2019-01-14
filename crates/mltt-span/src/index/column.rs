@@ -21,7 +21,7 @@ impl ColumnIndex {
     pub fn to_byte_size(self, line_src: &str) -> ByteSize {
         line_src
             .graphemes(true)
-            .map(ByteSize::from_str)
+            .map(ByteSize::from_str_len_utf8)
             .fold(ByteSize::from(0), |acc, size| acc + size)
     }
 
