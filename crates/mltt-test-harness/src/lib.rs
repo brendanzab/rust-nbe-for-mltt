@@ -1,8 +1,8 @@
 // use mltt_concrete::desugar;
 // use mltt_concrete::elaborate;
-use mltt_concrete::lexer::Lexer;
-// use mltt_concrete::parser;
 // use mltt_core::validate;
+use mltt_parse::lexer::Lexer;
+// use mltt_parse::parser;
 use mltt_span::Files;
 use std::fs;
 use std::path::Path;

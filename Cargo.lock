@@ -83,6 +83,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mltt-parse"
+version = "0.1.0"
+dependencies = [
+ "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
+ "mltt-span 0.1.0",
+]
+
+[[package]]
 name = "mltt-span"
 version = "0.1.0"
 dependencies = [
@@ -111,6 +119,7 @@ version = "0.1.0"
 dependencies = [
  "mltt-concrete 0.1.0",
  "mltt-core 0.1.0",
+ "mltt-parse 0.1.0",
  "mltt-span 0.1.0",
 ]
 

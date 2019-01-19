@@ -9,4 +9,5 @@ publish = false
 [dependencies]
 mltt-concrete = { path = "../mltt-concrete"}
 mltt-core = { path = "../mltt-core"}
+mltt-parse = { path = "../mltt-parse"}
 mltt-span = { path = "../mltt-span"}
