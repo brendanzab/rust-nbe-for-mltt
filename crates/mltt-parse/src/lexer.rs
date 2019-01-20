@@ -196,7 +196,7 @@ impl<'file> Iterator for Lexer<'file> {
             let end = start + ByteSize::from_char_len_utf8(ch);
 
             return Some(match ch {
-                ch if is_symbol(ch) => self.symbol(start),
+                ch if is_symbol(ch) => self.continue_symbol(start),
                 '\\' => Ok((start, Token::BSlash, end)),
                 '(' => Ok((start, Token::LParen, end)),
                 ')' => Ok((start, Token::RParen, end)),
@@ -204,13 +204,13 @@ impl<'file> Iterator for Lexer<'file> {
                 '}' => Ok((start, Token::RBrace, end)),
                 '[' => Ok((start, Token::LBracket, end)),
                 ']' => Ok((start, Token::RBracket, end)),
-                '"' => self.string_literal(start),
-                '\'' => self.char_literal(start),
-                '0' if self.test_lookahead(|x| x == 'b') => self.bin_literal(start),
-                '0' if self.test_lookahead(|x| x == 'o') => self.oct_literal(start),
-                '0' if self.test_lookahead(|x| x == 'x') => self.hex_literal(start),
-                ch if is_name_start(ch) => Ok(self.name(start)),
-                ch if is_dec_digit(ch) => self.dec_literal(start),
+                '"' => self.continue_string_literal(start),
+                '\'' => self.continue_char_literal(start),
+                '0' if self.test_lookahead(|x| x == 'b') => self.continue_bin_literal(start),
+                '0' if self.test_lookahead(|x| x == 'o') => self.continue_oct_literal(start),
+                '0' if self.test_lookahead(|x| x == 'x') => self.continue_hex_literal(start),
+                ch if is_dec_digit(ch) => self.continue_dec_literal(start),
+                ch if is_name_start(ch) => Ok(self.continue_name(start)),
                 ch if ch.is_whitespace() => continue,
                 _ => Err(self.error_unexpected_character(start, ch)),
             });
@@ -388,7 +388,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a line comment
-    fn line_comment(&mut self, start: ByteIndex) -> SpannedToken<'file> {
+    fn continue_line_comment(&mut self, start: ByteIndex) -> SpannedToken<'file> {
         let (end, mut comment) =
             self.take_until(start + ByteSize::from_str_len_utf8("--"), |ch| ch == '\n');
 
@@ -401,7 +401,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a doc comment
-    fn line_doc(&mut self, start: ByteIndex) -> SpannedToken<'file> {
+    fn continue_line_doc(&mut self, start: ByteIndex) -> SpannedToken<'file> {
         let (end, mut comment) =
             self.take_until(start + ByteSize::from_str_len_utf8("|||"), |ch| ch == '\n');
 
@@ -414,7 +414,10 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a symbol
-    fn symbol(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
+    fn continue_symbol(
+        &mut self,
+        start: ByteIndex,
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         let (end, symbol) = self.take_while(start, is_symbol);
 
         match symbol {
@@ -428,14 +431,14 @@ impl<'file> Lexer<'file> {
             "=>" => Ok((start, Token::LFatArrow, end)),
             "?" => Ok((start, Token::Question, end)),
             ";" => Ok((start, Token::Semi, end)),
-            symbol if symbol.starts_with("|||") => Ok(self.line_doc(start)),
-            symbol if symbol.starts_with("--") => Ok(self.line_comment(start)),
+            symbol if symbol.starts_with("|||") => Ok(self.continue_line_doc(start)),
+            symbol if symbol.starts_with("--") => Ok(self.continue_line_comment(start)),
             _ => Err(self.error_unexpected_symbol(start, end, symbol)),
         }
     }
 
-    /// Consume an name
-    fn name(&mut self, start: ByteIndex) -> SpannedToken<'file> {
+    /// Consume a name
+    fn continue_name(&mut self, start: ByteIndex) -> SpannedToken<'file> {
         let (end, name) = self.take_while(start, is_name_continue);
 
         let token = match name {
@@ -458,7 +461,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume an escape code
-    fn escape_code(&mut self) -> Result<char, Diagnostic<FileSpan>> {
+    fn start_escape(&mut self) -> Result<char, Diagnostic<FileSpan>> {
         match self.bump() {
             Some((_, '\'')) => Ok('\''),
             Some((_, '"')) => Ok('"'),
@@ -474,7 +477,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a string literal
-    fn string_literal(
+    fn continue_string_literal(
         &mut self,
         start: ByteIndex,
     ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
@@ -484,7 +487,7 @@ impl<'file> Lexer<'file> {
         while let Some((next, ch)) = self.bump() {
             end = next + ByteSize::from_char_len_utf8(ch);
             match ch {
-                '\\' => string.push(self.escape_code()?),
+                '\\' => string.push(self.start_escape()?),
                 '"' => return Ok((start, Token::StringLiteral(string), end)),
                 ch => string.push(ch),
             }
@@ -494,12 +497,12 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a character literal
-    fn char_literal(
+    fn continue_char_literal(
         &mut self,
         start: ByteIndex,
     ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         let ch = match self.bump() {
-            Some((_, '\\')) => self.escape_code()?,
+            Some((_, '\\')) => self.start_escape()?,
             Some((next, '\'')) => {
                 let end = next + ByteSize::from_char_len_utf8('\'');
                 return Err(self.error_empty_char_literal(start, end));
@@ -525,7 +528,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a binary literal token
-    fn bin_literal(
+    fn continue_bin_literal(
         &mut self,
         start: ByteIndex,
     ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
@@ -540,7 +543,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a octal literal token
-    fn oct_literal(
+    fn continue_oct_literal(
         &mut self,
         start: ByteIndex,
     ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
@@ -555,7 +558,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a decimal literal
-    fn dec_literal(
+    fn continue_dec_literal(
         &mut self,
         start: ByteIndex,
     ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
@@ -578,7 +581,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a hexadecimal literal token
-    fn hex_literal(
+    fn continue_hex_literal(
         &mut self,
         start: ByteIndex,
     ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
