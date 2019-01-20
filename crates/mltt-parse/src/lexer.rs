@@ -375,19 +375,28 @@ impl<'file> Lexer<'file> {
 
         if let Some((_, '.')) = self.lookahead() {
             self.bump(); // skip '.'
-            let (end, digits) = self.separated_digits(is_dec_digit); // FIXME: Should not be able to start with `_`
-
-            if digits == 0 {
-                return Err(
-                    Diagnostic::new_error("no valid digits found after decimal place")
-                        .with_label(Label::new_primary(self.span(start, end))),
-                );
-            }
-
-            Ok(self.emit(TokenTag::FloatLiteral, start, end))
+            self.continue_float_literal(start)
         } else {
             Ok(self.emit(TokenTag::IntLiteral, start, end))
         }
+    }
+
+    /// Consume a float literal
+    fn continue_float_literal(
+        &mut self,
+        start: ByteIndex,
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        // FIXME: Should not be able to start with `_`
+        let (end, digits) = self.separated_digits(is_dec_digit);
+
+        if digits == 0 {
+            return Err(
+                Diagnostic::new_error("no valid digits found after decimal place")
+                    .with_label(Label::new_primary(self.span(start, end))),
+            );
+        }
+
+        Ok(self.emit(TokenTag::FloatLiteral, start, end))
     }
 }
 
