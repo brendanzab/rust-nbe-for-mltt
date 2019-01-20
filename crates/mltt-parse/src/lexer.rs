@@ -1,7 +1,6 @@
 use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
-use std::fmt;
-use std::str::{CharIndices, FromStr};
+use std::str::CharIndices;
 
 fn is_symbol(ch: char) -> bool {
     match ch {
@@ -11,11 +10,11 @@ fn is_symbol(ch: char) -> bool {
     }
 }
 
-fn is_name_start(ch: char) -> bool {
+fn is_identifier_start(ch: char) -> bool {
     ch.is_ascii_alphabetic() || ch == '_' || ch == '-'
 }
 
-fn is_name_continue(ch: char) -> bool {
+fn is_identifier_continue(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
 }
 
@@ -35,22 +34,31 @@ fn is_hex_digit(ch: char) -> bool {
     ch.is_digit(16)
 }
 
-pub type SpannedToken<'file> = (ByteIndex, Token<&'file str>, ByteIndex);
-
 /// A token in the source file, to be emitted by the `Lexer`
-#[derive(Clone, Debug, PartialEq)]
-pub enum Token<S> {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Token<'file> {
+    /// The token tag
+    tag: TokenTag,
+    /// The slice of source code that produced the token
+    slice: &'file str,
+    /// The span in the source code
+    span: FileSpan,
+}
+
+/// A tag that makes it easier to remember what type of token this is
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TokenTag {
     // Data
-    Name(S),
-    LineComment(S),
-    LineDoc(S),
-    StringLiteral(String),
-    CharLiteral(char),
-    BinIntLiteral(u64),
-    OctIntLiteral(u64),
-    DecIntLiteral(u64),
-    HexIntLiteral(u64),
-    DecFloatLiteral(f64),
+    Identifier,
+    LineComment,
+    LineDoc,
+    StringLiteral,
+    CharLiteral,
+    BinIntLiteral,
+    OctIntLiteral,
+    DecIntLiteral,
+    HexIntLiteral,
+    DecFloatLiteral,
 
     // Keywords
     As,         // as
@@ -88,98 +96,6 @@ pub enum Token<S> {
     RBracket, // ]
 }
 
-impl<S: fmt::Display> fmt::Display for Token<S> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Token::Name(ref name) => write!(f, "{}", name),
-            Token::LineComment(ref value) => write!(f, "-- {}", value),
-            Token::LineDoc(ref value) => write!(f, "||| {}", value),
-            Token::StringLiteral(ref value) => write!(f, "{:?}", value),
-            Token::CharLiteral(ref value) => write!(f, "'{:?}'", value),
-            Token::BinIntLiteral(ref value) => write!(f, "{:b}", value),
-            Token::OctIntLiteral(ref value) => write!(f, "{:o}", value),
-            Token::DecIntLiteral(ref value) => write!(f, "{}", value),
-            Token::HexIntLiteral(ref value) => write!(f, "{:x}", value),
-            Token::DecFloatLiteral(ref value) => write!(f, "{}", value),
-            Token::As => write!(f, "as"),
-            Token::Case => write!(f, "case"),
-            Token::Else => write!(f, "else"),
-            Token::If => write!(f, "if"),
-            Token::Import => write!(f, "import"),
-            Token::In => write!(f, "in"),
-            Token::Let => write!(f, "let"),
-            Token::Record => write!(f, "record"),
-            Token::RecordType => write!(f, "Record"),
-            Token::Then => write!(f, "then"),
-            Token::Type => write!(f, "Type"),
-            Token::Where => write!(f, "where"),
-            Token::BSlash => write!(f, "\\"),
-            Token::Caret => write!(f, "^"),
-            Token::Colon => write!(f, ":"),
-            Token::Comma => write!(f, ","),
-            Token::Dot => write!(f, "."),
-            Token::DotDot => write!(f, ".."),
-            Token::Equal => write!(f, "="),
-            Token::LFatArrow => write!(f, "=>"),
-            Token::LArrow => write!(f, "->"),
-            Token::Question => write!(f, "?"),
-            Token::Semi => write!(f, ";"),
-            Token::LParen => write!(f, "("),
-            Token::RParen => write!(f, ")"),
-            Token::LBrace => write!(f, "{{"),
-            Token::RBrace => write!(f, "}}"),
-            Token::LBracket => write!(f, "["),
-            Token::RBracket => write!(f, "]"),
-        }
-    }
-}
-
-impl<'file> From<Token<&'file str>> for Token<String> {
-    fn from(src: Token<&'file str>) -> Token<String> {
-        match src {
-            Token::Name(name) => Token::Name(name.to_owned()),
-            Token::LineComment(value) => Token::LineComment(value.to_owned()),
-            Token::LineDoc(value) => Token::LineDoc(value.to_owned()),
-            Token::StringLiteral(value) => Token::StringLiteral(value),
-            Token::CharLiteral(value) => Token::CharLiteral(value),
-            Token::BinIntLiteral(value) => Token::BinIntLiteral(value),
-            Token::OctIntLiteral(value) => Token::OctIntLiteral(value),
-            Token::DecIntLiteral(value) => Token::DecIntLiteral(value),
-            Token::HexIntLiteral(value) => Token::HexIntLiteral(value),
-            Token::DecFloatLiteral(value) => Token::DecFloatLiteral(value),
-            Token::As => Token::As,
-            Token::Case => Token::Case,
-            Token::Else => Token::Else,
-            Token::If => Token::If,
-            Token::Import => Token::Import,
-            Token::In => Token::In,
-            Token::Let => Token::Let,
-            Token::Record => Token::Record,
-            Token::RecordType => Token::RecordType,
-            Token::Then => Token::Then,
-            Token::Type => Token::Type,
-            Token::Where => Token::Where,
-            Token::BSlash => Token::BSlash,
-            Token::Caret => Token::Caret,
-            Token::Colon => Token::Colon,
-            Token::Comma => Token::Comma,
-            Token::Dot => Token::Dot,
-            Token::DotDot => Token::DotDot,
-            Token::Equal => Token::Equal,
-            Token::LFatArrow => Token::LFatArrow,
-            Token::LArrow => Token::LArrow,
-            Token::Question => Token::Question,
-            Token::Semi => Token::Semi,
-            Token::LParen => Token::LParen,
-            Token::RParen => Token::RParen,
-            Token::LBrace => Token::LBrace,
-            Token::RBrace => Token::RBrace,
-            Token::LBracket => Token::LBracket,
-            Token::RBracket => Token::RBracket,
-        }
-    }
-}
-
 /// An iterator over a source string that yields `Token`s for subsequent use by
 /// the parser
 pub struct Lexer<'file> {
@@ -189,26 +105,26 @@ pub struct Lexer<'file> {
 }
 
 impl<'file> Iterator for Lexer<'file> {
-    type Item = Result<SpannedToken<'file>, Diagnostic<FileSpan>>;
+    type Item = Result<Token<'file>, Diagnostic<FileSpan>>;
 
-    fn next(&mut self) -> Option<Result<SpannedToken<'file>, Diagnostic<FileSpan>>> {
+    fn next(&mut self) -> Option<Result<Token<'file>, Diagnostic<FileSpan>>> {
         while let Some((start, ch)) = self.bump() {
             let end = start + ByteSize::from_char_len_utf8(ch);
 
             return Some(match ch {
                 ch if is_symbol(ch) => self.continue_symbol(start),
-                '\\' => Ok((start, Token::BSlash, end)),
-                '(' => Ok((start, Token::LParen, end)),
-                ')' => Ok((start, Token::RParen, end)),
-                '{' => Ok((start, Token::LBrace, end)),
-                '}' => Ok((start, Token::RBrace, end)),
-                '[' => Ok((start, Token::LBracket, end)),
-                ']' => Ok((start, Token::RBracket, end)),
+                '\\' => Ok(self.emit(TokenTag::BSlash, start, end)),
+                '(' => Ok(self.emit(TokenTag::LParen, start, end)),
+                ')' => Ok(self.emit(TokenTag::RParen, start, end)),
+                '{' => Ok(self.emit(TokenTag::LBrace, start, end)),
+                '}' => Ok(self.emit(TokenTag::RBrace, start, end)),
+                '[' => Ok(self.emit(TokenTag::LBracket, start, end)),
+                ']' => Ok(self.emit(TokenTag::RBracket, start, end)),
                 '"' => self.continue_string_literal(start),
                 '\'' => self.continue_char_literal(start),
                 '0' => self.continue_zero_number(start),
                 ch if is_dec_digit(ch) => self.continue_dec_literal(start),
-                ch if is_name_start(ch) => Ok(self.continue_name(start)),
+                ch if is_identifier_start(ch) => Ok(self.continue_identifier(start)),
                 ch if ch.is_whitespace() => continue,
                 _ => Err({
                     let end = start + ByteSize::from_char_len_utf8(ch);
@@ -244,16 +160,11 @@ impl<'file> Lexer<'file> {
         self.file.span().end()
     }
 
-    fn error_integer_literal_overflow(
-        &self,
-        start: ByteIndex,
-        end: ByteIndex,
-        value: &str,
-    ) -> Diagnostic<FileSpan> {
-        Diagnostic::new_error(format!("integer literal overflow with value `{}`", value))
-            .with_label(
-                Label::new_primary(self.span(start, end)).with_message("overflowing literal"),
-            )
+    /// Emit a token
+    fn emit(&self, tag: TokenTag, start: ByteIndex, end: ByteIndex) -> Token<'file> {
+        let slice = self.slice(start, end);
+        let span = self.span(start, end);
+        Token { tag, slice, span }
     }
 
     /// Return the next character in the source string
@@ -288,76 +199,59 @@ impl<'file> Lexer<'file> {
     /// Consume characters while the predicate matches for the current
     /// character, then return the consumed slice and the end byte
     /// position.
-    fn take_while<F>(&mut self, start: ByteIndex, mut keep_going: F) -> (ByteIndex, &'file str)
+    fn take_while<F>(&mut self, mut keep_going: F) -> ByteIndex
     where
         F: FnMut(char) -> bool,
     {
-        self.take_until(start, |ch| !keep_going(ch))
+        self.take_until(|ch| !keep_going(ch))
     }
 
     /// Consume characters until the predicate matches for the next character
     /// in the lookahead, then return the consumed slice and the end byte
     /// position.
-    fn take_until<F>(&mut self, start: ByteIndex, mut terminate: F) -> (ByteIndex, &'file str)
+    fn take_until<F>(&mut self, mut terminate: F) -> ByteIndex
     where
         F: FnMut(char) -> bool,
     {
         while let Some((end, ch)) = self.lookahead() {
             if terminate(ch) {
-                return (end, self.slice(start, end));
+                return end;
             } else {
                 self.bump();
             }
         }
 
-        let eof = self.eof();
-        (eof, self.slice(start, eof))
+        self.eof()
     }
 
     /// Consume a line comment
-    fn continue_line_comment(&mut self, start: ByteIndex) -> SpannedToken<'file> {
-        let (end, mut comment) =
-            self.take_until(start + ByteSize::from_str_len_utf8("--"), |ch| ch == '\n');
-
-        // Skip preceding space
-        if comment.starts_with(' ') {
-            comment = &comment[1..];
-        }
-
-        (start, Token::LineComment(comment), end)
+    fn continue_line_comment(&mut self, start: ByteIndex) -> Token<'file> {
+        let end = self.take_until(|ch| ch == '\n');
+        self.emit(TokenTag::LineComment, start, end)
     }
 
     /// Consume a doc comment
-    fn continue_line_doc(&mut self, start: ByteIndex) -> SpannedToken<'file> {
-        let (end, mut comment) =
-            self.take_until(start + ByteSize::from_str_len_utf8("|||"), |ch| ch == '\n');
-
-        // Skip preceding space
-        if comment.starts_with(' ') {
-            comment = &comment[1..];
-        }
-
-        (start, Token::LineDoc(comment), end)
+    fn continue_line_doc(&mut self, start: ByteIndex) -> Token<'file> {
+        let end = self.take_until(|ch| ch == '\n');
+        self.emit(TokenTag::LineDoc, start, end)
     }
 
     /// Consume a symbol
-    fn continue_symbol(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
-        let (end, symbol) = self.take_while(start, is_symbol);
+    fn continue_symbol(&mut self, start: ByteIndex) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        let end = self.take_while(is_symbol);
+        let symbol = self.slice(start, end);
 
         match symbol {
-            ":" => Ok((start, Token::Colon, end)),
-            "^" => Ok((start, Token::Caret, end)),
-            "," => Ok((start, Token::Comma, end)),
-            "." => Ok((start, Token::Dot, end)),
-            ".." => Ok((start, Token::DotDot, end)),
-            "=" => Ok((start, Token::Equal, end)),
-            "->" => Ok((start, Token::LArrow, end)),
-            "=>" => Ok((start, Token::LFatArrow, end)),
-            "?" => Ok((start, Token::Question, end)),
-            ";" => Ok((start, Token::Semi, end)),
+            ":" => Ok(self.emit(TokenTag::Colon, start, end)),
+            "^" => Ok(self.emit(TokenTag::Caret, start, end)),
+            "," => Ok(self.emit(TokenTag::Comma, start, end)),
+            "." => Ok(self.emit(TokenTag::Dot, start, end)),
+            ".." => Ok(self.emit(TokenTag::DotDot, start, end)),
+            "=" => Ok(self.emit(TokenTag::Equal, start, end)),
+            "->" => Ok(self.emit(TokenTag::LArrow, start, end)),
+            "=>" => Ok(self.emit(TokenTag::LFatArrow, start, end)),
+            "?" => Ok(self.emit(TokenTag::Question, start, end)),
+            ";" => Ok(self.emit(TokenTag::Semi, start, end)),
             symbol if symbol.starts_with("|||") => Ok(self.continue_line_doc(start)),
             symbol if symbol.starts_with("--") => Ok(self.continue_line_comment(start)),
             _ => Err(
@@ -367,39 +261,40 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume a name
-    fn continue_name(&mut self, start: ByteIndex) -> SpannedToken<'file> {
-        let (end, name) = self.take_while(start, is_name_continue);
+    /// Consume a identifier
+    fn continue_identifier(&mut self, start: ByteIndex) -> Token<'file> {
+        let end = self.take_while(is_identifier_continue);
+        let identifier = self.slice(start, end);
 
-        let token = match name {
-            "as" => Token::As,
-            "case" => Token::Case,
-            "else" => Token::Else,
-            "if" => Token::If,
-            "import" => Token::Import,
-            "in" => Token::In,
-            "let" => Token::Let,
-            "record" => Token::Record,
-            "Record" => Token::RecordType,
-            "then" => Token::Then,
-            "Type" => Token::Type,
-            "where" => Token::Where,
-            name => Token::Name(name),
+        let token_tag = match identifier {
+            "as" => TokenTag::As,
+            "case" => TokenTag::Case,
+            "else" => TokenTag::Else,
+            "if" => TokenTag::If,
+            "import" => TokenTag::Import,
+            "in" => TokenTag::In,
+            "let" => TokenTag::Let,
+            "record" => TokenTag::Record,
+            "Record" => TokenTag::RecordType,
+            "then" => TokenTag::Then,
+            "Type" => TokenTag::Type,
+            "where" => TokenTag::Where,
+            _ => TokenTag::Identifier,
         };
 
-        (start, token, end)
+        self.emit(token_tag, start, end)
     }
 
     /// Consume an escape code
-    fn start_escape(&mut self) -> Result<char, Diagnostic<FileSpan>> {
+    fn start_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         match self.expect_bump()? {
-            (_, '\'') => Ok('\''),
-            (_, '"') => Ok('"'),
-            (_, '\\') => Ok('\\'),
-            (_, '/') => Ok('/'),
-            (_, 'n') => Ok('\n'),
-            (_, 'r') => Ok('\r'),
-            (_, 't') => Ok('\t'),
+            (_, '\'') => Ok(()),
+            (_, '\"') => Ok(()),
+            (_, '\\') => Ok(()),
+            (_, '/') => Ok(()),
+            (_, 'n') => Ok(()),
+            (_, 'r') => Ok(()),
+            (_, 't') => Ok(()),
             // TODO: Unicode escape codes
             (start, ch) => Err({
                 let end = start + ByteSize::from_char_len_utf8(ch);
@@ -413,16 +308,15 @@ impl<'file> Lexer<'file> {
     fn continue_string_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
-        let mut string = String::new();
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         let mut end = start;
 
         while let Some((next, ch)) = self.bump() {
             end = next + ByteSize::from_char_len_utf8(ch);
             match ch {
-                '\\' => string.push(self.start_escape()?),
-                '"' => return Ok((start, Token::StringLiteral(string), end)),
-                ch => string.push(ch),
+                '\\' => {},
+                '"' => return Ok(self.emit(TokenTag::StringLiteral, start, end)),
+                _ => {},
             }
         }
 
@@ -434,21 +328,21 @@ impl<'file> Lexer<'file> {
     fn continue_char_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
-        let ch = match self.expect_bump()? {
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        match self.expect_bump()? {
             (_, '\\') => self.start_escape()?,
             (next, '\'') => {
                 let end = next + ByteSize::from_char_len_utf8('\'');
                 return Err(Diagnostic::new_error("empty character literal")
                     .with_label(Label::new_primary(self.span(start, end))));
             },
-            (_, ch) => ch,
+            (_, _) => {},
         };
 
         match self.expect_bump()? {
-            (end, '\'') => Ok((
+            (end, '\'') => Ok(self.emit(
+                TokenTag::CharLiteral,
                 start,
-                Token::CharLiteral(ch),
                 end + ByteSize::from_char_len_utf8('\''),
             )),
             (next, ch) => Err({
@@ -463,7 +357,7 @@ impl<'file> Lexer<'file> {
     fn continue_zero_number(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         match self.lookahead() {
             Some((_, 'b')) => self.continue_bin_literal(start),
             Some((_, 'o')) => self.continue_oct_literal(start),
@@ -476,17 +370,14 @@ impl<'file> Lexer<'file> {
     fn continue_bin_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         self.bump(); // skip 'b'
-        let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0b"), is_bin_digit);
-        if src.is_empty() {
+        let end = self.take_while(is_bin_digit);
+        if end - start <= ByteSize::from(0) {
             Err(Diagnostic::new_error("unterminated binary literal")
                 .with_label(Label::new_primary(self.span(start, end))))
         } else {
-            match u64::from_str_radix(src, 2) {
-                Ok(value) => Ok((start, Token::BinIntLiteral(value), end)),
-                Err(_) => Err(self.error_integer_literal_overflow(start, end, src)),
-            }
+            Ok(self.emit(TokenTag::BinIntLiteral, start, end))
         }
     }
 
@@ -494,17 +385,14 @@ impl<'file> Lexer<'file> {
     fn continue_oct_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         self.bump(); // skip 'o'
-        let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0o"), is_oct_digit);
-        if src.is_empty() {
+        let end = self.take_while(is_oct_digit);
+        if end - start <= ByteSize::from(0) {
             Err(Diagnostic::new_error("unterminated octal literal")
                 .with_label(Label::new_primary(self.span(start, end))))
         } else {
-            match u64::from_str_radix(src, 8) {
-                Ok(value) => Ok((start, Token::OctIntLiteral(value), end)),
-                Err(_) => Err(self.error_integer_literal_overflow(start, end, src)),
-            }
+            Ok(self.emit(TokenTag::OctIntLiteral, start, end))
         }
     }
 
@@ -512,22 +400,16 @@ impl<'file> Lexer<'file> {
     fn continue_dec_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
-        let (end, src) = self.take_while(start, is_dec_digit);
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        let end = self.take_while(is_dec_digit);
 
         if let Some((_, '.')) = self.lookahead() {
             self.bump(); // skip '.'
-            let (end, src) = self.take_while(start, is_dec_digit);
+            let end = self.take_while(is_dec_digit);
 
-            match f64::from_str(src) {
-                Ok(value) => Ok((start, Token::DecFloatLiteral(value), end)),
-                Err(_) => unimplemented!(),
-            }
+            Ok(self.emit(TokenTag::DecFloatLiteral, start, end))
         } else {
-            match u64::from_str_radix(src, 10) {
-                Ok(value) => Ok((start, Token::DecIntLiteral(value), end)),
-                Err(_) => Err(self.error_integer_literal_overflow(start, end, src)),
-            }
+            Ok(self.emit(TokenTag::DecIntLiteral, start, end))
         }
     }
 
@@ -535,17 +417,14 @@ impl<'file> Lexer<'file> {
     fn continue_hex_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         self.bump(); // skip 'x'
-        let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0x"), is_hex_digit);
-        if src.is_empty() {
+        let end = self.take_while(is_hex_digit);
+        if end - start <= ByteSize::from(0) {
             Err(Diagnostic::new_error("unterminated hexadecimal literal")
                 .with_label(Label::new_primary(self.span(start, end))))
         } else {
-            match u64::from_str_radix(src, 16) {
-                Ok(value) => Ok((start, Token::HexIntLiteral(value), end)),
-                Err(_) => Err(self.error_integer_literal_overflow(start, end, src)),
-            }
+            Ok(self.emit(TokenTag::HexIntLiteral, start, end))
         }
     }
 }
@@ -567,9 +446,11 @@ mod tests {
                 .map(|result| result.map_err(|err| format!("{:?}", err)))
                 .collect();
             let expected_tokens = vec![$({
+                let (tag, slice) = $token;
                 let start = ByteIndex::from($span.find("~").unwrap());
                 let end = ByteIndex::from($span.rfind("~").unwrap()) + ByteSize::from(1);
-                Ok((start, $token, end))
+                let span = FileSpan::new(file_id, start, end);
+                Ok(Token { tag, slice, span })
             }),*];
 
             assert_eq!(lexed_tokens, expected_tokens);
@@ -580,7 +461,7 @@ mod tests {
     fn data() {
         test! {
             "  hello-hahaha8ABC  ",
-            "  ~~~~~~~~~~~~~~~~  " => Token::Name("hello-hahaha8ABC"),
+            "  ~~~~~~~~~~~~~~~~  " => (TokenTag::Identifier, "hello-hahaha8ABC"),
         };
     }
 
@@ -588,7 +469,7 @@ mod tests {
     fn comment() {
         test! {
             "       -- hello this is dog\n  ",
-            "       ~~~~~~~~~~~~~~~~~~~~    " => Token::LineComment("hello this is dog"),
+            "       ~~~~~~~~~~~~~~~~~~~~    " => (TokenTag::LineComment, "-- hello this is dog"),
         };
     }
 
@@ -596,7 +477,7 @@ mod tests {
     fn line_doc() {
         test! {
             "       ||| hello this is dog",
-            "       ~~~~~~~~~~~~~~~~~~~~~" => Token::LineDoc("hello this is dog"),
+            "       ~~~~~~~~~~~~~~~~~~~~~" => (TokenTag::LineDoc, "||| hello this is dog"),
         };
     }
 
@@ -604,8 +485,8 @@ mod tests {
     fn string_literal() {
         test! {
             r#"  "a" "\t"  "#,
-            r#"  ~~~       "# => Token::StringLiteral("a".to_owned()),
-            r#"      ~~~~  "# => Token::StringLiteral("\t".to_owned()),
+            r#"  ~~~       "# => (TokenTag::StringLiteral, "\"a\""),
+            r#"      ~~~~  "# => (TokenTag::StringLiteral, "\"\\t\""),
         };
     }
 
@@ -613,8 +494,8 @@ mod tests {
     fn char_literal() {
         test! {
             r"  'a' '\t'  ",
-            r"  ~~~       " => Token::CharLiteral('a'),
-            r"      ~~~~  " => Token::CharLiteral('\t'),
+            r"  ~~~       " => (TokenTag::CharLiteral, "'a'"),
+            r"      ~~~~  " => (TokenTag::CharLiteral, "'\\t'"),
         };
     }
 
@@ -622,7 +503,7 @@ mod tests {
     fn bin_literal() {
         test! {
             "  0b010110  ",
-            "  ~~~~~~~~  " => Token::BinIntLiteral(0b010110),
+            "  ~~~~~~~~  " => (TokenTag::BinIntLiteral, "0b010110"),
         };
     }
 
@@ -630,7 +511,7 @@ mod tests {
     fn oct_literal() {
         test! {
             "  0o12371  ",
-            "  ~~~~~~~  " => Token::OctIntLiteral(0o12371),
+            "  ~~~~~~~  " => (TokenTag::OctIntLiteral, "0o12371"),
         };
     }
 
@@ -638,8 +519,8 @@ mod tests {
     fn dec_literal() {
         test! {
             "  123 0  ",
-            "  ~~~    " => Token::DecIntLiteral(123),
-            "      ~  " => Token::DecIntLiteral(0),
+            "  ~~~    " => (TokenTag::DecIntLiteral, "123"),
+            "      ~  " => (TokenTag::DecIntLiteral, "0"),
         };
     }
 
@@ -647,7 +528,7 @@ mod tests {
     fn hex_literal() {
         test! {
             "  0x123AF  ",
-            "  ~~~~~~~  " => Token::HexIntLiteral(0x123AF),
+            "  ~~~~~~~  " => (TokenTag::HexIntLiteral, "0x123AF"),
         };
     }
 
@@ -655,7 +536,7 @@ mod tests {
     fn float_literal() {
         test! {
             "  122.345  ",
-            "  ~~~~~~~  " => Token::DecFloatLiteral(122.345),
+            "  ~~~~~~~  " => (TokenTag::DecFloatLiteral, "122.345"),
         };
     }
 
@@ -663,18 +544,18 @@ mod tests {
     fn keywords() {
         test! {
             "  as case else if import in let record Record then Type where  ",
-            "  ~~                                                              " => Token::As,
-            "     ~~~~                                                         " => Token::Case,
-            "          ~~~~                                                    " => Token::Else,
-            "               ~~                                                 " => Token::If,
-            "                  ~~~~~~                                          " => Token::Import,
-            "                         ~~                                       " => Token::In,
-            "                            ~~~                                   " => Token::Let,
-            "                                ~~~~~~                            " => Token::Record,
-            "                                       ~~~~~~                     " => Token::RecordType,
-            "                                              ~~~~                " => Token::Then,
-            "                                                   ~~~~           " => Token::Type,
-            "                                                        ~~~~~     " => Token::Where,
+            "  ~~                                                              " => (TokenTag::As, "as"),
+            "     ~~~~                                                         " => (TokenTag::Case, "case"),
+            "          ~~~~                                                    " => (TokenTag::Else, "else"),
+            "               ~~                                                 " => (TokenTag::If, "if"),
+            "                  ~~~~~~                                          " => (TokenTag::Import, "import"),
+            "                         ~~                                       " => (TokenTag::In, "in"),
+            "                            ~~~                                   " => (TokenTag::Let, "let"),
+            "                                ~~~~~~                            " => (TokenTag::Record, "record"),
+            "                                       ~~~~~~                     " => (TokenTag::RecordType, "Record"),
+            "                                              ~~~~                " => (TokenTag::Then, "then"),
+            "                                                   ~~~~           " => (TokenTag::Type, "Type"),
+            "                                                        ~~~~~     " => (TokenTag::Where, "where"),
         };
     }
 
@@ -682,16 +563,16 @@ mod tests {
     fn symbols() {
         test! {
             r" \ ^ : , .. = -> => ? ; ",
-            r" ~                      " => Token::BSlash,
-            r"   ~                    " => Token::Caret,
-            r"     ~                  " => Token::Colon,
-            r"       ~                " => Token::Comma,
-            r"         ~~             " => Token::DotDot,
-            r"            ~           " => Token::Equal,
-            r"              ~~        " => Token::LArrow,
-            r"                 ~~     " => Token::LFatArrow,
-            r"                    ~   " => Token::Question,
-            r"                      ~ " => Token::Semi,
+            r" ~                      " => (TokenTag::BSlash, "\\"),
+            r"   ~                    " => (TokenTag::Caret, "^"),
+            r"     ~                  " => (TokenTag::Colon, ":"),
+            r"       ~                " => (TokenTag::Comma, ","),
+            r"         ~~             " => (TokenTag::DotDot, ".."),
+            r"            ~           " => (TokenTag::Equal, "="),
+            r"              ~~        " => (TokenTag::LArrow, "->"),
+            r"                 ~~     " => (TokenTag::LFatArrow, "=>"),
+            r"                    ~   " => (TokenTag::Question, "?"),
+            r"                      ~ " => (TokenTag::Semi, ";"),
         }
     }
 
@@ -699,12 +580,12 @@ mod tests {
     fn delimiters() {
         test! {
             " ( ) { } [ ] ",
-            " ~           " => Token::LParen,
-            "   ~         " => Token::RParen,
-            "     ~       " => Token::LBrace,
-            "       ~     " => Token::RBrace,
-            "         ~   " => Token::LBracket,
-            "           ~ " => Token::RBracket,
+            " ~           " => (TokenTag::LParen, "("),
+            "   ~         " => (TokenTag::RParen, ")"),
+            "     ~       " => (TokenTag::LBrace, "{"),
+            "       ~     " => (TokenTag::RBrace, "}"),
+            "         ~   " => (TokenTag::LBracket, "["),
+            "           ~ " => (TokenTag::RBracket, "]"),
         }
     }
 }
