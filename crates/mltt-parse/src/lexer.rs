@@ -20,27 +20,45 @@ fn is_delimiter(ch: char) -> bool {
 }
 
 fn is_identifier_start(ch: char) -> bool {
-    ch.is_ascii_alphabetic() || ch == '_' || ch == '-'
+    match ch {
+        'a'..='z' | 'A'..='Z' | '_' | '-' => true,
+        _ => false,
+    }
 }
 
 fn is_identifier_continue(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
+    match ch {
+        '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' | '-' => true,
+        _ => false,
+    }
 }
 
 fn is_bin_digit(ch: char) -> bool {
-    ch.is_digit(2)
+    match ch {
+        '0'..='1' => true,
+        _ => false,
+    }
 }
 
 fn is_oct_digit(ch: char) -> bool {
-    ch.is_digit(8)
+    match ch {
+        '0'..='7' => true,
+        _ => false,
+    }
 }
 
 fn is_dec_digit(ch: char) -> bool {
-    ch.is_digit(10)
+    match ch {
+        '0'..='9' => true,
+        _ => false,
+    }
 }
 
 fn is_hex_digit(ch: char) -> bool {
-    ch.is_digit(16)
+    match ch {
+        '0'..='9' | 'a'..='f' | 'A'..='F' => true,
+        _ => false,
+    }
 }
 
 /// An iterator over a source string that yields `Token`s for subsequent use by
