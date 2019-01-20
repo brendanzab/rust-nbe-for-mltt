@@ -42,7 +42,8 @@ pub type SpannedToken<'file> = (ByteIndex, Token<&'file str>, ByteIndex);
 pub enum Token<S> {
     // Data
     Name(S),
-    DocComment(S),
+    LineComment(S),
+    LineDoc(S),
     StringLiteral(String),
     CharLiteral(char),
     BinIntLiteral(u64),
@@ -91,7 +92,8 @@ impl<S: fmt::Display> fmt::Display for Token<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Token::Name(ref name) => write!(f, "{}", name),
-            Token::DocComment(ref comment) => write!(f, "||| {}", comment),
+            Token::LineComment(ref value) => write!(f, "-- {}", value),
+            Token::LineDoc(ref value) => write!(f, "||| {}", value),
             Token::StringLiteral(ref value) => write!(f, "{:?}", value),
             Token::CharLiteral(ref value) => write!(f, "'{:?}'", value),
             Token::BinIntLiteral(ref value) => write!(f, "{:b}", value),
@@ -136,7 +138,8 @@ impl<'file> From<Token<&'file str>> for Token<String> {
     fn from(src: Token<&'file str>) -> Token<String> {
         match src {
             Token::Name(name) => Token::Name(name.to_owned()),
-            Token::DocComment(comment) => Token::DocComment(comment.to_owned()),
+            Token::LineComment(value) => Token::LineComment(value.to_owned()),
+            Token::LineDoc(value) => Token::LineDoc(value.to_owned()),
             Token::StringLiteral(value) => Token::StringLiteral(value),
             Token::CharLiteral(value) => Token::CharLiteral(value),
             Token::BinIntLiteral(value) => Token::BinIntLiteral(value),
@@ -193,28 +196,7 @@ impl<'file> Iterator for Lexer<'file> {
             let end = start + ByteSize::from_char_len_utf8(ch);
 
             return Some(match ch {
-                ch if is_symbol(ch) => {
-                    let (end, symbol) = self.take_while(start, is_symbol);
-
-                    match symbol {
-                        ":" => Ok((start, Token::Colon, end)),
-                        "^" => Ok((start, Token::Caret, end)),
-                        "," => Ok((start, Token::Comma, end)),
-                        "." => Ok((start, Token::Dot, end)),
-                        ".." => Ok((start, Token::DotDot, end)),
-                        "=" => Ok((start, Token::Equal, end)),
-                        "->" => Ok((start, Token::LArrow, end)),
-                        "=>" => Ok((start, Token::LFatArrow, end)),
-                        "?" => Ok((start, Token::Question, end)),
-                        ";" => Ok((start, Token::Semi, end)),
-                        symbol if symbol.starts_with("|||") => Ok(self.doc_comment(start)),
-                        symbol if symbol.starts_with("--") => {
-                            self.take_until(start, |ch| ch == '\n');
-                            continue;
-                        },
-                        _ => Err(self.error_unexpected_character(start, ch)),
-                    }
-                },
+                ch if is_symbol(ch) => self.symbol(start),
                 '\\' => Ok((start, Token::BSlash, end)),
                 '(' => Ok((start, Token::LParen, end)),
                 ')' => Ok((start, Token::RParen, end)),
@@ -262,7 +244,17 @@ impl<'file> Lexer<'file> {
 
     fn error_unexpected_character(&self, start: ByteIndex, found: char) -> Diagnostic<FileSpan> {
         let end = start + ByteSize::from_char_len_utf8(found);
-        Diagnostic::new_error(format!("unexpected character `{:?}`", found))
+        Diagnostic::new_error(format!("unexpected character `{}`", found))
+            .with_label(Label::new_primary(self.span(start, end)))
+    }
+
+    fn error_unexpected_symbol(
+        &self,
+        start: ByteIndex,
+        end: ByteIndex,
+        found: &str,
+    ) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error(format!("unexpected character `{}`", found))
             .with_label(Label::new_primary(self.span(start, end)))
     }
 
@@ -395,8 +387,21 @@ impl<'file> Lexer<'file> {
         (eof, self.slice(start, eof))
     }
 
+    /// Consume a line comment
+    fn line_comment(&mut self, start: ByteIndex) -> SpannedToken<'file> {
+        let (end, mut comment) =
+            self.take_until(start + ByteSize::from_str_len_utf8("--"), |ch| ch == '\n');
+
+        // Skip preceding space
+        if comment.starts_with(' ') {
+            comment = &comment[1..];
+        }
+
+        (start, Token::LineComment(comment), end)
+    }
+
     /// Consume a doc comment
-    fn doc_comment(&mut self, start: ByteIndex) -> SpannedToken<'file> {
+    fn line_doc(&mut self, start: ByteIndex) -> SpannedToken<'file> {
         let (end, mut comment) =
             self.take_until(start + ByteSize::from_str_len_utf8("|||"), |ch| ch == '\n');
 
@@ -405,7 +410,28 @@ impl<'file> Lexer<'file> {
             comment = &comment[1..];
         }
 
-        (start, Token::DocComment(comment), end)
+        (start, Token::LineDoc(comment), end)
+    }
+
+    /// Consume a symbol
+    fn symbol(&mut self, start: ByteIndex) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
+        let (end, symbol) = self.take_while(start, is_symbol);
+
+        match symbol {
+            ":" => Ok((start, Token::Colon, end)),
+            "^" => Ok((start, Token::Caret, end)),
+            "," => Ok((start, Token::Comma, end)),
+            "." => Ok((start, Token::Dot, end)),
+            ".." => Ok((start, Token::DotDot, end)),
+            "=" => Ok((start, Token::Equal, end)),
+            "->" => Ok((start, Token::LArrow, end)),
+            "=>" => Ok((start, Token::LFatArrow, end)),
+            "?" => Ok((start, Token::Question, end)),
+            ";" => Ok((start, Token::Semi, end)),
+            symbol if symbol.starts_with("|||") => Ok(self.line_doc(start)),
+            symbol if symbol.starts_with("--") => Ok(self.line_comment(start)),
+            _ => Err(self.error_unexpected_symbol(start, end, symbol)),
+        }
     }
 
     /// Consume an name
@@ -605,14 +631,15 @@ mod tests {
     fn comment() {
         test! {
             "       -- hello this is dog\n  ",
+            "       ~~~~~~~~~~~~~~~~~~~~    " => Token::LineComment("hello this is dog"),
         };
     }
 
     #[test]
-    fn doc_comment() {
+    fn line_doc() {
         test! {
             "       ||| hello this is dog",
-            "       ~~~~~~~~~~~~~~~~~~~~~" => Token::DocComment("hello this is dog"),
+            "       ~~~~~~~~~~~~~~~~~~~~~" => Token::LineDoc("hello this is dog"),
         };
     }
 
