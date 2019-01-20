@@ -84,7 +84,7 @@ impl<'file> Iterator for Lexer<'file> {
                 '\'' => self.continue_char_literal(start),
                 '0' => self.continue_zero_number(start),
                 ch if ch.is_whitespace() => continue,
-                ch if is_dec_digit(ch) => self.continue_dec_literal(start),
+                ch if is_dec_digit(ch) => self.continue_dec_literal(start, false),
                 _ => Err({
                     let end = start + ByteSize::from_char_len_utf8(ch);
                     Diagnostic::new_error(format!("unexpected character `{}`", ch))
@@ -158,20 +158,14 @@ impl<'file> Lexer<'file> {
     /// Consume characters while the predicate matches for the current
     /// character, then return the consumed slice and the end byte
     /// position.
-    fn take_while<F>(&mut self, mut keep_going: F) -> ByteIndex
-    where
-        F: FnMut(char) -> bool,
-    {
+    fn take_while(&mut self, mut keep_going: impl FnMut(char) -> bool) -> ByteIndex {
         self.take_until(|ch| !keep_going(ch))
     }
 
     /// Consume characters until the predicate matches for the next character
     /// in the lookahead, then return the consumed slice and the end byte
     /// position.
-    fn take_until<F>(&mut self, mut terminate: F) -> ByteIndex
-    where
-        F: FnMut(char) -> bool,
-    {
+    fn take_until(&mut self, mut terminate: impl FnMut(char) -> bool) -> ByteIndex {
         while let Some((end, ch)) = self.lookahead() {
             if terminate(ch) {
                 return end;
@@ -280,16 +274,39 @@ impl<'file> Lexer<'file> {
         }
     }
 
+    /// Consume some digits, separated by `_`, returning the number of digits consumed
+    fn separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> (ByteIndex, usize) {
+        let digits = &mut 0;
+        let end = self.take_while(|ch| match ch {
+            '_' => true,
+            ch if is_digit(ch) => {
+                *digits += 1;
+                true
+            },
+            _ => false,
+        });
+        (end, *digits)
+    }
+
     /// Consume a number starting with zero
     fn continue_zero_number(
         &mut self,
         start: ByteIndex,
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         match self.lookahead() {
-            Some((_, 'b')) => self.continue_bin_literal(start),
-            Some((_, 'o')) => self.continue_oct_literal(start),
-            Some((_, 'x')) => self.continue_hex_literal(start),
-            _ => self.continue_dec_literal(start),
+            Some((_, 'b')) => {
+                self.bump(); // skip 'b'
+                self.continue_bin_literal(start)
+            },
+            Some((_, 'o')) => {
+                self.bump(); // skip 'o'
+                self.continue_oct_literal(start)
+            },
+            Some((_, 'x')) => {
+                self.bump(); // skip 'x'
+                self.continue_hex_literal(start)
+            },
+            _ => self.continue_dec_literal(start, true),
         }
     }
 
@@ -298,11 +315,12 @@ impl<'file> Lexer<'file> {
         &mut self,
         start: ByteIndex,
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        self.bump(); // skip 'b'
-        let end = self.take_while(is_bin_digit);
-        if end - start <= ByteSize::from(0) {
-            Err(Diagnostic::new_error("unterminated binary literal")
-                .with_label(Label::new_primary(self.span(start, end))))
+        let (end, digits) = self.separated_digits(is_bin_digit);
+        if digits == 0 {
+            Err(
+                Diagnostic::new_error("no valid digits found in binary literal")
+                    .with_label(Label::new_primary(self.span(start, end))),
+            )
         } else {
             Ok(self.emit(TokenTag::IntLiteral, start, end))
         }
@@ -313,28 +331,12 @@ impl<'file> Lexer<'file> {
         &mut self,
         start: ByteIndex,
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        self.bump(); // skip 'o'
-        let end = self.take_while(is_oct_digit);
-        if end - start <= ByteSize::from(0) {
-            Err(Diagnostic::new_error("unterminated octal literal")
-                .with_label(Label::new_primary(self.span(start, end))))
-        } else {
-            Ok(self.emit(TokenTag::IntLiteral, start, end))
-        }
-    }
-
-    /// Consume a decimal literal
-    fn continue_dec_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        let end = self.take_while(is_dec_digit);
-
-        if let Some((_, '.')) = self.lookahead() {
-            self.bump(); // skip '.'
-            let end = self.take_while(is_dec_digit);
-
-            Ok(self.emit(TokenTag::FloatLiteral, start, end))
+        let (end, digits) = self.separated_digits(is_oct_digit);
+        if digits == 0 {
+            Err(
+                Diagnostic::new_error("no valid digits found in octal literal")
+                    .with_label(Label::new_primary(self.span(start, end))),
+            )
         } else {
             Ok(self.emit(TokenTag::IntLiteral, start, end))
         }
@@ -345,11 +347,44 @@ impl<'file> Lexer<'file> {
         &mut self,
         start: ByteIndex,
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        self.bump(); // skip 'x'
-        let end = self.take_while(is_hex_digit);
-        if end - start <= ByteSize::from(0) {
-            Err(Diagnostic::new_error("unterminated hexadecimal literal")
-                .with_label(Label::new_primary(self.span(start, end))))
+        let (end, digits) = self.separated_digits(is_hex_digit);
+        if digits == 0 {
+            Err(
+                Diagnostic::new_error("no valid digits found in hexadecimal literal")
+                    .with_label(Label::new_primary(self.span(start, end))),
+            )
+        } else {
+            Ok(self.emit(TokenTag::IntLiteral, start, end))
+        }
+    }
+
+    /// Consume a decimal literal
+    fn continue_dec_literal(
+        &mut self,
+        start: ByteIndex,
+        has_zero_prefix: bool,
+    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        let (end, digits) = self.separated_digits(is_dec_digit);
+        let digits = digits + if has_zero_prefix { 1 } else { 0 };
+        if digits + 1 == 0 {
+            return Err(
+                Diagnostic::new_error("no valid digits found in decimal literal")
+                    .with_label(Label::new_primary(self.span(start, end))),
+            );
+        }
+
+        if let Some((_, '.')) = self.lookahead() {
+            self.bump(); // skip '.'
+            let (end, digits) = self.separated_digits(is_dec_digit); // FIXME: Should not be able to start with `_`
+
+            if digits == 0 {
+                return Err(
+                    Diagnostic::new_error("no valid digits found after decimal place")
+                        .with_label(Label::new_primary(self.span(start, end))),
+                );
+            }
+
+            Ok(self.emit(TokenTag::FloatLiteral, start, end))
         } else {
             Ok(self.emit(TokenTag::IntLiteral, start, end))
         }
@@ -445,9 +480,11 @@ mod tests {
     #[test]
     fn dec_literal() {
         test! {
-            "  123 0  ",
-            "  ~~~    " => (TokenTag::IntLiteral, "123"),
-            "      ~  " => (TokenTag::IntLiteral, "0"),
+            "  123 0 1 2345_65_32  ",
+            "  ~~~                 " => (TokenTag::IntLiteral, "123"),
+            "      ~               " => (TokenTag::IntLiteral, "0"),
+            "        ~             " => (TokenTag::IntLiteral, "1"),
+            "          ~~~~~~~~~~  " => (TokenTag::IntLiteral, "2345_65_32"),
         };
     }
 
