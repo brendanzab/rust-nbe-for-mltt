@@ -2,6 +2,8 @@ use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::str::CharIndices;
 
+use crate::token::{Token, TokenTag};
+
 fn is_symbol(ch: char) -> bool {
     match ch {
         '&' | '!' | ':' | ',' | '.' | '=' | '\\' | '/' | '>' | '<' | '-' | '|' | '+' | ';'
@@ -39,31 +41,6 @@ fn is_dec_digit(ch: char) -> bool {
 
 fn is_hex_digit(ch: char) -> bool {
     ch.is_digit(16)
-}
-
-/// A token in the source file, to be emitted by the `Lexer`
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Token<'file> {
-    /// The token tag
-    tag: TokenTag,
-    /// The slice of source code that produced the token
-    slice: &'file str,
-    /// The span in the source code
-    span: FileSpan,
-}
-
-/// A tag that makes it easier to remember what type of token this is
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TokenTag {
-    LineComment,
-    LineDoc,
-    Symbol,
-    Delimiter,
-    Identifier,
-    StringLiteral,
-    CharLiteral,
-    IntLiteral,
-    FloatLiteral,
 }
 
 /// An iterator over a source string that yields `Token`s for subsequent use by
