@@ -24,3 +24,17 @@ pub struct Token<'file> {
     /// The span in the source code
     pub span: FileSpan,
 }
+
+impl Token<'_> {
+    pub fn is_delimiter(&self, slice: &str) -> bool {
+        self.tag == TokenTag::Delimiter && self.slice == slice
+    }
+
+    pub fn is_symbol(&self, slice: &str) -> bool {
+        self.tag == TokenTag::Symbol && self.slice == slice
+    }
+
+    pub fn is_identifier(&self, slice: &str) -> bool {
+        self.tag == TokenTag::Identifier && self.slice == slice
+    }
+}
