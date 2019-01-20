@@ -35,6 +35,8 @@ fn is_hex_digit(ch: char) -> bool {
     ch.is_digit(16)
 }
 
+pub type SpannedToken<'file> = (ByteIndex, Token<&'file str>, ByteIndex);
+
 /// A token in the source file, to be emitted by the `Lexer`
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token<S> {
@@ -181,6 +183,59 @@ pub struct Lexer<'file> {
     file: &'file File,
     chars: CharIndices<'file>,
     lookahead: Option<(usize, char)>,
+}
+
+impl<'file> Iterator for Lexer<'file> {
+    type Item = Result<SpannedToken<'file>, Diagnostic<FileSpan>>;
+
+    fn next(&mut self) -> Option<Result<SpannedToken<'file>, Diagnostic<FileSpan>>> {
+        while let Some((start, ch)) = self.bump() {
+            let end = start + ByteSize::from_char_len_utf8(ch);
+
+            return Some(match ch {
+                ch if is_symbol(ch) => {
+                    let (end, symbol) = self.take_while(start, is_symbol);
+
+                    match symbol {
+                        ":" => Ok((start, Token::Colon, end)),
+                        "^" => Ok((start, Token::Caret, end)),
+                        "," => Ok((start, Token::Comma, end)),
+                        "." => Ok((start, Token::Dot, end)),
+                        ".." => Ok((start, Token::DotDot, end)),
+                        "=" => Ok((start, Token::Equal, end)),
+                        "->" => Ok((start, Token::LArrow, end)),
+                        "=>" => Ok((start, Token::LFatArrow, end)),
+                        "?" => Ok((start, Token::Question, end)),
+                        ";" => Ok((start, Token::Semi, end)),
+                        symbol if symbol.starts_with("|||") => Ok(self.doc_comment(start)),
+                        symbol if symbol.starts_with("--") => {
+                            self.take_until(start, |ch| ch == '\n');
+                            continue;
+                        },
+                        _ => Err(self.error_unexpected_character(start, ch)),
+                    }
+                },
+                '\\' => Ok((start, Token::BSlash, end)),
+                '(' => Ok((start, Token::LParen, end)),
+                ')' => Ok((start, Token::RParen, end)),
+                '{' => Ok((start, Token::LBrace, end)),
+                '}' => Ok((start, Token::RBrace, end)),
+                '[' => Ok((start, Token::LBracket, end)),
+                ']' => Ok((start, Token::RBracket, end)),
+                '"' => self.string_literal(start),
+                '\'' => self.char_literal(start),
+                '0' if self.test_lookahead(|x| x == 'b') => self.bin_literal(start),
+                '0' if self.test_lookahead(|x| x == 'o') => self.oct_literal(start),
+                '0' if self.test_lookahead(|x| x == 'x') => self.hex_literal(start),
+                ch if is_name_start(ch) => Ok(self.name(start)),
+                ch if is_dec_digit(ch) => self.dec_literal(start),
+                ch if ch.is_whitespace() => continue,
+                _ => Err(self.error_unexpected_character(start, ch)),
+            });
+        }
+
+        None
+    }
 }
 
 impl<'file> Lexer<'file> {
@@ -509,61 +564,6 @@ impl<'file> Lexer<'file> {
             let int = u64::from_str_radix(src, 16).unwrap();
             Ok((start, Token::HexIntLiteral(int), end))
         }
-    }
-}
-
-pub type SpannedToken<'file> = (ByteIndex, Token<&'file str>, ByteIndex);
-
-impl<'file> Iterator for Lexer<'file> {
-    type Item = Result<SpannedToken<'file>, Diagnostic<FileSpan>>;
-
-    fn next(&mut self) -> Option<Result<SpannedToken<'file>, Diagnostic<FileSpan>>> {
-        while let Some((start, ch)) = self.bump() {
-            let end = start + ByteSize::from_char_len_utf8(ch);
-
-            return Some(match ch {
-                ch if is_symbol(ch) => {
-                    let (end, symbol) = self.take_while(start, is_symbol);
-
-                    match symbol {
-                        ":" => Ok((start, Token::Colon, end)),
-                        "^" => Ok((start, Token::Caret, end)),
-                        "," => Ok((start, Token::Comma, end)),
-                        "." => Ok((start, Token::Dot, end)),
-                        ".." => Ok((start, Token::DotDot, end)),
-                        "=" => Ok((start, Token::Equal, end)),
-                        "->" => Ok((start, Token::LArrow, end)),
-                        "=>" => Ok((start, Token::LFatArrow, end)),
-                        "?" => Ok((start, Token::Question, end)),
-                        ";" => Ok((start, Token::Semi, end)),
-                        symbol if symbol.starts_with("|||") => Ok(self.doc_comment(start)),
-                        symbol if symbol.starts_with("--") => {
-                            self.take_until(start, |ch| ch == '\n');
-                            continue;
-                        },
-                        _ => Err(self.error_unexpected_character(start, ch)),
-                    }
-                },
-                '\\' => Ok((start, Token::BSlash, end)),
-                '(' => Ok((start, Token::LParen, end)),
-                ')' => Ok((start, Token::RParen, end)),
-                '{' => Ok((start, Token::LBrace, end)),
-                '}' => Ok((start, Token::RBrace, end)),
-                '[' => Ok((start, Token::LBracket, end)),
-                ']' => Ok((start, Token::RBracket, end)),
-                '"' => self.string_literal(start),
-                '\'' => self.char_literal(start),
-                '0' if self.test_lookahead(|x| x == 'b') => self.bin_literal(start),
-                '0' if self.test_lookahead(|x| x == 'o') => self.oct_literal(start),
-                '0' if self.test_lookahead(|x| x == 'x') => self.hex_literal(start),
-                ch if is_name_start(ch) => Ok(self.name(start)),
-                ch if is_dec_digit(ch) => self.dec_literal(start),
-                ch if ch.is_whitespace() => continue,
-                _ => Err(self.error_unexpected_character(start, ch)),
-            });
-        }
-
-        None
     }
 }
 
