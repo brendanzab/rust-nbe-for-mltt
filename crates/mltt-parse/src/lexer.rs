@@ -1,3 +1,102 @@
+//! The lexer
+//!
+//! # Lexical syntax
+//!
+//! We follow the following _regular_ lexical grammar - ie. there are no
+//! recursive rules.
+//!
+//! ## Whitespace
+//!
+//! ```text
+//! WHITESPACE      ::= '\u{0009}'    (horizontal tab, '\t')
+//!                   | '\u{000A}'    (line feed, '\n')
+//!                   | '\u{000B}'    (vertical tab)
+//!                   | '\u{000C}'    (form feed)
+//!                   | '\u{000D}'    (carriage return, '\r')
+//!                   | '\u{0020}'    (space, ' ')
+//!                   | '\u{0085}'    (next line)
+//!                   | '\u{200E}'    (left-to-right mark)
+//!                   | '\u{200F}'    (right-to-left mark)
+//!                   | '\u{2028}'    (line separator)
+//!                   | '\u{2029}'    (paragraph separator)
+//! ```
+//!
+//! ## Identifiers
+//!
+//! ```text
+//! ALPHA           ::= 'a' ... 'z' | 'A' ... 'Z' | '_' | '-'
+//! IDENTIFIER      ::= ALPHA ( ALPHA | DEC_DIGIT )*
+//! ```
+//!
+//! ```text
+//! KEYWORD          ::= "in"
+//!                    | "let"
+//!                    | "Type"
+//! ```
+//!
+//! ## Operators and Symbols
+//!
+//! ```text
+//! SYMBOL          ::= '&'
+//!                   | '!'
+//!                   | ':'
+//!                   | ','
+//!                   | '.'
+//!                   | '='
+//!                   | '\\'
+//!                   | '/'
+//!                   | '>'
+//!                   | '<'
+//!                   | '-'
+//!                   | '|'
+//!                   | '+'
+//!                   | ';'
+//!                   | '*'
+//!                   | '^'
+//!                   | '?'
+//! ```
+//!
+//! ## Digits
+//!
+//! ```text
+//! BIN_DIGIT       ::= '0' ... '1'
+//! OCT_DIGIT       ::= '0' ... '7'
+//! DEC_DIGIT       ::= '0' ... '9'
+//! HEX_DIGIT       ::= '0' ... '9' | 'a' ... 'f' | 'A' ... 'F'
+//! ```
+//!
+//! ## Integer literals
+//!
+//! ```text
+//! BIN_LITERAL     ::= "0b" (BIN_DIGIT | '_')* BIN_DIGIT (BIN_DIGIT '_')*
+//! OCT_LITERAL     ::= "0o" (OCT_DIGIT | '_')* OCT_DIGIT (OCT_DIGIT '_')*
+//! DEC_LITERAL     ::= DEC_DIGIT (DEC_DIGIT | '_')*
+//! HEX_LITERAL     ::= "0x" (HEX_DIGIT | '_')* HEX_DIGIT (HEX_DIGIT '_')*
+//!
+//! INTEGER_LITERAL ::= DEC_LITERAL
+//!                   | BIN_LITERAL
+//!                   | OCT_LITERAL
+//!                   | HEX_LITERAL
+//! ```
+//!
+//! ## Floating point literals
+//!
+//! ```text
+//! FLOAT_EXPONENT  ::= ('e' | 'E') ('+' | '-')? (DEC_DIGIT | '_' )* DEC_DIGIT (DEC_DIGIT | '_')*
+//! FLOAT_LITERAL   ::= DEC_LITERAL '.' DEC_LITERAL
+//!                   | DEC_LITERAL FLOAT_EXPONENT
+//!                   | DEC_LITERAL '.' DEC_LITERAL FLOAT_EXPONENT?
+//! ```
+//!
+//! ## Character and string literals
+//!
+//! **TODO**
+//!
+//! ```text
+//! STRING_LITERAL  ::= '\"' <any char except '\"'>* '\"'
+//! CHAR_LITERAL    ::= '\'' <any char except '\''>* '\''
+//! ```
+
 use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::iter::Peekable;
@@ -43,7 +142,8 @@ fn is_identifier_start(ch: char) -> bool {
 
 fn is_identifier_continue(ch: char) -> bool {
     match ch {
-        '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' | '-' => true,
+        'a'..='z' | 'A'..='Z' | '_' | '-' => true,
+        ch if is_dec_digit(ch) => true,
         _ => false,
     }
 }
