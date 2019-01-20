@@ -224,7 +224,7 @@ impl<'file> Iterator for Lexer<'file> {
 
 impl<'file> Lexer<'file> {
     /// Create a new lexer from the source string
-    pub fn new(file: &'file File) -> Self {
+    pub fn new(file: &'file File) -> Lexer<'file> {
         let mut chars = file.contents().char_indices();
 
         Lexer {
@@ -463,7 +463,7 @@ impl<'file> Lexer<'file> {
     fn continue_zero_number(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         match self.lookahead() {
             Some((_, 'b')) => self.continue_bin_literal(start),
             Some((_, 'o')) => self.continue_oct_literal(start),
@@ -476,7 +476,7 @@ impl<'file> Lexer<'file> {
     fn continue_bin_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         self.bump(); // skip 'b'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0b"), is_bin_digit);
         if src.is_empty() {
@@ -494,7 +494,7 @@ impl<'file> Lexer<'file> {
     fn continue_oct_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         self.bump(); // skip 'o'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0o"), is_oct_digit);
         if src.is_empty() {
@@ -535,7 +535,7 @@ impl<'file> Lexer<'file> {
     fn continue_hex_literal(
         &mut self,
         start: ByteIndex,
-    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
+    ) -> Result<SpannedToken<'file>, Diagnostic<FileSpan>> {
         self.bump(); // skip 'x'
         let (end, src) = self.take_while(start + ByteSize::from_str_len_utf8("0x"), is_hex_digit);
         if src.is_empty() {
