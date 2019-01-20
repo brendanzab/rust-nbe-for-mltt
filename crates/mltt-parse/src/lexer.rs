@@ -206,9 +206,7 @@ impl<'file> Iterator for Lexer<'file> {
                 ']' => Ok((start, Token::RBracket, end)),
                 '"' => self.continue_string_literal(start),
                 '\'' => self.continue_char_literal(start),
-                '0' if self.test_lookahead(|x| x == 'b') => self.continue_bin_literal(start),
-                '0' if self.test_lookahead(|x| x == 'o') => self.continue_oct_literal(start),
-                '0' if self.test_lookahead(|x| x == 'x') => self.continue_hex_literal(start),
+                '0' => self.continue_zero_number(start),
                 ch if is_dec_digit(ch) => self.continue_dec_literal(start),
                 ch if is_name_start(ch) => Ok(self.continue_name(start)),
                 ch if ch.is_whitespace() => continue,
@@ -348,14 +346,6 @@ impl<'file> Lexer<'file> {
     /// Return a slice of the source string
     fn slice(&self, start: ByteIndex, end: ByteIndex) -> &'file str {
         &self.file.contents()[start.to_usize()..end.to_usize()]
-    }
-
-    /// Test a predicate against the next character in the source
-    fn test_lookahead<F>(&self, mut pred: F) -> bool
-    where
-        F: FnMut(char) -> bool,
-    {
-        self.lookahead.map_or(false, |(_, ch)| pred(ch))
     }
 
     /// Consume characters while the predicate matches for the current
@@ -527,6 +517,19 @@ impl<'file> Lexer<'file> {
         }
     }
 
+    /// Consume a number starting with zero
+    fn continue_zero_number(
+        &mut self,
+        start: ByteIndex,
+    ) -> Result<(ByteIndex, Token<&'file str>, ByteIndex), Diagnostic<FileSpan>> {
+        match self.lookahead() {
+            Some((_, 'b')) => self.continue_bin_literal(start),
+            Some((_, 'o')) => self.continue_oct_literal(start),
+            Some((_, 'x')) => self.continue_hex_literal(start),
+            _ => self.continue_dec_literal(start),
+        }
+    }
+
     /// Consume a binary literal token
     fn continue_bin_literal(
         &mut self,
@@ -683,8 +686,9 @@ mod tests {
     #[test]
     fn dec_literal() {
         test! {
-            "  123  ",
-            "  ~~~  " => Token::DecIntLiteral(123),
+            "  123 0  ",
+            "  ~~~    " => Token::DecIntLiteral(123),
+            "      ~  " => Token::DecIntLiteral(0),
         };
     }
 
