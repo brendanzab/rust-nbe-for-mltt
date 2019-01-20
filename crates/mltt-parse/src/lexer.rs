@@ -4,6 +4,24 @@ use std::str::CharIndices;
 
 use crate::token::{Token, TokenTag};
 
+fn is_whitespace(ch: char) -> bool {
+    match ch {
+        | '\u{0009}' // horizontal tab, '\t'
+        | '\u{000A}' // line feed, '\n'
+        | '\u{000B}' // vertical tab
+        | '\u{000C}' // form feed
+        | '\u{000D}' // carriage return, '\r'
+        | '\u{0020}' // space, ' '
+        | '\u{0085}' // next line
+        | '\u{200E}' // left-to-right mark
+        | '\u{200F}' // right-to-left mark
+        | '\u{2028}' // line separator
+        | '\u{2029}' // paragraph separator
+        => true,
+        _ => false,
+    }
+}
+
 fn is_symbol(ch: char) -> bool {
     match ch {
         '&' | '!' | ':' | ',' | '.' | '=' | '\\' | '/' | '>' | '<' | '-' | '|' | '+' | ';'
@@ -77,13 +95,13 @@ impl<'file> Iterator for Lexer<'file> {
             let end = start + ByteSize::from_char_len_utf8(ch);
 
             return Some(match ch {
+                ch if is_whitespace(ch) => continue,
                 ch if is_symbol(ch) => Ok(self.continue_symbol(start)),
                 ch if is_delimiter(ch) => Ok(self.emit(TokenTag::Delimiter, start, end)),
                 ch if is_identifier_start(ch) => Ok(self.continue_identifier(start)),
                 '"' => self.continue_string_literal(start),
                 '\'' => self.continue_char_literal(start),
                 '0' => self.continue_zero_number(start),
-                ch if ch.is_whitespace() => continue,
                 ch if is_dec_digit(ch) => self.continue_dec_literal(start, false),
                 _ => Err({
                     let end = start + ByteSize::from_char_len_utf8(ch);
