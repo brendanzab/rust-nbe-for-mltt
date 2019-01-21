@@ -94,18 +94,15 @@ impl<'file> Iterator for Lexer<'file> {
 
     fn next(&mut self) -> Option<Result<Token<'file>, Diagnostic<FileSpan>>> {
         self.advance().map(|ch| match ch {
-            ch if is_whitespace(ch) => Ok(self.consume_whitespace()),
-            ch if is_symbol(ch) => Ok(self.consume_symbol()),
-            ch if is_delimiter(ch) => Ok(self.emit(TokenTag::Delimiter)),
-            ch if is_identifier_start(ch) => Ok(self.consume_identifier()),
             '"' => self.consume_string_literal(),
             '\'' => self.consume_char_literal(),
             '0' => self.consume_zero_number(),
             ch if is_dec_digit(ch) => self.consume_dec_literal(),
-            _ => Err(
-                Diagnostic::new_error(format!("unexpected character `{}`", ch))
-                    .with_label(Label::new_primary(self.token_span())),
-            ),
+            ch if is_whitespace(ch) => Ok(self.consume_whitespace()),
+            ch if is_symbol(ch) => Ok(self.consume_symbol()),
+            ch if is_delimiter(ch) => Ok(self.emit(TokenTag::Delimiter)),
+            ch if is_identifier_start(ch) => Ok(self.consume_identifier()),
+            ch => Err(self.token_error(format!("unexpected character `{}`", ch))),
         })
     }
 }
