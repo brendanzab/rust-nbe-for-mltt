@@ -173,6 +173,17 @@ impl<'file> Lexer<'file> {
         self.current
     }
 
+    /// Advances the lexer by one token if the predicate matches
+    fn peek_advance(&mut self, advance_if: impl Fn(char) -> bool) -> bool {
+        match self.peek() {
+            Some(ch) if advance_if(ch) => {
+                self.advance();
+                true
+            },
+            Some(_) | None => false,
+        }
+    }
+
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position, or returning an
     /// unexpected end of file error.
@@ -290,20 +301,14 @@ impl<'file> Lexer<'file> {
 
     /// Consume a number starting with zero
     fn consume_zero_number(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        match self.peek() {
-            Some('b') => {
-                self.advance(); // skip 'b'
-                self.consume_bin_literal()
-            },
-            Some('o') => {
-                self.advance(); // skip 'o'
-                self.consume_oct_literal()
-            },
-            Some('x') => {
-                self.advance(); // skip 'x'
-                self.consume_hex_literal()
-            },
-            _ => self.consume_dec_literal(),
+        if self.peek_advance(|ch| ch == 'b') {
+            self.consume_bin_literal()
+        } else if self.peek_advance(|ch| ch == 'o') {
+            self.consume_oct_literal()
+        } else if self.peek_advance(|ch| ch == 'x') {
+            self.consume_hex_literal()
+        } else {
+            self.consume_dec_literal()
         }
     }
 
@@ -338,8 +343,7 @@ impl<'file> Lexer<'file> {
     fn consume_dec_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         self.separated_digits(is_dec_digit);
 
-        if let Some('.') = self.peek() {
-            self.advance(); // skip '.'
+        if self.peek_advance(|ch| ch == '.') {
             match self.expect_advance()? {
                 ch if is_dec_digit(ch) => {
                     self.separated_digits(is_dec_digit);
