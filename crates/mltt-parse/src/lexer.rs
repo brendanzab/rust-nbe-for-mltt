@@ -82,10 +82,15 @@ fn is_hex_digit(ch: char) -> bool {
 /// An iterator over a source string that yields `Token`s for subsequent use by
 /// the parser
 pub struct Lexer<'file> {
+    /// The file we are lexing
     file: &'file File,
+    /// An iterator of unicode characters to consume
     chars: Chars<'file>,
+    /// The start of the next token to be emitted
     token_start: ByteIndex,
+    /// The end of the next token to be emitted
     token_end: ByteIndex,
+    /// The current character that we are looking at
     current: Option<char>,
 }
 
