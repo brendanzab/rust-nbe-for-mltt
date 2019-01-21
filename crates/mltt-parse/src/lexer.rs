@@ -226,11 +226,22 @@ impl<'file> Lexer<'file> {
         self.emit(TokenTag::Identifier)
     }
 
-    /// Consume an escape code
+    /// Skip an ASCII character code
+    fn skip_ascii_char_code(&mut self) -> Result<(), Diagnostic<FileSpan>> {
+        if !is_oct_digit(self.expect_advance()?) {
+            Err(self.token_error("invalid ASCII character code"))
+        } else if !is_hex_digit(self.expect_advance()?) {
+            Err(self.token_error("invalid ASCII character code"))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Skip an escape
     fn skip_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         match self.expect_advance()? {
             '\'' | '\"' | '\\' | '/' | 'n' | 'r' | 't' => Ok(()),
-            'x' => unimplemented!("ASCII escapes"),
+            'x' => self.skip_ascii_char_code(),
             'u' => unimplemented!("Unicode escapes"),
             ch => Err(self.token_error(format!("unknown escape code `\\{}`", ch))),
         }
@@ -403,12 +414,14 @@ mod tests {
     #[test]
     fn string_literal() {
         test! {
-            r#"  "a" "\t"  "#,
-            r#"~~          "# => (TokenTag::Whitespace, "  "),
-            r#"  ~~~       "# => (TokenTag::StringLiteral, "\"a\""),
-            r#"     ~      "# => (TokenTag::Whitespace, " "),
-            r#"      ~~~~  "# => (TokenTag::StringLiteral, "\"\\t\""),
-            r#"          ~~"# => (TokenTag::Whitespace, "  "),
+            r#"  "a" "\t" "hello \x3f \x7F"  "#,
+            r#"~~                            "# => (TokenTag::Whitespace, "  "),
+            r#"  ~~~                         "# => (TokenTag::StringLiteral, r#""a""#),
+            r#"     ~                        "# => (TokenTag::Whitespace, " "),
+            r#"      ~~~~                    "# => (TokenTag::StringLiteral, r#""\t""#),
+            r#"          ~                   "# => (TokenTag::Whitespace, " "),
+            r#"           ~~~~~~~~~~~~~~~~~  "# => (TokenTag::StringLiteral, r#""hello \x3f \x7F""#),
+            r#"                            ~~"# => (TokenTag::Whitespace, "  "),
         };
     }
 
