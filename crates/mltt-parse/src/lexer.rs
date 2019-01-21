@@ -91,7 +91,7 @@ impl<'file> Iterator for Lexer<'file> {
     type Item = Result<Token<'file>, Diagnostic<FileSpan>>;
 
     fn next(&mut self) -> Option<Result<Token<'file>, Diagnostic<FileSpan>>> {
-        while let Some((start, ch)) = self.bump() {
+        while let Some((start, ch)) = self.advance() {
             let end = start + ByteSize::from_char_len_utf8(ch);
 
             return Some(match ch {
@@ -151,7 +151,7 @@ impl<'file> Lexer<'file> {
 
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position.
-    fn bump(&mut self) -> Option<(ByteIndex, char)> {
+    fn advance(&mut self) -> Option<(ByteIndex, char)> {
         let current = self.lookahead();
         self.lookahead = self.chars.next();
         current
@@ -160,8 +160,8 @@ impl<'file> Lexer<'file> {
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position, or returning an
     /// unexpected end of file error.
-    fn expect_bump(&mut self) -> Result<(ByteIndex, char), Diagnostic<FileSpan>> {
-        self.bump().ok_or_else(|| {
+    fn expect_advance(&mut self) -> Result<(ByteIndex, char), Diagnostic<FileSpan>> {
+        self.advance().ok_or_else(|| {
             let eof = self.eof();
             Diagnostic::new_error("unexpected end of file")
                 .with_label(Label::new_primary(self.span(eof, eof)))
@@ -188,7 +188,7 @@ impl<'file> Lexer<'file> {
             if terminate(ch) {
                 return end;
             } else {
-                self.bump();
+                self.advance();
             }
         }
 
@@ -226,7 +226,7 @@ impl<'file> Lexer<'file> {
 
     /// Consume an escape code
     fn start_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
-        match self.expect_bump()? {
+        match self.expect_advance()? {
             (_, '\'') => Ok(()),
             (_, '\"') => Ok(()),
             (_, '\\') => Ok(()),
@@ -250,7 +250,7 @@ impl<'file> Lexer<'file> {
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         let mut end = start;
 
-        while let Some((next, ch)) = self.bump() {
+        while let Some((next, ch)) = self.advance() {
             end = next + ByteSize::from_char_len_utf8(ch);
             match ch {
                 '\\' => {},
@@ -268,7 +268,7 @@ impl<'file> Lexer<'file> {
         &mut self,
         start: ByteIndex,
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        match self.expect_bump()? {
+        match self.expect_advance()? {
             (_, '\\') => self.start_escape()?,
             (next, '\'') => {
                 let end = next + ByteSize::from_char_len_utf8('\'');
@@ -278,7 +278,7 @@ impl<'file> Lexer<'file> {
             (_, _) => {},
         };
 
-        match self.expect_bump()? {
+        match self.expect_advance()? {
             (end, '\'') => Ok(self.emit(
                 TokenTag::CharLiteral,
                 start,
@@ -313,15 +313,15 @@ impl<'file> Lexer<'file> {
     ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         match self.lookahead() {
             Some((_, 'b')) => {
-                self.bump(); // skip 'b'
+                self.advance(); // skip 'b'
                 self.continue_bin_literal(start)
             },
             Some((_, 'o')) => {
-                self.bump(); // skip 'o'
+                self.advance(); // skip 'o'
                 self.continue_oct_literal(start)
             },
             Some((_, 'x')) => {
-                self.bump(); // skip 'x'
+                self.advance(); // skip 'x'
                 self.continue_hex_literal(start)
             },
             _ => self.continue_dec_literal(start, true),
@@ -392,7 +392,7 @@ impl<'file> Lexer<'file> {
         }
 
         if let Some((_, '.')) = self.lookahead() {
-            self.bump(); // skip '.'
+            self.advance(); // skip '.'
             self.continue_float_literal(start)
         } else {
             Ok(self.emit(TokenTag::IntLiteral, start, end))
