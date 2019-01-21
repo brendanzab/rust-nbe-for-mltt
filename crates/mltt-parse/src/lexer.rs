@@ -287,8 +287,8 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume some digits, separated by `_`, returning the number of digits consumed
-    fn separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> usize {
+    /// Skip some digits, separated by `_`, returning the number of digits consumed
+    fn skip_separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> usize {
         let mut digits = 0;
         self.take_while(|ch| {
             if is_digit(ch) {
@@ -316,7 +316,7 @@ impl<'file> Lexer<'file> {
 
     /// Consume a binary literal token
     fn consume_bin_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        if self.separated_digits(is_bin_digit) == 0 {
+        if self.skip_separated_digits(is_bin_digit) == 0 {
             Err(self.token_error("no valid digits found in binary literal"))
         } else {
             Ok(self.emit(TokenTag::IntLiteral))
@@ -325,7 +325,7 @@ impl<'file> Lexer<'file> {
 
     /// Consume a octal literal token
     fn consume_oct_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        if self.separated_digits(is_oct_digit) == 0 {
+        if self.skip_separated_digits(is_oct_digit) == 0 {
             Err(self.token_error("no valid digits found in octal literal"))
         } else {
             Ok(self.emit(TokenTag::IntLiteral))
@@ -334,25 +334,44 @@ impl<'file> Lexer<'file> {
 
     /// Consume a hexadecimal literal token
     fn consume_hex_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        if self.separated_digits(is_hex_digit) == 0 {
+        if self.skip_separated_digits(is_hex_digit) == 0 {
             Err(self.token_error("no valid digits found in hexadecimal literal"))
         } else {
             Ok(self.emit(TokenTag::IntLiteral))
         }
     }
 
+    /// Consume float exponents, returning `true` if an exponent was found
+    fn skip_float_exponent(&mut self) -> Result<bool, Diagnostic<FileSpan>> {
+        if self.peek_advance(|ch| ch == 'e' || ch == 'E') {
+            unimplemented!("float exponent");
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Consume a decimal literal
     fn consume_dec_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        self.separated_digits(is_dec_digit);
+        // No need to check the number of digits here - we should have already
+        // consumed at least one when advancing the lexer at the beginning of
+        // the first token.
+        self.skip_separated_digits(is_dec_digit);
 
         if self.peek_advance(|ch| ch == '.') {
-            match self.expect_advance()? {
-                ch if is_dec_digit(ch) => {
-                    self.separated_digits(is_dec_digit);
-                    Ok(self.emit(TokenTag::FloatLiteral))
-                },
-                _ => Err(self.token_error("expected a digit after the decimal place")),
+            // We should see at least one decimal digit at the beginning of
+            // the fractional part of the floating point number. This rules
+            // out numbers like `0._1`.
+            if self.peek_advance(is_dec_digit) {
+                self.skip_separated_digits(is_dec_digit);
+                self.skip_float_exponent()?;
+                Ok(self.emit(TokenTag::FloatLiteral))
+            } else if self.skip_float_exponent()? {
+                Ok(self.emit(TokenTag::FloatLiteral))
+            } else {
+                Err(self.token_error("expected a digit or exponent after the decimal place"))
             }
+        } else if self.skip_float_exponent()? {
+            Ok(self.emit(TokenTag::FloatLiteral))
         } else {
             Ok(self.emit(TokenTag::IntLiteral))
         }
