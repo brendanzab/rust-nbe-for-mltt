@@ -1,5 +1,6 @@
 use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
+use std::iter::Peekable;
 use std::str::Chars;
 
 use crate::token::{Token, TokenTag};
@@ -85,7 +86,7 @@ pub struct Lexer<'file> {
     /// The file we are lexing
     file: &'file File,
     /// An iterator of unicode characters to consume
-    chars: Chars<'file>,
+    chars: Peekable<Chars<'file>>,
     /// The start of the next token to be emitted
     token_start: ByteIndex,
     /// The end of the next token to be emitted
@@ -99,7 +100,7 @@ impl<'file> Lexer<'file> {
     pub fn new(file: &'file File) -> Lexer<'file> {
         Lexer {
             file,
-            chars: file.contents().chars(),
+            chars: file.contents().chars().peekable(),
             token_start: ByteIndex::from(0),
             token_end: ByteIndex::from(0),
             current: None,
@@ -141,8 +142,8 @@ impl<'file> Lexer<'file> {
     }
 
     /// Return the next character in the source string
-    fn peek(&self) -> Option<char> {
-        self.chars.clone().next()
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().map(char::clone)
     }
 
     /// Bump the current position in the source string by one character,
