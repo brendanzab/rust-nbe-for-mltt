@@ -91,19 +91,16 @@ pub struct Lexer<'file> {
     token_start: ByteIndex,
     /// The end of the next token to be emitted
     token_end: ByteIndex,
-    /// The current character that we are looking at
-    current: Option<char>,
 }
 
 impl<'file> Lexer<'file> {
-    /// Create a new lexer from the source string
+    /// Create a new lexer from the source file
     pub fn new(file: &'file File) -> Lexer<'file> {
         Lexer {
             file,
             chars: file.contents().chars().peekable(),
             token_start: ByteIndex::from(0),
             token_end: ByteIndex::from(0),
-            current: None,
         }
     }
 
@@ -149,19 +146,32 @@ impl<'file> Lexer<'file> {
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position.
     fn advance(&mut self) -> Option<char> {
-        self.current = self.chars.next();
-        self.token_end += match self.current {
+        let current = self.chars.next();
+        self.token_end += match current {
             Some(ch) => ByteSize::from_char_len_utf8(ch),
             None => ByteSize::from(0),
         };
-
-        self.current
+        current
     }
 
-    /// Advances the lexer by one token if the predicate matches
-    fn peek_advance(&mut self, advance_if: impl Fn(char) -> bool) -> bool {
+    /// Bump the current position in the source string by one character,
+    /// returning the current character or an unexpected end of file error.
+    fn expect_advance(&mut self) -> Result<char, Diagnostic<FileSpan>> {
+        self.advance()
+            .ok_or_else(|| self.eof_error("unexpected end of file"))
+    }
+
+    /// Skip characters while the predicate matches the lookahead character.
+    fn skip_while(&mut self, mut keep_going: impl FnMut(char) -> bool) {
+        while self.peek().map_or(false, |ch| keep_going(ch)) {
+            self.advance();
+        }
+    }
+
+    /// Skip by one character if the predicate matches the lookahead
+    fn skip_if(&mut self, predicate: impl Fn(char) -> bool) -> bool {
         match self.peek() {
-            Some(ch) if advance_if(ch) => {
+            Some(ch) if predicate(ch) => {
                 self.advance();
                 true
             },
@@ -169,24 +179,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Bump the current position in the source string by one character,
-    /// returning the current character and byte position, or returning an
-    /// unexpected end of file error.
-    fn expect_advance(&mut self) -> Result<char, Diagnostic<FileSpan>> {
-        self.advance()
-            .ok_or_else(|| self.eof_error("unexpected end of file"))
-    }
-
-    /// Consume characters while the predicate matches for the current
-    /// character, then return the consumed slice and the end byte
-    /// position.
-    fn take_while(&mut self, mut keep_going: impl FnMut(char) -> bool) {
-        while self.peek().map_or(false, |ch| keep_going(ch)) {
-            self.advance();
-        }
-    }
-
-    /// Consume a token
+    /// Consume a token, returning its tag or none on end of file
     fn consume_token(&mut self) -> Option<Result<TokenTag, Diagnostic<FileSpan>>> {
         self.advance().map(|ch| match ch {
             '"' => self.consume_string_literal(),
@@ -203,19 +196,19 @@ impl<'file> Lexer<'file> {
 
     /// Consume a line comment
     fn consume_line_comment(&mut self) -> TokenTag {
-        self.take_while(|ch| ch != '\n');
+        self.skip_while(|ch| ch != '\n');
         TokenTag::LineComment
     }
 
     /// Consume a doc comment
     fn consume_line_doc(&mut self) -> TokenTag {
-        self.take_while(|ch| ch != '\n');
+        self.skip_while(|ch| ch != '\n');
         TokenTag::LineDoc
     }
 
     /// Consume some whitespace
     fn consume_whitespace(&mut self) -> TokenTag {
-        self.take_while(is_whitespace);
+        self.skip_while(is_whitespace);
         TokenTag::Whitespace
     }
 
@@ -225,7 +218,7 @@ impl<'file> Lexer<'file> {
             symbol if symbol.starts_with("|||") => self.consume_line_doc(),
             symbol if symbol.starts_with("--") => self.consume_line_comment(),
             _ => {
-                self.take_while(is_symbol);
+                self.skip_while(is_symbol);
                 TokenTag::Symbol
             },
         }
@@ -233,7 +226,7 @@ impl<'file> Lexer<'file> {
 
     /// Consume a identifier
     fn consume_identifier(&mut self) -> TokenTag {
-        self.take_while(is_identifier_continue);
+        self.skip_while(is_identifier_continue);
         TokenTag::Identifier
     }
 
@@ -288,24 +281,23 @@ impl<'file> Lexer<'file> {
     /// Skip some digits, separated by `_`, returning the number of digits consumed
     fn skip_separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> usize {
         let mut digits = 0;
-        self.take_while(|ch| {
-            if is_digit(ch) {
+        loop {
+            if self.skip_if(&is_digit) {
                 digits += 1;
-                true
-            } else {
-                ch == '_'
+            } else if !self.skip_if(|ch| ch == '_') {
+                break;
             }
-        });
+        }
         digits
     }
 
     /// Consume a number starting with zero
     fn consume_zero_number(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
-        if self.peek_advance(|ch| ch == 'b') {
+        if self.skip_if(|ch| ch == 'b') {
             self.consume_radix_literal("binary", is_bin_digit)
-        } else if self.peek_advance(|ch| ch == 'o') {
+        } else if self.skip_if(|ch| ch == 'o') {
             self.consume_radix_literal("octal", is_oct_digit)
-        } else if self.peek_advance(|ch| ch == 'x') {
+        } else if self.skip_if(|ch| ch == 'x') {
             self.consume_radix_literal("hexadecimal", is_hex_digit)
         } else {
             self.consume_dec_literal()
@@ -327,7 +319,7 @@ impl<'file> Lexer<'file> {
 
     /// Consume float exponents, returning `true` if an exponent was found
     fn skip_float_exponent(&mut self) -> Result<bool, Diagnostic<FileSpan>> {
-        if self.peek_advance(|ch| ch == 'e' || ch == 'E') {
+        if self.skip_if(|ch| ch == 'e' || ch == 'E') {
             unimplemented!("float exponent");
         } else {
             Ok(false)
@@ -341,11 +333,11 @@ impl<'file> Lexer<'file> {
         // the first token.
         self.skip_separated_digits(is_dec_digit);
 
-        if self.peek_advance(|ch| ch == '.') {
+        if self.skip_if(|ch| ch == '.') {
             // We should see at least one decimal digit at the beginning of
             // the fractional part of the floating point number. This rules
             // out numbers like `0._1`.
-            if self.peek_advance(is_dec_digit) {
+            if self.skip_if(is_dec_digit) {
                 self.skip_separated_digits(is_dec_digit);
                 self.skip_float_exponent()?;
                 Ok(TokenTag::FloatLiteral)
