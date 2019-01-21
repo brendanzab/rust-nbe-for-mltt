@@ -3,6 +3,7 @@ use mltt_span::FileSpan;
 /// A tag that makes it easier to remember what type of token this is
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenTag {
+    Whitespace,
     LineComment,
     LineDoc,
     Symbol,
@@ -26,6 +27,10 @@ pub struct Token<'file> {
 }
 
 impl Token<'_> {
+    pub fn is_whitespace(&self) -> bool {
+        self.tag == TokenTag::Whitespace
+    }
+
     pub fn is_delimiter(&self, slice: &str) -> bool {
         self.tag == TokenTag::Delimiter && self.slice == slice
     }

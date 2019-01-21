@@ -1,6 +1,6 @@
 use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
-use std::str::CharIndices;
+use std::str::Chars;
 
 use crate::token::{Token, TokenTag};
 
@@ -83,47 +83,42 @@ fn is_hex_digit(ch: char) -> bool {
 /// the parser
 pub struct Lexer<'file> {
     file: &'file File,
-    chars: CharIndices<'file>,
-    lookahead: Option<(usize, char)>,
+    chars: Chars<'file>,
+    token_start: ByteIndex,
+    token_end: ByteIndex,
+    current: Option<char>,
 }
 
 impl<'file> Iterator for Lexer<'file> {
     type Item = Result<Token<'file>, Diagnostic<FileSpan>>;
 
     fn next(&mut self) -> Option<Result<Token<'file>, Diagnostic<FileSpan>>> {
-        while let Some((start, ch)) = self.advance() {
-            let end = start + ByteSize::from_char_len_utf8(ch);
-
-            return Some(match ch {
-                ch if is_whitespace(ch) => continue,
-                ch if is_symbol(ch) => Ok(self.continue_symbol(start)),
-                ch if is_delimiter(ch) => Ok(self.emit(TokenTag::Delimiter, start, end)),
-                ch if is_identifier_start(ch) => Ok(self.continue_identifier(start)),
-                '"' => self.continue_string_literal(start),
-                '\'' => self.continue_char_literal(start),
-                '0' => self.continue_zero_number(start),
-                ch if is_dec_digit(ch) => self.continue_dec_literal(start, false),
-                _ => Err({
-                    let end = start + ByteSize::from_char_len_utf8(ch);
-                    Diagnostic::new_error(format!("unexpected character `{}`", ch))
-                        .with_label(Label::new_primary(self.span(start, end)))
-                }),
-            });
-        }
-
-        None
+        self.advance().map(|ch| match ch {
+            ch if is_whitespace(ch) => Ok(self.consume_whitespace()),
+            ch if is_symbol(ch) => Ok(self.consume_symbol()),
+            ch if is_delimiter(ch) => Ok(self.emit(TokenTag::Delimiter)),
+            ch if is_identifier_start(ch) => Ok(self.consume_identifier()),
+            '"' => self.consume_string_literal(),
+            '\'' => self.consume_char_literal(),
+            '0' => self.consume_zero_number(),
+            ch if is_dec_digit(ch) => self.consume_dec_literal(),
+            _ => Err(
+                Diagnostic::new_error(format!("unexpected character `{}`", ch))
+                    .with_label(Label::new_primary(self.token_span())),
+            ),
+        })
     }
 }
 
 impl<'file> Lexer<'file> {
     /// Create a new lexer from the source string
     pub fn new(file: &'file File) -> Lexer<'file> {
-        let mut chars = file.contents().char_indices();
-
         Lexer {
             file,
-            lookahead: chars.next(),
-            chars,
+            chars: file.contents().chars(),
+            token_start: ByteIndex::from(0),
+            token_end: ByteIndex::from(0),
+            current: None,
         }
     }
 
@@ -132,295 +127,225 @@ impl<'file> Lexer<'file> {
         FileSpan::new(self.file.id(), start, end)
     }
 
-    /// Returns the index of the end of the file
-    fn eof(&self) -> ByteIndex {
-        self.file.span().end()
+    /// Returns the span of the current token in the source file
+    fn token_span(&self) -> FileSpan {
+        self.span(self.token_start, self.token_end)
+    }
+
+    /// Returns the span of the end of the file
+    fn eof(&self) -> FileSpan {
+        let end = self.file.span().end();
+        self.span(end, end)
+    }
+
+    /// Create a new error diagnostic at the current token
+    fn token_error(&self, message: impl Into<String>) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error(message).with_label(Label::new_primary(self.token_span()))
+    }
+
+    /// Create a new error diagnostic at the end of file
+    fn eof_error(&self, message: impl Into<String>) -> Diagnostic<FileSpan> {
+        Diagnostic::new_error(message).with_label(Label::new_primary(self.eof()))
     }
 
     /// Emit a token
-    fn emit(&self, tag: TokenTag, start: ByteIndex, end: ByteIndex) -> Token<'file> {
-        let slice = self.slice(start, end);
-        let span = self.span(start, end);
+    fn emit(&mut self, tag: TokenTag) -> Token<'file> {
+        let slice = &self.file.contents()[self.token_start.to_usize()..self.token_end.to_usize()];
+        let span = self.token_span();
+        self.token_start = self.token_end;
         Token { tag, slice, span }
     }
 
     /// Return the next character in the source string
-    fn lookahead(&self) -> Option<(ByteIndex, char)> {
-        self.lookahead.map(|(i, ch)| (ByteIndex::from(i), ch))
+    fn peek(&self) -> Option<char> {
+        self.chars.clone().next()
     }
 
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position.
-    fn advance(&mut self) -> Option<(ByteIndex, char)> {
-        let current = self.lookahead();
-        self.lookahead = self.chars.next();
-        current
+    fn advance(&mut self) -> Option<char> {
+        self.current = self.chars.next();
+        self.token_end += match self.current {
+            Some(ch) => ByteSize::from_char_len_utf8(ch),
+            None => ByteSize::from(0),
+        };
+
+        self.current
     }
 
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position, or returning an
     /// unexpected end of file error.
-    fn expect_advance(&mut self) -> Result<(ByteIndex, char), Diagnostic<FileSpan>> {
-        self.advance().ok_or_else(|| {
-            let eof = self.eof();
-            Diagnostic::new_error("unexpected end of file")
-                .with_label(Label::new_primary(self.span(eof, eof)))
-        })
-    }
-
-    /// Return a slice of the source string
-    fn slice(&self, start: ByteIndex, end: ByteIndex) -> &'file str {
-        &self.file.contents()[start.to_usize()..end.to_usize()]
+    fn expect_advance(&mut self) -> Result<char, Diagnostic<FileSpan>> {
+        self.advance()
+            .ok_or_else(|| self.eof_error("unexpected end of file"))
     }
 
     /// Consume characters while the predicate matches for the current
     /// character, then return the consumed slice and the end byte
     /// position.
-    fn take_while(&mut self, mut keep_going: impl FnMut(char) -> bool) -> ByteIndex {
-        self.take_until(|ch| !keep_going(ch))
-    }
-
-    /// Consume characters until the predicate matches for the next character
-    /// in the lookahead, then return the consumed slice and the end byte
-    /// position.
-    fn take_until(&mut self, mut terminate: impl FnMut(char) -> bool) -> ByteIndex {
-        while let Some((end, ch)) = self.lookahead() {
-            if terminate(ch) {
-                return end;
-            } else {
-                self.advance();
-            }
+    fn take_while(&mut self, mut keep_going: impl FnMut(char) -> bool) {
+        while self.peek().map_or(false, |ch| keep_going(ch)) {
+            self.advance();
         }
-
-        self.eof()
     }
 
     /// Consume a line comment
-    fn continue_line_comment(&mut self, start: ByteIndex) -> Token<'file> {
-        let end = self.take_until(|ch| ch == '\n');
-        self.emit(TokenTag::LineComment, start, end)
+    fn consume_line_comment(&mut self) -> Token<'file> {
+        self.take_while(|ch| ch != '\n');
+        self.emit(TokenTag::LineComment)
     }
 
     /// Consume a doc comment
-    fn continue_line_doc(&mut self, start: ByteIndex) -> Token<'file> {
-        let end = self.take_until(|ch| ch == '\n');
-        self.emit(TokenTag::LineDoc, start, end)
+    fn consume_line_doc(&mut self) -> Token<'file> {
+        self.take_while(|ch| ch != '\n');
+        self.emit(TokenTag::LineDoc)
+    }
+
+    /// Consume some whitespace
+    fn consume_whitespace(&mut self) -> Token<'file> {
+        self.take_while(is_whitespace);
+        self.emit(TokenTag::Whitespace)
     }
 
     /// Consume a symbol
-    fn continue_symbol(&mut self, start: ByteIndex) -> Token<'file> {
-        let end = self.take_while(is_symbol);
-
-        match self.slice(start, end) {
-            symbol if symbol.starts_with("|||") => self.continue_line_doc(start),
-            symbol if symbol.starts_with("--") => self.continue_line_comment(start),
-            _ => self.emit(TokenTag::Symbol, start, end),
+    fn consume_symbol(&mut self) -> Token<'file> {
+        match &self.file.contents()[self.token_start.to_usize()..] {
+            symbol if symbol.starts_with("|||") => self.consume_line_doc(),
+            symbol if symbol.starts_with("--") => self.consume_line_comment(),
+            _ => {
+                self.take_while(is_symbol);
+                self.emit(TokenTag::Symbol)
+            },
         }
     }
 
     /// Consume a identifier
-    fn continue_identifier(&mut self, start: ByteIndex) -> Token<'file> {
-        let end = self.take_while(is_identifier_continue);
-        self.emit(TokenTag::Identifier, start, end)
+    fn consume_identifier(&mut self) -> Token<'file> {
+        self.take_while(is_identifier_continue);
+        self.emit(TokenTag::Identifier)
     }
 
     /// Consume an escape code
-    fn start_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
+    fn skip_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         match self.expect_advance()? {
-            (_, '\'') => Ok(()),
-            (_, '\"') => Ok(()),
-            (_, '\\') => Ok(()),
-            (_, '/') => Ok(()),
-            (_, 'n') => Ok(()),
-            (_, 'r') => Ok(()),
-            (_, 't') => Ok(()),
-            // TODO: Unicode escape codes
-            (start, ch) => Err({
-                let end = start + ByteSize::from_char_len_utf8(ch);
-                Diagnostic::new_error(format!("unknown escape code `\\{}`", ch))
-                    .with_label(Label::new_primary(self.span(start, end)))
-            }),
+            '\'' | '\"' | '\\' | '/' | 'n' | 'r' | 't' => Ok(()),
+            'x' => unimplemented!("ASCII escapes"),
+            'u' => unimplemented!("Unicode escapes"),
+            ch => Err(self.token_error(format!("unknown escape code `\\{}`", ch))),
         }
     }
 
     /// Consume a string literal
-    fn continue_string_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        let mut end = start;
-
-        while let Some((next, ch)) = self.advance() {
-            end = next + ByteSize::from_char_len_utf8(ch);
+    fn consume_string_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        while let Some(ch) = self.advance() {
             match ch {
-                '\\' => {},
-                '"' => return Ok(self.emit(TokenTag::StringLiteral, start, end)),
+                '\\' => self.skip_escape()?,
+                '"' => return Ok(self.emit(TokenTag::StringLiteral)),
                 _ => {},
             }
         }
 
-        Err(Diagnostic::new_error("unterminated string literal")
-            .with_label(Label::new_primary(self.span(start, end))))
+        Err(self.token_error("unterminated string literal"))
     }
 
     /// Consume a character literal
-    fn continue_char_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_char_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
         match self.expect_advance()? {
-            (_, '\\') => self.start_escape()?,
-            (next, '\'') => {
-                let end = next + ByteSize::from_char_len_utf8('\'');
-                return Err(Diagnostic::new_error("empty character literal")
-                    .with_label(Label::new_primary(self.span(start, end))));
-            },
-            (_, _) => {},
+            '\\' => self.skip_escape()?,
+            '\'' => return Err(self.token_error("empty character literal")),
+            _ => {},
         };
 
         match self.expect_advance()? {
-            (end, '\'') => Ok(self.emit(
-                TokenTag::CharLiteral,
-                start,
-                end + ByteSize::from_char_len_utf8('\''),
-            )),
-            (next, ch) => Err({
-                let end = next + ByteSize::from_char_len_utf8(ch);
-                Diagnostic::new_error("unterminated character literal")
-                    .with_label(Label::new_primary(self.span(start, end)))
-            }),
+            '\'' => Ok(self.emit(TokenTag::CharLiteral)),
+            _ => Err(self.token_error("unterminated character literal")),
         }
     }
 
     /// Consume some digits, separated by `_`, returning the number of digits consumed
-    fn separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> (ByteIndex, usize) {
-        let digits = &mut 0;
-        let end = self.take_while(|ch| match ch {
-            '_' => true,
-            ch if is_digit(ch) => {
-                *digits += 1;
+    fn separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> usize {
+        let mut digits = 0;
+        self.take_while(|ch| {
+            if is_digit(ch) {
+                digits += 1;
                 true
-            },
-            _ => false,
+            } else {
+                ch == '_'
+            }
         });
-        (end, *digits)
+        digits
     }
 
     /// Consume a number starting with zero
-    fn continue_zero_number(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        match self.lookahead() {
-            Some((_, 'b')) => {
+    fn consume_zero_number(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        match self.peek() {
+            Some('b') => {
                 self.advance(); // skip 'b'
-                self.continue_bin_literal(start)
+                self.consume_bin_literal()
             },
-            Some((_, 'o')) => {
+            Some('o') => {
                 self.advance(); // skip 'o'
-                self.continue_oct_literal(start)
+                self.consume_oct_literal()
             },
-            Some((_, 'x')) => {
+            Some('x') => {
                 self.advance(); // skip 'x'
-                self.continue_hex_literal(start)
+                self.consume_hex_literal()
             },
-            _ => self.continue_dec_literal(start, true),
+            _ => self.consume_dec_literal(),
         }
     }
 
     /// Consume a binary literal token
-    fn continue_bin_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        let (end, digits) = self.separated_digits(is_bin_digit);
-        if digits == 0 {
-            Err(
-                Diagnostic::new_error("no valid digits found in binary literal")
-                    .with_label(Label::new_primary(self.span(start, end))),
-            )
+    fn consume_bin_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        if self.separated_digits(is_bin_digit) == 0 {
+            Err(self.token_error("no valid digits found in binary literal"))
         } else {
-            Ok(self.emit(TokenTag::IntLiteral, start, end))
+            Ok(self.emit(TokenTag::IntLiteral))
         }
     }
 
     /// Consume a octal literal token
-    fn continue_oct_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        let (end, digits) = self.separated_digits(is_oct_digit);
-        if digits == 0 {
-            Err(
-                Diagnostic::new_error("no valid digits found in octal literal")
-                    .with_label(Label::new_primary(self.span(start, end))),
-            )
+    fn consume_oct_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        if self.separated_digits(is_oct_digit) == 0 {
+            Err(self.token_error("no valid digits found in octal literal"))
         } else {
-            Ok(self.emit(TokenTag::IntLiteral, start, end))
+            Ok(self.emit(TokenTag::IntLiteral))
         }
     }
 
     /// Consume a hexadecimal literal token
-    fn continue_hex_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        let (end, digits) = self.separated_digits(is_hex_digit);
-        if digits == 0 {
-            Err(
-                Diagnostic::new_error("no valid digits found in hexadecimal literal")
-                    .with_label(Label::new_primary(self.span(start, end))),
-            )
+    fn consume_hex_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        if self.separated_digits(is_hex_digit) == 0 {
+            Err(self.token_error("no valid digits found in hexadecimal literal"))
         } else {
-            Ok(self.emit(TokenTag::IntLiteral, start, end))
+            Ok(self.emit(TokenTag::IntLiteral))
         }
     }
 
     /// Consume a decimal literal
-    fn continue_dec_literal(
-        &mut self,
-        start: ByteIndex,
-        has_zero_prefix: bool,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        let (end, digits) = self.separated_digits(is_dec_digit);
-        let digits = digits + if has_zero_prefix { 1 } else { 0 };
-        if digits + 1 == 0 {
-            return Err(
-                Diagnostic::new_error("no valid digits found in decimal literal")
-                    .with_label(Label::new_primary(self.span(start, end))),
-            );
-        }
+    fn consume_dec_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+        self.separated_digits(is_dec_digit);
 
-        if let Some((_, '.')) = self.lookahead() {
+        if let Some('.') = self.peek() {
             self.advance(); // skip '.'
-            self.continue_float_literal(start)
+            match self.expect_advance()? {
+                ch if is_dec_digit(ch) => {
+                    self.separated_digits(is_dec_digit);
+                    Ok(self.emit(TokenTag::FloatLiteral))
+                },
+                _ => Err(self.token_error("expected a digit after the decimal place")),
+            }
         } else {
-            Ok(self.emit(TokenTag::IntLiteral, start, end))
+            Ok(self.emit(TokenTag::IntLiteral))
         }
-    }
-
-    /// Consume a float literal
-    fn continue_float_literal(
-        &mut self,
-        start: ByteIndex,
-    ) -> Result<Token<'file>, Diagnostic<FileSpan>> {
-        // FIXME: Should not be able to start with `_`
-        let (end, digits) = self.separated_digits(is_dec_digit);
-
-        if digits == 0 {
-            return Err(
-                Diagnostic::new_error("no valid digits found after decimal place")
-                    .with_label(Label::new_primary(self.span(start, end))),
-            );
-        }
-
-        Ok(self.emit(TokenTag::FloatLiteral, start, end))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use mltt_span::Files;
+    use pretty_assertions::assert_eq;
 
     use super::*;
 
@@ -450,7 +375,9 @@ mod tests {
     fn data() {
         test! {
             "  hello-hahaha8ABC  ",
+            "~~                  " => (TokenTag::Whitespace, "  "),
             "  ~~~~~~~~~~~~~~~~  " => (TokenTag::Identifier, "hello-hahaha8ABC"),
+            "                  ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -458,7 +385,9 @@ mod tests {
     fn comment() {
         test! {
             "       -- hello this is dog\n  ",
+            "~~~~~~~                        " => (TokenTag::Whitespace, "       "),
             "       ~~~~~~~~~~~~~~~~~~~~    " => (TokenTag::LineComment, "-- hello this is dog"),
+            "                           ~~~ " => (TokenTag::Whitespace, "\n  "),
         };
     }
 
@@ -466,6 +395,7 @@ mod tests {
     fn line_doc() {
         test! {
             "       ||| hello this is dog",
+            "~~~~~~~                     " => (TokenTag::Whitespace, "       "),
             "       ~~~~~~~~~~~~~~~~~~~~~" => (TokenTag::LineDoc, "||| hello this is dog"),
         };
     }
@@ -474,8 +404,11 @@ mod tests {
     fn string_literal() {
         test! {
             r#"  "a" "\t"  "#,
+            r#"~~          "# => (TokenTag::Whitespace, "  "),
             r#"  ~~~       "# => (TokenTag::StringLiteral, "\"a\""),
+            r#"     ~      "# => (TokenTag::Whitespace, " "),
             r#"      ~~~~  "# => (TokenTag::StringLiteral, "\"\\t\""),
+            r#"          ~~"# => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -483,8 +416,11 @@ mod tests {
     fn char_literal() {
         test! {
             r"  'a' '\t'  ",
+            r"~~          " => (TokenTag::Whitespace, "  "),
             r"  ~~~       " => (TokenTag::CharLiteral, "'a'"),
-            r"      ~~~~  " => (TokenTag::CharLiteral, "'\\t'"),
+            r"     ~      " => (TokenTag::Whitespace, " "),
+            r"      ~~~~  " => (TokenTag::CharLiteral, r"'\t'"),
+            r"          ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -492,7 +428,9 @@ mod tests {
     fn bin_literal() {
         test! {
             "  0b010110  ",
+            "~~          " => (TokenTag::Whitespace, "  "),
             "  ~~~~~~~~  " => (TokenTag::IntLiteral, "0b010110"),
+            "          ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -500,7 +438,9 @@ mod tests {
     fn oct_literal() {
         test! {
             "  0o12371  ",
+            "~~         " => (TokenTag::Whitespace, "  "),
             "  ~~~~~~~  " => (TokenTag::IntLiteral, "0o12371"),
+            "         ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -508,10 +448,15 @@ mod tests {
     fn dec_literal() {
         test! {
             "  123 0 1 2345_65_32  ",
+            "~~                    " => (TokenTag::Whitespace, "  "),
             "  ~~~                 " => (TokenTag::IntLiteral, "123"),
+            "     ~                " => (TokenTag::Whitespace, " "),
             "      ~               " => (TokenTag::IntLiteral, "0"),
+            "       ~              " => (TokenTag::Whitespace, " "),
             "        ~             " => (TokenTag::IntLiteral, "1"),
+            "         ~            " => (TokenTag::Whitespace, " "),
             "          ~~~~~~~~~~  " => (TokenTag::IntLiteral, "2345_65_32"),
+            "                    ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -519,15 +464,21 @@ mod tests {
     fn hex_literal() {
         test! {
             "  0x123AF  ",
+            "~~         " => (TokenTag::Whitespace, "  "),
             "  ~~~~~~~  " => (TokenTag::IntLiteral, "0x123AF"),
+            "         ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
     #[test]
     fn float_literal() {
         test! {
-            "  122.345  ",
-            "  ~~~~~~~  " => (TokenTag::FloatLiteral, "122.345"),
+            "  122.345 1.0  ",
+            "~~             " => (TokenTag::Whitespace, "  "),
+            "  ~~~~~~~      " => (TokenTag::FloatLiteral, "122.345"),
+            "         ~     " => (TokenTag::Whitespace, " "),
+            "          ~~~  " => (TokenTag::FloatLiteral, "1.0"),
+            "             ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -535,18 +486,31 @@ mod tests {
     fn keywords() {
         test! {
             "  as case else if import in let record Record then Type where  ",
-            "  ~~                                                              " => (TokenTag::Identifier, "as"),
-            "     ~~~~                                                         " => (TokenTag::Identifier, "case"),
-            "          ~~~~                                                    " => (TokenTag::Identifier, "else"),
-            "               ~~                                                 " => (TokenTag::Identifier, "if"),
-            "                  ~~~~~~                                          " => (TokenTag::Identifier, "import"),
-            "                         ~~                                       " => (TokenTag::Identifier, "in"),
-            "                            ~~~                                   " => (TokenTag::Identifier, "let"),
-            "                                ~~~~~~                            " => (TokenTag::Identifier, "record"),
-            "                                       ~~~~~~                     " => (TokenTag::Identifier, "Record"),
-            "                                              ~~~~                " => (TokenTag::Identifier, "then"),
-            "                                                   ~~~~           " => (TokenTag::Identifier, "Type"),
-            "                                                        ~~~~~     " => (TokenTag::Identifier, "where"),
+            "~~                                                             " => (TokenTag::Whitespace, "  "),
+            "  ~~                                                           " => (TokenTag::Identifier, "as"),
+            "    ~                                                          " => (TokenTag::Whitespace, " "),
+            "     ~~~~                                                      " => (TokenTag::Identifier, "case"),
+            "         ~                                                     " => (TokenTag::Whitespace, " "),
+            "          ~~~~                                                 " => (TokenTag::Identifier, "else"),
+            "              ~                                                " => (TokenTag::Whitespace, " "),
+            "               ~~                                              " => (TokenTag::Identifier, "if"),
+            "                 ~                                             " => (TokenTag::Whitespace, " "),
+            "                  ~~~~~~                                       " => (TokenTag::Identifier, "import"),
+            "                        ~                                      " => (TokenTag::Whitespace, " "),
+            "                         ~~                                    " => (TokenTag::Identifier, "in"),
+            "                           ~                                   " => (TokenTag::Whitespace, " "),
+            "                            ~~~                                " => (TokenTag::Identifier, "let"),
+            "                               ~                               " => (TokenTag::Whitespace, " "),
+            "                                ~~~~~~                         " => (TokenTag::Identifier, "record"),
+            "                                      ~                        " => (TokenTag::Whitespace, " "),
+            "                                       ~~~~~~                  " => (TokenTag::Identifier, "Record"),
+            "                                             ~                 " => (TokenTag::Whitespace, " "),
+            "                                              ~~~~             " => (TokenTag::Identifier, "then"),
+            "                                                  ~            " => (TokenTag::Whitespace, " "),
+            "                                                   ~~~~        " => (TokenTag::Identifier, "Type"),
+            "                                                       ~       " => (TokenTag::Whitespace, " "),
+            "                                                        ~~~~~  " => (TokenTag::Identifier, "where"),
+            "                                                             ~~" => (TokenTag::Whitespace, "  "),
         };
     }
 
@@ -554,16 +518,27 @@ mod tests {
     fn symbols() {
         test! {
             r" \ ^ : , .. = -> => ? ; ",
-            r" ~                      " => (TokenTag::Symbol, "\\"),
+            r"~                       " => (TokenTag::Whitespace, " "),
+            r" ~                      " => (TokenTag::Symbol, r"\"),
+            r"  ~                     " => (TokenTag::Whitespace, " "),
             r"   ~                    " => (TokenTag::Symbol, "^"),
+            r"    ~                   " => (TokenTag::Whitespace, " "),
             r"     ~                  " => (TokenTag::Symbol, ":"),
+            r"      ~                 " => (TokenTag::Whitespace, " "),
             r"       ~                " => (TokenTag::Symbol, ","),
+            r"        ~               " => (TokenTag::Whitespace, " "),
             r"         ~~             " => (TokenTag::Symbol, ".."),
+            r"           ~            " => (TokenTag::Whitespace, " "),
             r"            ~           " => (TokenTag::Symbol, "="),
+            r"             ~          " => (TokenTag::Whitespace, " "),
             r"              ~~        " => (TokenTag::Symbol, "->"),
+            r"                ~       " => (TokenTag::Whitespace, " "),
             r"                 ~~     " => (TokenTag::Symbol, "=>"),
+            r"                   ~    " => (TokenTag::Whitespace, " "),
             r"                    ~   " => (TokenTag::Symbol, "?"),
+            r"                     ~  " => (TokenTag::Whitespace, " "),
             r"                      ~ " => (TokenTag::Symbol, ";"),
+            r"                       ~" => (TokenTag::Whitespace, " "),
         }
     }
 
@@ -571,12 +546,19 @@ mod tests {
     fn delimiters() {
         test! {
             " ( ) { } [ ] ",
+            "~            " => (TokenTag::Whitespace, " "),
             " ~           " => (TokenTag::Delimiter, "("),
+            "  ~          " => (TokenTag::Whitespace, " "),
             "   ~         " => (TokenTag::Delimiter, ")"),
+            "    ~        " => (TokenTag::Whitespace, " "),
             "     ~       " => (TokenTag::Delimiter, "{"),
+            "      ~      " => (TokenTag::Whitespace, " "),
             "       ~     " => (TokenTag::Delimiter, "}"),
+            "        ~    " => (TokenTag::Whitespace, " "),
             "         ~   " => (TokenTag::Delimiter, "["),
+            "          ~  " => (TokenTag::Whitespace, " "),
             "           ~ " => (TokenTag::Delimiter, "]"),
+            "            ~" => (TokenTag::Whitespace, " "),
         }
     }
 }
