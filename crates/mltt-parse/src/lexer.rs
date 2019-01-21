@@ -301,38 +301,24 @@ impl<'file> Lexer<'file> {
     /// Consume a number starting with zero
     fn consume_zero_number(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         if self.peek_advance(|ch| ch == 'b') {
-            self.consume_bin_literal()
+            self.consume_radix_literal("binary", is_bin_digit)
         } else if self.peek_advance(|ch| ch == 'o') {
-            self.consume_oct_literal()
+            self.consume_radix_literal("octal", is_oct_digit)
         } else if self.peek_advance(|ch| ch == 'x') {
-            self.consume_hex_literal()
+            self.consume_radix_literal("hexadecimal", is_hex_digit)
         } else {
             self.consume_dec_literal()
         }
     }
 
-    /// Consume a binary literal token
-    fn consume_bin_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
-        if self.skip_separated_digits(is_bin_digit) == 0 {
-            Err(self.token_error("no valid digits found in binary literal"))
-        } else {
-            Ok(TokenTag::IntLiteral)
-        }
-    }
-
-    /// Consume a octal literal token
-    fn consume_oct_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
-        if self.skip_separated_digits(is_oct_digit) == 0 {
-            Err(self.token_error("no valid digits found in octal literal"))
-        } else {
-            Ok(TokenTag::IntLiteral)
-        }
-    }
-
-    /// Consume a hexadecimal literal token
-    fn consume_hex_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
-        if self.skip_separated_digits(is_hex_digit) == 0 {
-            Err(self.token_error("no valid digits found in hexadecimal literal"))
+    /// Consume an integer literal that uses a specific radix
+    fn consume_radix_literal(
+        &mut self,
+        radix_name: &str,
+        is_digit: impl Fn(char) -> bool,
+    ) -> Result<TokenTag, Diagnostic<FileSpan>> {
+        if self.skip_separated_digits(is_digit) == 0 {
+            Err(self.token_error(format!("no valid digits found in {} literal", radix_name)))
         } else {
             Ok(TokenTag::IntLiteral)
         }
