@@ -94,24 +94,6 @@ pub struct Lexer<'file> {
     current: Option<char>,
 }
 
-impl<'file> Iterator for Lexer<'file> {
-    type Item = Result<Token<'file>, Diagnostic<FileSpan>>;
-
-    fn next(&mut self) -> Option<Result<Token<'file>, Diagnostic<FileSpan>>> {
-        self.advance().map(|ch| match ch {
-            '"' => self.consume_string_literal(),
-            '\'' => self.consume_char_literal(),
-            '0' => self.consume_zero_number(),
-            ch if is_dec_digit(ch) => self.consume_dec_literal(),
-            ch if is_whitespace(ch) => Ok(self.consume_whitespace()),
-            ch if is_symbol(ch) => Ok(self.consume_symbol()),
-            ch if is_delimiter(ch) => Ok(self.emit(TokenTag::Delimiter)),
-            ch if is_identifier_start(ch) => Ok(self.consume_identifier()),
-            ch => Err(self.token_error(format!("unexpected character `{}`", ch))),
-        })
-    }
-}
-
 impl<'file> Lexer<'file> {
     /// Create a new lexer from the source string
     pub fn new(file: &'file File) -> Lexer<'file> {
@@ -150,7 +132,7 @@ impl<'file> Lexer<'file> {
         Diagnostic::new_error(message).with_label(Label::new_primary(self.eof()))
     }
 
-    /// Emit a token
+    /// Emit a token and reset the start position, ready for the next token
     fn emit(&mut self, tag: TokenTag) -> Token<'file> {
         let slice = &self.file.contents()[self.token_start.to_usize()..self.token_end.to_usize()];
         let span = self.token_span();
@@ -203,40 +185,55 @@ impl<'file> Lexer<'file> {
         }
     }
 
+    /// Consume a token
+    fn consume_token(&mut self) -> Option<Result<TokenTag, Diagnostic<FileSpan>>> {
+        self.advance().map(|ch| match ch {
+            '"' => self.consume_string_literal(),
+            '\'' => self.consume_char_literal(),
+            '0' => self.consume_zero_number(),
+            ch if is_dec_digit(ch) => self.consume_dec_literal(),
+            ch if is_whitespace(ch) => Ok(self.consume_whitespace()),
+            ch if is_symbol(ch) => Ok(self.consume_symbol()),
+            ch if is_delimiter(ch) => Ok(TokenTag::Delimiter),
+            ch if is_identifier_start(ch) => Ok(self.consume_identifier()),
+            ch => Err(self.token_error(format!("unexpected character `{}`", ch))),
+        })
+    }
+
     /// Consume a line comment
-    fn consume_line_comment(&mut self) -> Token<'file> {
+    fn consume_line_comment(&mut self) -> TokenTag {
         self.take_while(|ch| ch != '\n');
-        self.emit(TokenTag::LineComment)
+        TokenTag::LineComment
     }
 
     /// Consume a doc comment
-    fn consume_line_doc(&mut self) -> Token<'file> {
+    fn consume_line_doc(&mut self) -> TokenTag {
         self.take_while(|ch| ch != '\n');
-        self.emit(TokenTag::LineDoc)
+        TokenTag::LineDoc
     }
 
     /// Consume some whitespace
-    fn consume_whitespace(&mut self) -> Token<'file> {
+    fn consume_whitespace(&mut self) -> TokenTag {
         self.take_while(is_whitespace);
-        self.emit(TokenTag::Whitespace)
+        TokenTag::Whitespace
     }
 
     /// Consume a symbol
-    fn consume_symbol(&mut self) -> Token<'file> {
+    fn consume_symbol(&mut self) -> TokenTag {
         match &self.file.contents()[self.token_start.to_usize()..] {
             symbol if symbol.starts_with("|||") => self.consume_line_doc(),
             symbol if symbol.starts_with("--") => self.consume_line_comment(),
             _ => {
                 self.take_while(is_symbol);
-                self.emit(TokenTag::Symbol)
+                TokenTag::Symbol
             },
         }
     }
 
     /// Consume a identifier
-    fn consume_identifier(&mut self) -> Token<'file> {
+    fn consume_identifier(&mut self) -> TokenTag {
         self.take_while(is_identifier_continue);
-        self.emit(TokenTag::Identifier)
+        TokenTag::Identifier
     }
 
     /// Skip an ASCII character code
@@ -261,11 +258,11 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a string literal
-    fn consume_string_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_string_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         while let Some(ch) = self.advance() {
             match ch {
                 '\\' => self.skip_escape()?,
-                '"' => return Ok(self.emit(TokenTag::StringLiteral)),
+                '"' => return Ok(TokenTag::StringLiteral),
                 _ => {},
             }
         }
@@ -274,7 +271,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a character literal
-    fn consume_char_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_char_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         match self.expect_advance()? {
             '\\' => self.skip_escape()?,
             '\'' => return Err(self.token_error("empty character literal")),
@@ -282,7 +279,7 @@ impl<'file> Lexer<'file> {
         };
 
         match self.expect_advance()? {
-            '\'' => Ok(self.emit(TokenTag::CharLiteral)),
+            '\'' => Ok(TokenTag::CharLiteral),
             _ => Err(self.token_error("unterminated character literal")),
         }
     }
@@ -302,7 +299,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a number starting with zero
-    fn consume_zero_number(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_zero_number(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         if self.peek_advance(|ch| ch == 'b') {
             self.consume_bin_literal()
         } else if self.peek_advance(|ch| ch == 'o') {
@@ -315,29 +312,29 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a binary literal token
-    fn consume_bin_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_bin_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         if self.skip_separated_digits(is_bin_digit) == 0 {
             Err(self.token_error("no valid digits found in binary literal"))
         } else {
-            Ok(self.emit(TokenTag::IntLiteral))
+            Ok(TokenTag::IntLiteral)
         }
     }
 
     /// Consume a octal literal token
-    fn consume_oct_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_oct_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         if self.skip_separated_digits(is_oct_digit) == 0 {
             Err(self.token_error("no valid digits found in octal literal"))
         } else {
-            Ok(self.emit(TokenTag::IntLiteral))
+            Ok(TokenTag::IntLiteral)
         }
     }
 
     /// Consume a hexadecimal literal token
-    fn consume_hex_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_hex_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         if self.skip_separated_digits(is_hex_digit) == 0 {
             Err(self.token_error("no valid digits found in hexadecimal literal"))
         } else {
-            Ok(self.emit(TokenTag::IntLiteral))
+            Ok(TokenTag::IntLiteral)
         }
     }
 
@@ -351,7 +348,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a decimal literal
-    fn consume_dec_literal(&mut self) -> Result<Token<'file>, Diagnostic<FileSpan>> {
+    fn consume_dec_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
         // No need to check the number of digits here - we should have already
         // consumed at least one when advancing the lexer at the beginning of
         // the first token.
@@ -364,17 +361,25 @@ impl<'file> Lexer<'file> {
             if self.peek_advance(is_dec_digit) {
                 self.skip_separated_digits(is_dec_digit);
                 self.skip_float_exponent()?;
-                Ok(self.emit(TokenTag::FloatLiteral))
+                Ok(TokenTag::FloatLiteral)
             } else if self.skip_float_exponent()? {
-                Ok(self.emit(TokenTag::FloatLiteral))
+                Ok(TokenTag::FloatLiteral)
             } else {
                 Err(self.token_error("expected a digit or exponent after the decimal place"))
             }
         } else if self.skip_float_exponent()? {
-            Ok(self.emit(TokenTag::FloatLiteral))
+            Ok(TokenTag::FloatLiteral)
         } else {
-            Ok(self.emit(TokenTag::IntLiteral))
+            Ok(TokenTag::IntLiteral)
         }
+    }
+}
+
+impl<'file> Iterator for Lexer<'file> {
+    type Item = Result<Token<'file>, Diagnostic<FileSpan>>;
+
+    fn next(&mut self) -> Option<Result<Token<'file>, Diagnostic<FileSpan>>> {
+        self.consume_token().map(|tag| Ok(self.emit(tag?)))
     }
 }
 
