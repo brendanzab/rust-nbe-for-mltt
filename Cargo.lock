@@ -100,6 +100,7 @@ name = "mltt-parse"
 version = "0.1.0"
 dependencies = [
  "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
+ "mltt-concrete 0.1.0",
  "mltt-span 0.1.0",
  "pretty_assertions 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

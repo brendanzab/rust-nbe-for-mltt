@@ -1,7 +1,7 @@
 use mltt_span::FileSpan;
 
 /// A tag that makes it easier to remember what type of token this is
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenTag {
     Whitespace,
     LineComment,
