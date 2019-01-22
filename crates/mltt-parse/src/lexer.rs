@@ -5,6 +5,9 @@ use std::str::Chars;
 
 use crate::token::{Token, TokenTag};
 
+/// The keywords used in the language
+pub const KEYWORDS: [&str; 3] = ["in", "let", "Type"];
+
 fn is_whitespace(ch: char) -> bool {
     match ch {
         | '\u{0009}' // horizontal tab, '\t'
@@ -25,15 +28,8 @@ fn is_whitespace(ch: char) -> bool {
 
 fn is_symbol(ch: char) -> bool {
     match ch {
-        '&' | '!' | ':' | ',' | '.' | '=' | '\\' | '/' | '>' | '<' | '-' | '|' | '+' | ';'
-        | '*' | '^' | '?' => true,
-        _ => false,
-    }
-}
-
-fn is_delimiter(ch: char) -> bool {
-    match ch {
-        '(' | ')' | '{' | '}' | '[' | ']' => true,
+        '&' | '!' | ':' | '.' | '=' | '\\' | '/' | '>' | '<' | '-' | '|' | '+' | '*' | '^'
+        | '?' => true,
         _ => false,
     }
 }
@@ -114,6 +110,11 @@ impl<'file> Lexer<'file> {
         self.span(self.token_start, self.token_end)
     }
 
+    /// Returns the string slice of the current token
+    fn token_slice(&self) -> &'file str {
+        &self.file.contents()[self.token_start.to_usize()..self.token_end.to_usize()]
+    }
+
     /// Returns the span of the end of the file
     fn eof(&self) -> FileSpan {
         let end = self.file.span().end();
@@ -132,7 +133,7 @@ impl<'file> Lexer<'file> {
 
     /// Emit a token and reset the start position, ready for the next token
     fn emit(&mut self, tag: TokenTag) -> Token<'file> {
-        let slice = &self.file.contents()[self.token_start.to_usize()..self.token_end.to_usize()];
+        let slice = self.token_slice();
         let span = self.token_span();
         self.token_start = self.token_end;
         Token { tag, slice, span }
@@ -182,13 +183,20 @@ impl<'file> Lexer<'file> {
     /// Consume a token, returning its tag or none on end of file
     fn consume_token(&mut self) -> Option<Result<TokenTag, Diagnostic<FileSpan>>> {
         self.advance().map(|ch| match ch {
+            ',' => Ok(TokenTag::Comma),
+            ';' => Ok(TokenTag::Semicolon),
+            '(' => Ok(TokenTag::LParen),
+            ')' => Ok(TokenTag::RParen),
+            '{' => Ok(TokenTag::LBrace),
+            '}' => Ok(TokenTag::RBrace),
+            '[' => Ok(TokenTag::LBracket),
+            ']' => Ok(TokenTag::RBracket),
             '"' => self.consume_string_literal(),
             '\'' => self.consume_char_literal(),
             '0' => self.consume_zero_number(),
             ch if is_dec_digit(ch) => self.consume_dec_literal(),
             ch if is_whitespace(ch) => Ok(self.consume_whitespace()),
             ch if is_symbol(ch) => Ok(self.consume_symbol()),
-            ch if is_delimiter(ch) => Ok(TokenTag::Delimiter),
             ch if is_identifier_start(ch) => Ok(self.consume_identifier()),
             ch => Err(self.token_error(format!("unexpected character `{}`", ch))),
         })
@@ -214,20 +222,30 @@ impl<'file> Lexer<'file> {
 
     /// Consume a symbol
     fn consume_symbol(&mut self) -> TokenTag {
-        match &self.file.contents()[self.token_start.to_usize()..] {
-            symbol if symbol.starts_with("|||") => self.consume_line_doc(),
-            symbol if symbol.starts_with("--") => self.consume_line_comment(),
-            _ => {
-                self.skip_while(is_symbol);
-                TokenTag::Symbol
-            },
+        self.skip_while(is_symbol);
+        match self.token_slice() {
+            "\\" => TokenTag::BSlash,
+            "^" => TokenTag::Caret,
+            ":" => TokenTag::Colon,
+            "," => TokenTag::Comma,
+            "." => TokenTag::Dot,
+            "=" => TokenTag::Equals,
+            "->" => TokenTag::RArrow,
+            "=>" => TokenTag::RFatArrow,
+            slice if slice.starts_with("|||") => self.consume_line_doc(),
+            slice if slice.starts_with("--") => self.consume_line_comment(),
+            _ => TokenTag::Symbol,
         }
     }
 
     /// Consume a identifier
     fn consume_identifier(&mut self) -> TokenTag {
         self.skip_while(is_identifier_continue);
-        TokenTag::Identifier
+        if KEYWORDS.contains(&self.token_slice()) {
+            TokenTag::Keyword
+        } else {
+            TokenTag::Identifier
+        }
     }
 
     /// Skip an ASCII character code
@@ -519,9 +537,9 @@ mod tests {
             "                 ~                                             " => (TokenTag::Whitespace, " "),
             "                  ~~~~~~                                       " => (TokenTag::Identifier, "import"),
             "                        ~                                      " => (TokenTag::Whitespace, " "),
-            "                         ~~                                    " => (TokenTag::Identifier, "in"),
+            "                         ~~                                    " => (TokenTag::Keyword, "in"),
             "                           ~                                   " => (TokenTag::Whitespace, " "),
-            "                            ~~~                                " => (TokenTag::Identifier, "let"),
+            "                            ~~~                                " => (TokenTag::Keyword, "let"),
             "                               ~                               " => (TokenTag::Whitespace, " "),
             "                                ~~~~~~                         " => (TokenTag::Identifier, "record"),
             "                                      ~                        " => (TokenTag::Whitespace, " "),
@@ -529,7 +547,7 @@ mod tests {
             "                                             ~                 " => (TokenTag::Whitespace, " "),
             "                                              ~~~~             " => (TokenTag::Identifier, "then"),
             "                                                  ~            " => (TokenTag::Whitespace, " "),
-            "                                                   ~~~~        " => (TokenTag::Identifier, "Type"),
+            "                                                   ~~~~        " => (TokenTag::Keyword, "Type"),
             "                                                       ~       " => (TokenTag::Whitespace, " "),
             "                                                        ~~~~~  " => (TokenTag::Identifier, "where"),
             "                                                             ~~" => (TokenTag::Whitespace, "  "),
@@ -541,25 +559,25 @@ mod tests {
         test! {
             r" \ ^ : , .. = -> => ? ; ",
             r"~                       " => (TokenTag::Whitespace, " "),
-            r" ~                      " => (TokenTag::Symbol, r"\"),
+            r" ~                      " => (TokenTag::BSlash, r"\"),
             r"  ~                     " => (TokenTag::Whitespace, " "),
-            r"   ~                    " => (TokenTag::Symbol, "^"),
+            r"   ~                    " => (TokenTag::Caret, "^"),
             r"    ~                   " => (TokenTag::Whitespace, " "),
-            r"     ~                  " => (TokenTag::Symbol, ":"),
+            r"     ~                  " => (TokenTag::Colon, ":"),
             r"      ~                 " => (TokenTag::Whitespace, " "),
-            r"       ~                " => (TokenTag::Symbol, ","),
+            r"       ~                " => (TokenTag::Comma, ","),
             r"        ~               " => (TokenTag::Whitespace, " "),
             r"         ~~             " => (TokenTag::Symbol, ".."),
             r"           ~            " => (TokenTag::Whitespace, " "),
-            r"            ~           " => (TokenTag::Symbol, "="),
+            r"            ~           " => (TokenTag::Equals, "="),
             r"             ~          " => (TokenTag::Whitespace, " "),
-            r"              ~~        " => (TokenTag::Symbol, "->"),
+            r"              ~~        " => (TokenTag::RArrow, "->"),
             r"                ~       " => (TokenTag::Whitespace, " "),
-            r"                 ~~     " => (TokenTag::Symbol, "=>"),
+            r"                 ~~     " => (TokenTag::RFatArrow, "=>"),
             r"                   ~    " => (TokenTag::Whitespace, " "),
             r"                    ~   " => (TokenTag::Symbol, "?"),
             r"                     ~  " => (TokenTag::Whitespace, " "),
-            r"                      ~ " => (TokenTag::Symbol, ";"),
+            r"                      ~ " => (TokenTag::Semicolon, ";"),
             r"                       ~" => (TokenTag::Whitespace, " "),
         }
     }
@@ -569,17 +587,17 @@ mod tests {
         test! {
             " ( ) { } [ ] ",
             "~            " => (TokenTag::Whitespace, " "),
-            " ~           " => (TokenTag::Delimiter, "("),
+            " ~           " => (TokenTag::LParen, "("),
             "  ~          " => (TokenTag::Whitespace, " "),
-            "   ~         " => (TokenTag::Delimiter, ")"),
+            "   ~         " => (TokenTag::RParen, ")"),
             "    ~        " => (TokenTag::Whitespace, " "),
-            "     ~       " => (TokenTag::Delimiter, "{"),
+            "     ~       " => (TokenTag::LBrace, "{"),
             "      ~      " => (TokenTag::Whitespace, " "),
-            "       ~     " => (TokenTag::Delimiter, "}"),
+            "       ~     " => (TokenTag::RBrace, "}"),
             "        ~    " => (TokenTag::Whitespace, " "),
-            "         ~   " => (TokenTag::Delimiter, "["),
+            "         ~   " => (TokenTag::LBracket, "["),
             "          ~  " => (TokenTag::Whitespace, " "),
-            "           ~ " => (TokenTag::Delimiter, "]"),
+            "           ~ " => (TokenTag::RBracket, "]"),
             "            ~" => (TokenTag::Whitespace, " "),
         }
     }

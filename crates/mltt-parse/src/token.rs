@@ -6,13 +6,32 @@ pub enum TokenTag {
     Whitespace,
     LineComment,
     LineDoc,
+
+    Keyword,
     Symbol,
-    Delimiter,
     Identifier,
     StringLiteral,
     CharLiteral,
     IntLiteral,
     FloatLiteral,
+
+    BSlash,
+    Caret,
+    Colon,
+    Dot,
+    Equals,
+    RArrow,
+    RFatArrow,
+
+    Comma,
+    Semicolon,
+
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
 }
 
 /// A token in the source file, to be emitted by the `Lexer`
@@ -28,18 +47,10 @@ pub struct Token<'file> {
 
 impl Token<'_> {
     pub fn is_whitespace(&self) -> bool {
-        self.tag == TokenTag::Whitespace
+        self.tag == TokenTag::Whitespace || self.tag == TokenTag::LineComment
     }
 
-    pub fn is_delimiter(&self, slice: &str) -> bool {
-        self.tag == TokenTag::Delimiter && self.slice == slice
-    }
-
-    pub fn is_symbol(&self, slice: &str) -> bool {
-        self.tag == TokenTag::Symbol && self.slice == slice
-    }
-
-    pub fn is_identifier(&self, slice: &str) -> bool {
-        self.tag == TokenTag::Identifier && self.slice == slice
+    pub fn is_keyword(&self, slice: &str) -> bool {
+        self.tag == TokenTag::Keyword && self.slice == slice
     }
 }
