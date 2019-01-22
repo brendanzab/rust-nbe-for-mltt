@@ -115,6 +115,7 @@ impl<'file> Lexer<'file> {
 
     /// Record a diagnostic
     fn add_diagnostic(&mut self, diagnostic: Diagnostic<FileSpan>) {
+        log::debug!("diagnostic added: {:?}", diagnostic.message);
         self.diagnostics.push(diagnostic);
     }
 
@@ -460,7 +461,18 @@ impl<'file> Iterator for Lexer<'file> {
     type Item = Token<'file>;
 
     fn next(&mut self) -> Option<Token<'file>> {
-        self.consume_token().map(|tag| self.emit(tag))
+        let consumed = self.consume_token().map(|tag| self.emit(tag));
+        match consumed {
+            None => log::debug!("eof"),
+            Some(ref token) => log::debug!(
+                "emit {kind:?} ({start}..{end}) {slice:?}",
+                kind = token.kind,
+                start = token.span.start().to_usize(),
+                end = token.span.end().to_usize(),
+                slice = token.slice,
+            ),
+        }
+        consumed
     }
 }
 
@@ -476,6 +488,8 @@ mod tests {
     /// This was inspired by the tests in the LALRPOP lexer
     macro_rules! test {
         ($src:expr, $($span:expr => $token:expr,)*) => {{
+            let _ = pretty_env_logger::try_init();
+
             let mut files = Files::new();
             let file_id = files.add("test", $src);
             let lexed_tokens: Vec<_> = Lexer::new(&files[file_id])

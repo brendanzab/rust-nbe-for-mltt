@@ -8,5 +8,9 @@ publish = false
 
 [dependencies]
 language-reporting = { git = "https://github.com/nikomatsakis/language-reporting", branch = "remove-codespan-dep" }
+log = "0.4"
 mltt-span = { path = "../mltt-span" }
 pretty_assertions = "0.5.1"
+
+[dev-dependencies]
+pretty_env_logger = "0.3"
