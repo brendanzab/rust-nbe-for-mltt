@@ -2,7 +2,7 @@ use mltt_span::FileSpan;
 
 /// A tag that makes it easier to remember what type of token this is
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TokenTag {
+pub enum TokenKind {
     Whitespace,
     LineComment,
     LineDoc,
@@ -37,8 +37,8 @@ pub enum TokenTag {
 /// A token in the source file, to be emitted by the `Lexer`
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token<'file> {
-    /// The token tag
-    pub tag: TokenTag,
+    /// The token kind
+    pub kind: TokenKind,
     /// The slice of source code that produced the token
     pub slice: &'file str,
     /// The span in the source code
@@ -47,10 +47,10 @@ pub struct Token<'file> {
 
 impl Token<'_> {
     pub fn is_whitespace(&self) -> bool {
-        self.tag == TokenTag::Whitespace || self.tag == TokenTag::LineComment
+        self.kind == TokenKind::Whitespace || self.kind == TokenKind::LineComment
     }
 
     pub fn is_keyword(&self, slice: &str) -> bool {
-        self.tag == TokenTag::Keyword && self.slice == slice
+        self.kind == TokenKind::Keyword && self.slice == slice
     }
 }

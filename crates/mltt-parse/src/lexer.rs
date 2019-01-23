@@ -3,7 +3,7 @@ use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::iter::Peekable;
 use std::str::Chars;
 
-use crate::token::{Token, TokenTag};
+use crate::token::{Token, TokenKind};
 
 /// The keywords used in the language
 pub const KEYWORDS: [&str; 3] = ["in", "let", "Type"];
@@ -132,11 +132,11 @@ impl<'file> Lexer<'file> {
     }
 
     /// Emit a token and reset the start position, ready for the next token
-    fn emit(&mut self, tag: TokenTag) -> Token<'file> {
+    fn emit(&mut self, kind: TokenKind) -> Token<'file> {
         let slice = self.token_slice();
         let span = self.token_span();
         self.token_start = self.token_end;
-        Token { tag, slice, span }
+        Token { kind, slice, span }
     }
 
     /// Return the next character in the source string
@@ -181,16 +181,16 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a token, returning its tag or none on end of file
-    fn consume_token(&mut self) -> Option<Result<TokenTag, Diagnostic<FileSpan>>> {
+    fn consume_token(&mut self) -> Option<Result<TokenKind, Diagnostic<FileSpan>>> {
         self.advance().map(|ch| match ch {
-            ',' => Ok(TokenTag::Comma),
-            ';' => Ok(TokenTag::Semicolon),
-            '(' => Ok(TokenTag::LParen),
-            ')' => Ok(TokenTag::RParen),
-            '{' => Ok(TokenTag::LBrace),
-            '}' => Ok(TokenTag::RBrace),
-            '[' => Ok(TokenTag::LBracket),
-            ']' => Ok(TokenTag::RBracket),
+            ',' => Ok(TokenKind::Comma),
+            ';' => Ok(TokenKind::Semicolon),
+            '(' => Ok(TokenKind::LParen),
+            ')' => Ok(TokenKind::RParen),
+            '{' => Ok(TokenKind::LBrace),
+            '}' => Ok(TokenKind::RBrace),
+            '[' => Ok(TokenKind::LBracket),
+            ']' => Ok(TokenKind::RBracket),
             '"' => self.consume_string_literal(),
             '\'' => self.consume_char_literal(),
             '0' => self.consume_zero_number(),
@@ -203,48 +203,48 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a line comment
-    fn consume_line_comment(&mut self) -> TokenTag {
+    fn consume_line_comment(&mut self) -> TokenKind {
         self.skip_while(|ch| ch != '\n');
-        TokenTag::LineComment
+        TokenKind::LineComment
     }
 
     /// Consume a doc comment
-    fn consume_line_doc(&mut self) -> TokenTag {
+    fn consume_line_doc(&mut self) -> TokenKind {
         self.skip_while(|ch| ch != '\n');
-        TokenTag::LineDoc
+        TokenKind::LineDoc
     }
 
     /// Consume some whitespace
-    fn consume_whitespace(&mut self) -> TokenTag {
+    fn consume_whitespace(&mut self) -> TokenKind {
         self.skip_while(is_whitespace);
-        TokenTag::Whitespace
+        TokenKind::Whitespace
     }
 
     /// Consume a symbol
-    fn consume_symbol(&mut self) -> TokenTag {
+    fn consume_symbol(&mut self) -> TokenKind {
         self.skip_while(is_symbol);
         match self.token_slice() {
-            "\\" => TokenTag::BSlash,
-            "^" => TokenTag::Caret,
-            ":" => TokenTag::Colon,
-            "," => TokenTag::Comma,
-            "." => TokenTag::Dot,
-            "=" => TokenTag::Equals,
-            "->" => TokenTag::RArrow,
-            "=>" => TokenTag::RFatArrow,
+            "\\" => TokenKind::BSlash,
+            "^" => TokenKind::Caret,
+            ":" => TokenKind::Colon,
+            "," => TokenKind::Comma,
+            "." => TokenKind::Dot,
+            "=" => TokenKind::Equals,
+            "->" => TokenKind::RArrow,
+            "=>" => TokenKind::RFatArrow,
             slice if slice.starts_with("|||") => self.consume_line_doc(),
             slice if slice.starts_with("--") => self.consume_line_comment(),
-            _ => TokenTag::Symbol,
+            _ => TokenKind::Symbol,
         }
     }
 
     /// Consume a identifier
-    fn consume_identifier(&mut self) -> TokenTag {
+    fn consume_identifier(&mut self) -> TokenKind {
         self.skip_while(is_identifier_continue);
         if KEYWORDS.contains(&self.token_slice()) {
-            TokenTag::Keyword
+            TokenKind::Keyword
         } else {
-            TokenTag::Identifier
+            TokenKind::Identifier
         }
     }
 
@@ -270,11 +270,11 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a string literal
-    fn consume_string_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
+    fn consume_string_literal(&mut self) -> Result<TokenKind, Diagnostic<FileSpan>> {
         while let Some(ch) = self.advance() {
             match ch {
                 '\\' => self.skip_escape()?,
-                '"' => return Ok(TokenTag::StringLiteral),
+                '"' => return Ok(TokenKind::StringLiteral),
                 _ => {},
             }
         }
@@ -283,7 +283,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a character literal
-    fn consume_char_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
+    fn consume_char_literal(&mut self) -> Result<TokenKind, Diagnostic<FileSpan>> {
         match self.expect_advance()? {
             '\\' => self.skip_escape()?,
             '\'' => return Err(self.token_error("empty character literal")),
@@ -291,7 +291,7 @@ impl<'file> Lexer<'file> {
         };
 
         match self.expect_advance()? {
-            '\'' => Ok(TokenTag::CharLiteral),
+            '\'' => Ok(TokenKind::CharLiteral),
             _ => Err(self.token_error("unterminated character literal")),
         }
     }
@@ -310,7 +310,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a number starting with zero
-    fn consume_zero_number(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
+    fn consume_zero_number(&mut self) -> Result<TokenKind, Diagnostic<FileSpan>> {
         if self.skip_if(|ch| ch == 'b') {
             self.consume_radix_literal("binary", is_bin_digit)
         } else if self.skip_if(|ch| ch == 'o') {
@@ -327,11 +327,11 @@ impl<'file> Lexer<'file> {
         &mut self,
         radix_name: &str,
         is_digit: impl Fn(char) -> bool,
-    ) -> Result<TokenTag, Diagnostic<FileSpan>> {
+    ) -> Result<TokenKind, Diagnostic<FileSpan>> {
         if self.skip_separated_digits(is_digit) == 0 {
             Err(self.token_error(format!("no valid digits found in {} literal", radix_name)))
         } else {
-            Ok(TokenTag::IntLiteral)
+            Ok(TokenKind::IntLiteral)
         }
     }
 
@@ -345,7 +345,7 @@ impl<'file> Lexer<'file> {
     }
 
     /// Consume a decimal literal
-    fn consume_dec_literal(&mut self) -> Result<TokenTag, Diagnostic<FileSpan>> {
+    fn consume_dec_literal(&mut self) -> Result<TokenKind, Diagnostic<FileSpan>> {
         // No need to check the number of digits here - we should have already
         // consumed at least one when advancing the lexer at the beginning of
         // the first token.
@@ -358,16 +358,16 @@ impl<'file> Lexer<'file> {
             if self.skip_if(is_dec_digit) {
                 self.skip_separated_digits(is_dec_digit);
                 self.skip_float_exponent()?;
-                Ok(TokenTag::FloatLiteral)
+                Ok(TokenKind::FloatLiteral)
             } else if self.skip_float_exponent()? {
-                Ok(TokenTag::FloatLiteral)
+                Ok(TokenKind::FloatLiteral)
             } else {
                 Err(self.token_error("expected a digit or exponent after the decimal place"))
             }
         } else if self.skip_float_exponent()? {
-            Ok(TokenTag::FloatLiteral)
+            Ok(TokenKind::FloatLiteral)
         } else {
-            Ok(TokenTag::IntLiteral)
+            Ok(TokenKind::IntLiteral)
         }
     }
 }
@@ -398,11 +398,11 @@ mod tests {
                 .map(|result| result.map_err(|err| format!("{:?}", err)))
                 .collect();
             let expected_tokens = vec![$({
-                let (tag, slice) = $token;
+                let (kind, slice) = $token;
                 let start = ByteIndex::from($span.find("~").unwrap());
                 let end = ByteIndex::from($span.rfind("~").unwrap()) + ByteSize::from(1);
                 let span = FileSpan::new(file_id, start, end);
-                Ok(Token { tag, slice, span })
+                Ok(Token { kind, slice, span })
             }),*];
 
             assert_eq!(lexed_tokens, expected_tokens);
@@ -413,9 +413,9 @@ mod tests {
     fn data() {
         test! {
             "  hello-hahaha8ABC  ",
-            "~~                  " => (TokenTag::Whitespace, "  "),
-            "  ~~~~~~~~~~~~~~~~  " => (TokenTag::Identifier, "hello-hahaha8ABC"),
-            "                  ~~" => (TokenTag::Whitespace, "  "),
+            "~~                  " => (TokenKind::Whitespace, "  "),
+            "  ~~~~~~~~~~~~~~~~  " => (TokenKind::Identifier, "hello-hahaha8ABC"),
+            "                  ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -423,9 +423,9 @@ mod tests {
     fn comment() {
         test! {
             "       -- hello this is dog\n  ",
-            "~~~~~~~                        " => (TokenTag::Whitespace, "       "),
-            "       ~~~~~~~~~~~~~~~~~~~~    " => (TokenTag::LineComment, "-- hello this is dog"),
-            "                           ~~~ " => (TokenTag::Whitespace, "\n  "),
+            "~~~~~~~                        " => (TokenKind::Whitespace, "       "),
+            "       ~~~~~~~~~~~~~~~~~~~~    " => (TokenKind::LineComment, "-- hello this is dog"),
+            "                           ~~~ " => (TokenKind::Whitespace, "\n  "),
         };
     }
 
@@ -433,8 +433,8 @@ mod tests {
     fn line_doc() {
         test! {
             "       ||| hello this is dog",
-            "~~~~~~~                     " => (TokenTag::Whitespace, "       "),
-            "       ~~~~~~~~~~~~~~~~~~~~~" => (TokenTag::LineDoc, "||| hello this is dog"),
+            "~~~~~~~                     " => (TokenKind::Whitespace, "       "),
+            "       ~~~~~~~~~~~~~~~~~~~~~" => (TokenKind::LineDoc, "||| hello this is dog"),
         };
     }
 
@@ -442,13 +442,13 @@ mod tests {
     fn string_literal() {
         test! {
             r#"  "a" "\t" "hello \x3f \x7F"  "#,
-            r#"~~                            "# => (TokenTag::Whitespace, "  "),
-            r#"  ~~~                         "# => (TokenTag::StringLiteral, r#""a""#),
-            r#"     ~                        "# => (TokenTag::Whitespace, " "),
-            r#"      ~~~~                    "# => (TokenTag::StringLiteral, r#""\t""#),
-            r#"          ~                   "# => (TokenTag::Whitespace, " "),
-            r#"           ~~~~~~~~~~~~~~~~~  "# => (TokenTag::StringLiteral, r#""hello \x3f \x7F""#),
-            r#"                            ~~"# => (TokenTag::Whitespace, "  "),
+            r#"~~                            "# => (TokenKind::Whitespace, "  "),
+            r#"  ~~~                         "# => (TokenKind::StringLiteral, r#""a""#),
+            r#"     ~                        "# => (TokenKind::Whitespace, " "),
+            r#"      ~~~~                    "# => (TokenKind::StringLiteral, r#""\t""#),
+            r#"          ~                   "# => (TokenKind::Whitespace, " "),
+            r#"           ~~~~~~~~~~~~~~~~~  "# => (TokenKind::StringLiteral, r#""hello \x3f \x7F""#),
+            r#"                            ~~"# => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -456,11 +456,11 @@ mod tests {
     fn char_literal() {
         test! {
             r"  'a' '\t'  ",
-            r"~~          " => (TokenTag::Whitespace, "  "),
-            r"  ~~~       " => (TokenTag::CharLiteral, "'a'"),
-            r"     ~      " => (TokenTag::Whitespace, " "),
-            r"      ~~~~  " => (TokenTag::CharLiteral, r"'\t'"),
-            r"          ~~" => (TokenTag::Whitespace, "  "),
+            r"~~          " => (TokenKind::Whitespace, "  "),
+            r"  ~~~       " => (TokenKind::CharLiteral, "'a'"),
+            r"     ~      " => (TokenKind::Whitespace, " "),
+            r"      ~~~~  " => (TokenKind::CharLiteral, r"'\t'"),
+            r"          ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -468,9 +468,9 @@ mod tests {
     fn bin_literal() {
         test! {
             "  0b010110  ",
-            "~~          " => (TokenTag::Whitespace, "  "),
-            "  ~~~~~~~~  " => (TokenTag::IntLiteral, "0b010110"),
-            "          ~~" => (TokenTag::Whitespace, "  "),
+            "~~          " => (TokenKind::Whitespace, "  "),
+            "  ~~~~~~~~  " => (TokenKind::IntLiteral, "0b010110"),
+            "          ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -478,9 +478,9 @@ mod tests {
     fn oct_literal() {
         test! {
             "  0o12371  ",
-            "~~         " => (TokenTag::Whitespace, "  "),
-            "  ~~~~~~~  " => (TokenTag::IntLiteral, "0o12371"),
-            "         ~~" => (TokenTag::Whitespace, "  "),
+            "~~         " => (TokenKind::Whitespace, "  "),
+            "  ~~~~~~~  " => (TokenKind::IntLiteral, "0o12371"),
+            "         ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -488,15 +488,15 @@ mod tests {
     fn dec_literal() {
         test! {
             "  123 0 1 2345_65_32  ",
-            "~~                    " => (TokenTag::Whitespace, "  "),
-            "  ~~~                 " => (TokenTag::IntLiteral, "123"),
-            "     ~                " => (TokenTag::Whitespace, " "),
-            "      ~               " => (TokenTag::IntLiteral, "0"),
-            "       ~              " => (TokenTag::Whitespace, " "),
-            "        ~             " => (TokenTag::IntLiteral, "1"),
-            "         ~            " => (TokenTag::Whitespace, " "),
-            "          ~~~~~~~~~~  " => (TokenTag::IntLiteral, "2345_65_32"),
-            "                    ~~" => (TokenTag::Whitespace, "  "),
+            "~~                    " => (TokenKind::Whitespace, "  "),
+            "  ~~~                 " => (TokenKind::IntLiteral, "123"),
+            "     ~                " => (TokenKind::Whitespace, " "),
+            "      ~               " => (TokenKind::IntLiteral, "0"),
+            "       ~              " => (TokenKind::Whitespace, " "),
+            "        ~             " => (TokenKind::IntLiteral, "1"),
+            "         ~            " => (TokenKind::Whitespace, " "),
+            "          ~~~~~~~~~~  " => (TokenKind::IntLiteral, "2345_65_32"),
+            "                    ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -504,9 +504,9 @@ mod tests {
     fn hex_literal() {
         test! {
             "  0x123AF  ",
-            "~~         " => (TokenTag::Whitespace, "  "),
-            "  ~~~~~~~  " => (TokenTag::IntLiteral, "0x123AF"),
-            "         ~~" => (TokenTag::Whitespace, "  "),
+            "~~         " => (TokenKind::Whitespace, "  "),
+            "  ~~~~~~~  " => (TokenKind::IntLiteral, "0x123AF"),
+            "         ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -514,11 +514,11 @@ mod tests {
     fn float_literal() {
         test! {
             "  122.345 1.0  ",
-            "~~             " => (TokenTag::Whitespace, "  "),
-            "  ~~~~~~~      " => (TokenTag::FloatLiteral, "122.345"),
-            "         ~     " => (TokenTag::Whitespace, " "),
-            "          ~~~  " => (TokenTag::FloatLiteral, "1.0"),
-            "             ~~" => (TokenTag::Whitespace, "  "),
+            "~~             " => (TokenKind::Whitespace, "  "),
+            "  ~~~~~~~      " => (TokenKind::FloatLiteral, "122.345"),
+            "         ~     " => (TokenKind::Whitespace, " "),
+            "          ~~~  " => (TokenKind::FloatLiteral, "1.0"),
+            "             ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -526,31 +526,31 @@ mod tests {
     fn keywords() {
         test! {
             "  as case else if import in let record Record then Type where  ",
-            "~~                                                             " => (TokenTag::Whitespace, "  "),
-            "  ~~                                                           " => (TokenTag::Identifier, "as"),
-            "    ~                                                          " => (TokenTag::Whitespace, " "),
-            "     ~~~~                                                      " => (TokenTag::Identifier, "case"),
-            "         ~                                                     " => (TokenTag::Whitespace, " "),
-            "          ~~~~                                                 " => (TokenTag::Identifier, "else"),
-            "              ~                                                " => (TokenTag::Whitespace, " "),
-            "               ~~                                              " => (TokenTag::Identifier, "if"),
-            "                 ~                                             " => (TokenTag::Whitespace, " "),
-            "                  ~~~~~~                                       " => (TokenTag::Identifier, "import"),
-            "                        ~                                      " => (TokenTag::Whitespace, " "),
-            "                         ~~                                    " => (TokenTag::Keyword, "in"),
-            "                           ~                                   " => (TokenTag::Whitespace, " "),
-            "                            ~~~                                " => (TokenTag::Keyword, "let"),
-            "                               ~                               " => (TokenTag::Whitespace, " "),
-            "                                ~~~~~~                         " => (TokenTag::Identifier, "record"),
-            "                                      ~                        " => (TokenTag::Whitespace, " "),
-            "                                       ~~~~~~                  " => (TokenTag::Identifier, "Record"),
-            "                                             ~                 " => (TokenTag::Whitespace, " "),
-            "                                              ~~~~             " => (TokenTag::Identifier, "then"),
-            "                                                  ~            " => (TokenTag::Whitespace, " "),
-            "                                                   ~~~~        " => (TokenTag::Keyword, "Type"),
-            "                                                       ~       " => (TokenTag::Whitespace, " "),
-            "                                                        ~~~~~  " => (TokenTag::Identifier, "where"),
-            "                                                             ~~" => (TokenTag::Whitespace, "  "),
+            "~~                                                             " => (TokenKind::Whitespace, "  "),
+            "  ~~                                                           " => (TokenKind::Identifier, "as"),
+            "    ~                                                          " => (TokenKind::Whitespace, " "),
+            "     ~~~~                                                      " => (TokenKind::Identifier, "case"),
+            "         ~                                                     " => (TokenKind::Whitespace, " "),
+            "          ~~~~                                                 " => (TokenKind::Identifier, "else"),
+            "              ~                                                " => (TokenKind::Whitespace, " "),
+            "               ~~                                              " => (TokenKind::Identifier, "if"),
+            "                 ~                                             " => (TokenKind::Whitespace, " "),
+            "                  ~~~~~~                                       " => (TokenKind::Identifier, "import"),
+            "                        ~                                      " => (TokenKind::Whitespace, " "),
+            "                         ~~                                    " => (TokenKind::Keyword, "in"),
+            "                           ~                                   " => (TokenKind::Whitespace, " "),
+            "                            ~~~                                " => (TokenKind::Keyword, "let"),
+            "                               ~                               " => (TokenKind::Whitespace, " "),
+            "                                ~~~~~~                         " => (TokenKind::Identifier, "record"),
+            "                                      ~                        " => (TokenKind::Whitespace, " "),
+            "                                       ~~~~~~                  " => (TokenKind::Identifier, "Record"),
+            "                                             ~                 " => (TokenKind::Whitespace, " "),
+            "                                              ~~~~             " => (TokenKind::Identifier, "then"),
+            "                                                  ~            " => (TokenKind::Whitespace, " "),
+            "                                                   ~~~~        " => (TokenKind::Keyword, "Type"),
+            "                                                       ~       " => (TokenKind::Whitespace, " "),
+            "                                                        ~~~~~  " => (TokenKind::Identifier, "where"),
+            "                                                             ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
@@ -558,27 +558,27 @@ mod tests {
     fn symbols() {
         test! {
             r" \ ^ : , .. = -> => ? ; ",
-            r"~                       " => (TokenTag::Whitespace, " "),
-            r" ~                      " => (TokenTag::BSlash, r"\"),
-            r"  ~                     " => (TokenTag::Whitespace, " "),
-            r"   ~                    " => (TokenTag::Caret, "^"),
-            r"    ~                   " => (TokenTag::Whitespace, " "),
-            r"     ~                  " => (TokenTag::Colon, ":"),
-            r"      ~                 " => (TokenTag::Whitespace, " "),
-            r"       ~                " => (TokenTag::Comma, ","),
-            r"        ~               " => (TokenTag::Whitespace, " "),
-            r"         ~~             " => (TokenTag::Symbol, ".."),
-            r"           ~            " => (TokenTag::Whitespace, " "),
-            r"            ~           " => (TokenTag::Equals, "="),
-            r"             ~          " => (TokenTag::Whitespace, " "),
-            r"              ~~        " => (TokenTag::RArrow, "->"),
-            r"                ~       " => (TokenTag::Whitespace, " "),
-            r"                 ~~     " => (TokenTag::RFatArrow, "=>"),
-            r"                   ~    " => (TokenTag::Whitespace, " "),
-            r"                    ~   " => (TokenTag::Symbol, "?"),
-            r"                     ~  " => (TokenTag::Whitespace, " "),
-            r"                      ~ " => (TokenTag::Semicolon, ";"),
-            r"                       ~" => (TokenTag::Whitespace, " "),
+            r"~                       " => (TokenKind::Whitespace, " "),
+            r" ~                      " => (TokenKind::BSlash, r"\"),
+            r"  ~                     " => (TokenKind::Whitespace, " "),
+            r"   ~                    " => (TokenKind::Caret, "^"),
+            r"    ~                   " => (TokenKind::Whitespace, " "),
+            r"     ~                  " => (TokenKind::Colon, ":"),
+            r"      ~                 " => (TokenKind::Whitespace, " "),
+            r"       ~                " => (TokenKind::Comma, ","),
+            r"        ~               " => (TokenKind::Whitespace, " "),
+            r"         ~~             " => (TokenKind::Symbol, ".."),
+            r"           ~            " => (TokenKind::Whitespace, " "),
+            r"            ~           " => (TokenKind::Equals, "="),
+            r"             ~          " => (TokenKind::Whitespace, " "),
+            r"              ~~        " => (TokenKind::RArrow, "->"),
+            r"                ~       " => (TokenKind::Whitespace, " "),
+            r"                 ~~     " => (TokenKind::RFatArrow, "=>"),
+            r"                   ~    " => (TokenKind::Whitespace, " "),
+            r"                    ~   " => (TokenKind::Symbol, "?"),
+            r"                     ~  " => (TokenKind::Whitespace, " "),
+            r"                      ~ " => (TokenKind::Semicolon, ";"),
+            r"                       ~" => (TokenKind::Whitespace, " "),
         }
     }
 
@@ -586,19 +586,19 @@ mod tests {
     fn delimiters() {
         test! {
             " ( ) { } [ ] ",
-            "~            " => (TokenTag::Whitespace, " "),
-            " ~           " => (TokenTag::LParen, "("),
-            "  ~          " => (TokenTag::Whitespace, " "),
-            "   ~         " => (TokenTag::RParen, ")"),
-            "    ~        " => (TokenTag::Whitespace, " "),
-            "     ~       " => (TokenTag::LBrace, "{"),
-            "      ~      " => (TokenTag::Whitespace, " "),
-            "       ~     " => (TokenTag::RBrace, "}"),
-            "        ~    " => (TokenTag::Whitespace, " "),
-            "         ~   " => (TokenTag::LBracket, "["),
-            "          ~  " => (TokenTag::Whitespace, " "),
-            "           ~ " => (TokenTag::RBracket, "]"),
-            "            ~" => (TokenTag::Whitespace, " "),
+            "~            " => (TokenKind::Whitespace, " "),
+            " ~           " => (TokenKind::LParen, "("),
+            "  ~          " => (TokenKind::Whitespace, " "),
+            "   ~         " => (TokenKind::RParen, ")"),
+            "    ~        " => (TokenKind::Whitespace, " "),
+            "     ~       " => (TokenKind::LBrace, "{"),
+            "      ~      " => (TokenKind::Whitespace, " "),
+            "       ~     " => (TokenKind::RBrace, "}"),
+            "        ~    " => (TokenKind::Whitespace, " "),
+            "         ~   " => (TokenKind::LBracket, "["),
+            "          ~  " => (TokenKind::Whitespace, " "),
+            "           ~ " => (TokenKind::RBracket, "]"),
+            "            ~" => (TokenKind::Whitespace, " "),
         }
     }
 }
