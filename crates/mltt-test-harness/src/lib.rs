@@ -15,7 +15,11 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
     let mut files = Files::new();
     let file_id = files.add("test", src);
 
-    Lexer::new(&files[file_id]).for_each(|token| println!("{:?}", token.unwrap()));
+    let mut lexer = Lexer::new(&files[file_id]);
+    for token in &mut lexer {
+        println!("{:?}", token);
+    }
+    assert!(lexer.diagnostics().is_empty());
 
     // TODO:
 
