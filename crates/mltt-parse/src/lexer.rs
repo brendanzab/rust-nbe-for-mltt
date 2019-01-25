@@ -3,7 +3,7 @@ use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::iter::Peekable;
 use std::str::Chars;
 
-use crate::token::{Token, TokenKind};
+use crate::token::{DelimKind, Token, TokenKind};
 
 /// The keywords used in the language
 pub const KEYWORDS: [&str; 3] = ["in", "let", "Type"];
@@ -195,12 +195,12 @@ impl<'file> Lexer<'file> {
         self.advance().map(|ch| match ch {
             ',' => TokenKind::Comma,
             ';' => TokenKind::Semicolon,
-            '(' => TokenKind::LParen,
-            ')' => TokenKind::RParen,
-            '{' => TokenKind::LBrace,
-            '}' => TokenKind::RBrace,
-            '[' => TokenKind::LBracket,
-            ']' => TokenKind::RBracket,
+            '(' => TokenKind::Open(DelimKind::Paren),
+            ')' => TokenKind::Close(DelimKind::Paren),
+            '{' => TokenKind::Open(DelimKind::Brace),
+            '}' => TokenKind::Close(DelimKind::Brace),
+            '[' => TokenKind::Open(DelimKind::Bracket),
+            ']' => TokenKind::Close(DelimKind::Bracket),
             '"' => self.consume_string_literal(),
             '\'' => self.consume_char_literal(),
             '0' => self.consume_zero_number(),
@@ -671,17 +671,17 @@ mod tests {
         test! {
             " ( ) { } [ ] ",
             "~            " => (TokenKind::Whitespace, " "),
-            " ~           " => (TokenKind::LParen, "("),
+            " ~           " => (TokenKind::Open(DelimKind::Paren), "("),
             "  ~          " => (TokenKind::Whitespace, " "),
-            "   ~         " => (TokenKind::RParen, ")"),
+            "   ~         " => (TokenKind::Close(DelimKind::Paren), ")"),
             "    ~        " => (TokenKind::Whitespace, " "),
-            "     ~       " => (TokenKind::LBrace, "{"),
+            "     ~       " => (TokenKind::Open(DelimKind::Brace), "{"),
             "      ~      " => (TokenKind::Whitespace, " "),
-            "       ~     " => (TokenKind::RBrace, "}"),
+            "       ~     " => (TokenKind::Close(DelimKind::Brace), "}"),
             "        ~    " => (TokenKind::Whitespace, " "),
-            "         ~   " => (TokenKind::LBracket, "["),
+            "         ~   " => (TokenKind::Open(DelimKind::Bracket), "["),
             "          ~  " => (TokenKind::Whitespace, " "),
-            "           ~ " => (TokenKind::RBracket, "]"),
+            "           ~ " => (TokenKind::Close(DelimKind::Bracket), "]"),
             "            ~" => (TokenKind::Whitespace, " "),
         }
     }

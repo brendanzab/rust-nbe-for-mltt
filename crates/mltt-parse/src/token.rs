@@ -1,5 +1,16 @@
 use mltt_span::FileSpan;
 
+/// A kind of delimiter
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum DelimKind {
+    /// A round parenthesis: `(` or `)`
+    Paren,
+    /// A curly brace: `{` or `}`
+    Brace,
+    /// A square bracket: `[` or `]`
+    Bracket,
+}
+
 /// A tag that makes it easier to remember what type of token this is
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenKind {
@@ -28,12 +39,8 @@ pub enum TokenKind {
     Comma,
     Semicolon,
 
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    LBracket,
-    RBracket,
+    Open(DelimKind),
+    Close(DelimKind),
 }
 
 /// A token in the source file, to be emitted by the `Lexer`
