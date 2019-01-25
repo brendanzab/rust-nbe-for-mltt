@@ -104,8 +104,8 @@ impl From<NbeError> for TypeError {
 
 impl Error for TypeError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match *self {
-            TypeError::Nbe(ref error) => Some(error),
+        match self {
+            TypeError::Nbe(error) => Some(error),
             _ => None,
         }
     }
@@ -113,7 +113,7 @@ impl Error for TypeError {
 
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedUniverse { over, .. } => match over {
@@ -123,22 +123,22 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable => write!(f, "unbound variable"),
-            TypeError::Nbe(ref err) => err.fmt(f),
+            TypeError::Nbe(err) => err.fmt(f),
         }
     }
 }
 
 /// Check that a term conforms to a given type
 pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
-    match *term.inner {
-        Term::Let(ref def, ref body) => {
+    match term.inner.as_ref() {
+        Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
 
             check_term(&body_context, body, expected_ty)
         },
 
-        Term::FunType(ref ann_ty, ref body_ty) | Term::PairType(ref ann_ty, ref body_ty) => {
+        Term::FunType(ann_ty, body_ty) | Term::PairType(ann_ty, body_ty) => {
             check_term(context, ann_ty, expected_ty)?;
             let ann_ty_value = context.eval(ann_ty)?;
 
@@ -147,8 +147,8 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 
             check_term(&body_ty_context, body_ty, expected_ty)
         },
-        Term::FunIntro(ref body) => match *expected_ty.inner {
-            Value::FunType(ref param_ty, ref body_ty) => {
+        Term::FunIntro(body) => match expected_ty.inner.as_ref() {
+            Value::FunType(param_ty, body_ty) => {
                 let mut body_context = context.clone();
                 let param = body_context.insert_binder(param_ty.clone());
                 let body_ty = nbe::do_closure_app(body_ty, param)?;
@@ -160,8 +160,8 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }),
         },
 
-        Term::PairIntro(ref fst, ref snd) => match *expected_ty.inner {
-            Value::PairType(ref fst_ty, ref snd_ty) => {
+        Term::PairIntro(fst, snd) => match expected_ty.inner.as_ref() {
+            Value::PairType(fst_ty, snd_ty) => {
                 check_term(context, fst, fst_ty)?;
                 let fst_value = context.eval(fst)?;
                 check_term(context, snd, &nbe::do_closure_app(snd_ty, fst_value)?)
@@ -171,10 +171,10 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }),
         },
 
-        Term::Universe(term_level) => match *expected_ty.inner {
+        Term::Universe(term_level) => match expected_ty.inner.as_ref() {
             Value::Universe(ann_level) if term_level < ann_level => Ok(()),
             _ => Err(TypeError::ExpectedUniverse {
-                over: Some(term_level),
+                over: Some(*term_level),
                 found: expected_ty.clone(),
             }),
         },
@@ -185,12 +185,12 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 
 /// Synthesize the type of the term
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
-    match *term.inner {
-        Term::Var(index) => match context.lookup_binder(index) {
+    match term.inner.as_ref() {
+        Term::Var(index) => match context.lookup_binder(*index) {
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
-        Term::Let(ref def, ref body) => {
+        Term::Let(def, body) => {
             let mut body_context = context.clone();
             let def_ty = synth_term(context, def)?;
             body_context.insert_local(context.eval(def)?, def_ty);
@@ -198,10 +198,10 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             synth_term(&body_context, body)
         },
 
-        Term::FunApp(ref fun, ref arg) => {
+        Term::FunApp(fun, arg) => {
             let fun_ty = synth_term(context, fun)?;
-            match *fun_ty.inner {
-                Value::FunType(ref arg_ty, ref body_ty) => {
+            match fun_ty.inner.as_ref() {
+                Value::FunType(arg_ty, body_ty) => {
                     check_term(context, arg, arg_ty)?;
                     let arg_value = context.eval(arg)?;
                     Ok(nbe::do_closure_app(body_ty, arg_value)?)
@@ -212,19 +212,19 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             }
         },
 
-        Term::PairFst(ref pair) => {
+        Term::PairFst(pair) => {
             let pair_ty = synth_term(context, pair)?;
-            match *pair_ty.inner {
-                Value::PairType(ref fst_ty, _) => Ok(fst_ty.clone()),
+            match pair_ty.inner.as_ref() {
+                Value::PairType(fst_ty, _) => Ok(fst_ty.clone()),
                 _ => Err(TypeError::ExpectedPairType {
                     found: pair_ty.clone(),
                 }),
             }
         },
-        Term::PairSnd(ref pair) => {
+        Term::PairSnd(pair) => {
             let pair_ty = synth_term(context, pair)?;
-            match *pair_ty.inner {
-                Value::PairType(_, ref snd_ty) => {
+            match pair_ty.inner.as_ref() {
+                Value::PairType(_, snd_ty) => {
                     let fst = context.eval(&RcTerm::from(Term::PairFst(pair.clone())))?;
                     Ok(nbe::do_closure_app(snd_ty, fst)?)
                 },
@@ -240,15 +240,15 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
 /// Check that the given term is a type
 pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> {
-    match *term.inner {
-        Term::Let(ref def, ref body) => {
+    match term.inner.as_ref() {
+        Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
 
             check_term_ty(&body_context, body)
         },
 
-        Term::FunType(ref ann, ref body) | Term::PairType(ref ann, ref body) => {
+        Term::FunType(ann, body) | Term::PairType(ann, body) => {
             check_term_ty(context, ann)?;
             let ann_value = context.eval(ann)?;
 
@@ -262,7 +262,7 @@ pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> 
 
         _ => {
             let synth_ty = synth_term(context, term)?;
-            match *synth_ty.inner {
+            match synth_ty.inner.as_ref() {
                 Value::Universe(_) => Ok(()),
                 _ => Err(TypeError::ExpectedUniverse {
                     over: None,

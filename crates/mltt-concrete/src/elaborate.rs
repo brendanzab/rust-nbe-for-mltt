@@ -70,7 +70,7 @@ impl<'term> Context<'term> {
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
     pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &RcType)> {
-        for (i, &(ref n, ref ty)) in self.binders.iter().enumerate() {
+        for (i, (n, ty)) in self.binders.iter().enumerate() {
             if Some(name) == n.map(String::as_str) {
                 return Some((DbIndex(i as u32), ty));
             }
@@ -120,8 +120,8 @@ impl From<NbeError> for TypeError {
 
 impl Error for TypeError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match *self {
-            TypeError::Nbe(ref error) => Some(error),
+        match self {
+            TypeError::Nbe(error) => Some(error),
             _ => None,
         }
     }
@@ -129,7 +129,7 @@ impl Error for TypeError {
 
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedUniverse { over, .. } => match over {
@@ -138,8 +138,8 @@ impl fmt::Display for TypeError {
             },
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
-            TypeError::UnboundVariable(ref name) => write!(f, "unbound variable `{}`", name),
-            TypeError::Nbe(ref err) => err.fmt(f),
+            TypeError::UnboundVariable(name) => write!(f, "unbound variable `{}`", name),
+            TypeError::Nbe(err) => err.fmt(f),
         }
     }
 }
@@ -150,8 +150,8 @@ pub fn check_term<'term>(
     term: &'term raw::RcTerm,
     expected_ty: &RcType,
 ) -> Result<core::RcTerm, TypeError> {
-    match *term.inner {
-        raw::Term::Let(ref name, ref raw_def, ref raw_body) => {
+    match term.inner.as_ref() {
+        raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
             let def_value = context.eval(&def)?;
             let body = {
@@ -163,7 +163,7 @@ pub fn check_term<'term>(
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
 
-        raw::Term::FunType(ref name, ref raw_param_ty, ref raw_body_ty) => {
+        raw::Term::FunType(name, raw_param_ty, raw_body_ty) => {
             let param_ty = check_term_ty(context, raw_param_ty)?;
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
@@ -174,8 +174,8 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
-        raw::Term::FunIntro(ref name, ref body) => match *expected_ty.inner {
-            Value::FunType(ref param_ty, ref body_ty) => {
+        raw::Term::FunIntro(name, body) => match expected_ty.inner.as_ref() {
+            Value::FunType(param_ty, body_ty) => {
                 let mut context = context.clone();
                 let param = context.insert_binder(name, param_ty.clone());
                 let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
@@ -188,7 +188,7 @@ pub fn check_term<'term>(
             }),
         },
 
-        raw::Term::PairType(ref name, ref raw_fst_ty, ref raw_snd_ty) => {
+        raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {
             let fst_ty = check_term_ty(context, raw_fst_ty)?;
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
@@ -199,8 +199,8 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
-        raw::Term::PairIntro(ref raw_fst, ref raw_snd) => match *expected_ty.inner {
-            Value::PairType(ref fst_ty, ref snd_ty) => {
+        raw::Term::PairIntro(raw_fst, raw_snd) => match expected_ty.inner.as_ref() {
+            Value::PairType(fst_ty, snd_ty) => {
                 let fst = check_term(context, raw_fst, fst_ty)?;
                 let fst_value = context.eval(&fst)?;
                 let snd_ty_value = nbe::do_closure_app(snd_ty, fst_value)?;
@@ -213,12 +213,12 @@ pub fn check_term<'term>(
             }),
         },
 
-        raw::Term::Universe(term_level) => match *expected_ty.inner {
+        raw::Term::Universe(term_level) => match expected_ty.inner.as_ref() {
             Value::Universe(ann_level) if term_level < ann_level => {
-                Ok(core::RcTerm::from(core::Term::Universe(term_level)))
+                Ok(core::RcTerm::from(core::Term::Universe(*term_level)))
             },
             _ => Err(TypeError::ExpectedUniverse {
-                over: Some(term_level),
+                over: Some(*term_level),
                 found: expected_ty.clone(),
             }),
         },
@@ -236,12 +236,12 @@ pub fn synth_term<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
 ) -> Result<(core::RcTerm, RcType), TypeError> {
-    match *raw_term.inner {
-        raw::Term::Var(ref name) => match context.lookup_binder(name.as_str()) {
+    match raw_term.inner.as_ref() {
+        raw::Term::Var(name) => match context.lookup_binder(name.as_str()) {
             None => Err(TypeError::UnboundVariable(name.clone())),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
         },
-        raw::Term::Let(ref name, ref raw_def, ref raw_body) => {
+        raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
             let def_value = context.eval(&def)?;
             let (body, body_ty) = {
@@ -252,7 +252,7 @@ pub fn synth_term<'term>(
 
             Ok((core::RcTerm::from(core::Term::Let(def, body)), body_ty))
         },
-        raw::Term::Ann(ref raw_term, ref raw_ann) => {
+        raw::Term::Ann(raw_term, raw_ann) => {
             let ann = check_term_ty(context, raw_ann)?;
             let ann_value = context.eval(&ann)?;
             let term = check_term(context, raw_term, &ann_value)?;
@@ -260,10 +260,10 @@ pub fn synth_term<'term>(
             Ok((term, ann_value))
         },
 
-        raw::Term::FunApp(ref raw_fun, ref raw_arg) => {
+        raw::Term::FunApp(raw_fun, raw_arg) => {
             let (fun, fun_ty) = synth_term(context, raw_fun)?;
-            match *fun_ty.inner {
-                Value::FunType(ref param_ty, ref body_ty) => {
+            match fun_ty.inner.as_ref() {
+                Value::FunType(param_ty, body_ty) => {
                     let arg = check_term(context, raw_arg, param_ty)?;
                     let arg_value = context.eval(&arg)?;
                     let term = core::RcTerm::from(core::Term::FunApp(fun, arg));
@@ -276,10 +276,10 @@ pub fn synth_term<'term>(
             }
         },
 
-        raw::Term::PairFst(ref raw_pair) => {
+        raw::Term::PairFst(raw_pair) => {
             let (pair, pair_ty) = synth_term(context, raw_pair)?;
-            match *pair_ty.inner {
-                Value::PairType(ref fst_ty, _) => {
+            match pair_ty.inner.as_ref() {
+                Value::PairType(fst_ty, _) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
                     Ok((fst, fst_ty.clone()))
                 },
@@ -288,10 +288,10 @@ pub fn synth_term<'term>(
                 }),
             }
         },
-        raw::Term::PairSnd(ref raw_pair) => {
+        raw::Term::PairSnd(raw_pair) => {
             let (pair, pair_ty) = synth_term(context, raw_pair)?;
-            match *pair_ty.inner {
-                Value::PairType(_, ref snd_ty) => {
+            match pair_ty.inner.as_ref() {
+                Value::PairType(_, snd_ty) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
                     let fst_value = context.eval(&fst)?;
                     let snd = core::RcTerm::from(core::Term::PairSnd(pair));
@@ -313,8 +313,8 @@ pub fn check_term_ty<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
 ) -> Result<core::RcTerm, TypeError> {
-    match *raw_term.inner {
-        raw::Term::Let(ref name, ref raw_def, ref raw_body) => {
+    match raw_term.inner.as_ref() {
+        raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
             let def_value = context.eval(&def)?;
             let body = {
@@ -326,7 +326,7 @@ pub fn check_term_ty<'term>(
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
 
-        raw::Term::FunType(ref name, ref raw_param_ty, ref raw_body_ty) => {
+        raw::Term::FunType(name, raw_param_ty, raw_body_ty) => {
             let param_ty = check_term_ty(context, raw_param_ty)?;
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
@@ -338,7 +338,7 @@ pub fn check_term_ty<'term>(
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
 
-        raw::Term::PairType(ref name, ref raw_fst_ty, ref raw_snd_ty) => {
+        raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {
             let fst_ty = check_term_ty(context, raw_fst_ty)?;
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
@@ -350,7 +350,7 @@ pub fn check_term_ty<'term>(
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
 
-        raw::Term::Universe(level) => Ok(core::RcTerm::from(core::Term::Universe(level))),
+        raw::Term::Universe(level) => Ok(core::RcTerm::from(core::Term::Universe(*level))),
 
         _ => {
             let (term, term_ty) = synth_term(context, raw_term)?;

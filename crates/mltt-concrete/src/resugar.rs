@@ -42,25 +42,23 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     // order to cut down on extraneous parentheses.
 
     fn resugar_term(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match *term.inner {
-            core::Term::PairIntro(ref fst, ref snd /* ref fst_ty, ref snd_ty */) => {
-                concrete::Term::PairIntro(
-                    Box::new(resugar_term(fst, env)),
-                    Box::new(resugar_term(snd, env)),
-                )
-            },
+        match term.inner.as_ref() {
+            core::Term::PairIntro(fst, snd /* fst_ty, snd_ty */) => concrete::Term::PairIntro(
+                Box::new(resugar_term(fst, env)),
+                Box::new(resugar_term(snd, env)),
+            ),
             _ => resugar_expr(term, env),
         }
     }
 
     fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match *term.inner {
-            core::Term::Let(ref def, /* ref def_ty, */ ref body) => {
+        match term.inner.as_ref() {
+            core::Term::Let(def, /* def_ty, */ body) => {
                 let def = resugar_app(def, env);
                 let (name, body) = env.with_binding(|env| resugar_term(body, env));
                 concrete::Term::Let(name, Box::new(def), Box::new(body))
             },
-            core::Term::FunIntro(/* ref param_ty, */ ref body) => {
+            core::Term::FunIntro(/* param_ty, */ body) => {
                 let (name, body) = env.with_binding(|env| resugar_app(body, env));
                 concrete::Term::FunIntro(name, Box::new(body))
             },
@@ -69,14 +67,14 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match *term.inner {
-            core::Term::FunType(ref param_ty, ref body_ty) => {
+        match term.inner.as_ref() {
+            core::Term::FunType(param_ty, body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
                 let (name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
                 // TODO: only use `name` if it is used in `body_ty`
                 concrete::Term::FunType(name, Box::new(param_ty), Box::new(body_ty))
             },
-            core::Term::PairType(ref fst_ty, ref snd_ty) => {
+            core::Term::PairType(fst_ty, snd_ty) => {
                 let fst_ty = resugar_term(fst_ty, env);
                 let (name, snd_ty) = env.with_binding(|env| resugar_app(snd_ty, env));
                 // TODO: only use `name` if it is used in `body_ty`
@@ -87,8 +85,8 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_app(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match *term.inner {
-            core::Term::FunApp(ref fun, ref arg) => match resugar_term(fun, env) {
+        match term.inner.as_ref() {
+            core::Term::FunApp(fun, arg) => match resugar_term(fun, env) {
                 concrete::Term::FunApp(fun, mut args) => {
                     args.push(resugar_atomic(arg, env));
                     concrete::Term::FunApp(fun, args)
@@ -100,16 +98,16 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match *term.inner {
-            core::Term::Var(index) => concrete::Term::Var(env.lookup_index(index)),
-            core::Term::PairFst(ref pair) => {
+        match term.inner.as_ref() {
+            core::Term::Var(index) => concrete::Term::Var(env.lookup_index(*index)),
+            core::Term::PairFst(pair) => {
                 concrete::Term::PairFst(Box::new(resugar_atomic(pair, env)))
             },
-            core::Term::PairSnd(ref pair) => {
+            core::Term::PairSnd(pair) => {
                 concrete::Term::PairSnd(Box::new(resugar_atomic(pair, env)))
             },
             core::Term::Universe(UniverseLevel(0)) => concrete::Term::Universe(None),
-            core::Term::Universe(UniverseLevel(level)) => concrete::Term::Universe(Some(level)),
+            core::Term::Universe(UniverseLevel(level)) => concrete::Term::Universe(Some(*level)),
             _ => concrete::Term::Parens(Box::new(resugar_term(term, env))),
         }
     }

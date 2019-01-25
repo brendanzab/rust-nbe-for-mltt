@@ -39,9 +39,9 @@ impl fmt::Display for NbeError {
 
 /// Return the first element of a pair
 fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
-    match *pair.inner {
-        Value::PairIntro(ref fst, _) => Ok(fst.clone()),
-        Value::Neutral(ref pair) => {
+    match pair.inner.as_ref() {
+        Value::PairIntro(fst, _) => Ok(fst.clone()),
+        Value::Neutral(pair) => {
             let fst = domain::RcNeutral::from(domain::Neutral::PairFst(pair.clone()));
             Ok(RcValue::from(Value::Neutral(fst)))
         },
@@ -51,9 +51,9 @@ fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
 
 /// Return the second element of a pair
 fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
-    match *pair.inner {
-        Value::PairIntro(_, ref snd) => Ok(snd.clone()),
-        Value::Neutral(ref pair_ne) => {
+    match pair.inner.as_ref() {
+        Value::PairIntro(_, snd) => Ok(snd.clone()),
+        Value::Neutral(pair_ne) => {
             let snd = domain::RcNeutral::from(domain::Neutral::PairSnd(pair_ne.clone()));
             Ok(RcValue::from(Value::Neutral(snd)))
         },
@@ -70,9 +70,9 @@ pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeErr
 
 /// Apply a function to an argument
 pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
-    match *fun.inner {
-        Value::FunIntro(ref body) => do_closure_app(body, arg),
-        Value::Neutral(ref fun) => {
+    match fun.inner.as_ref() {
+        Value::FunIntro(body) => do_closure_app(body, arg),
+        Value::Neutral(fun) => {
             let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), arg.clone()));
             Ok(RcValue::from(Value::Neutral(body)))
         },
@@ -82,12 +82,12 @@ pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
 
 /// Evaluate a syntactic term into a semantic value
 pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
-    match *term.inner {
-        Term::Var(DbIndex(index)) => match env.get(index as usize) {
+    match term.inner.as_ref() {
+        Term::Var(DbIndex(index)) => match env.get(*index as usize) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
-        Term::Let(ref def, /* _, */ ref body) => {
+        Term::Let(def, /* _, */ body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
             env.push_front(def);
@@ -95,51 +95,51 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         },
 
         // Functions
-        Term::FunType(ref param_ty, ref body_ty) => {
+        Term::FunType(param_ty, body_ty) => {
             let param_ty = eval(param_ty, env)?;
             let body_ty = Closure::new(body_ty.clone(), env.clone());
 
             Ok(RcValue::from(Value::FunType(param_ty, body_ty)))
         },
-        Term::FunIntro(/*  _, */ ref body) => {
+        Term::FunIntro(/*  _, */ body) => {
             let body = Closure::new(body.clone(), env.clone());
 
             Ok(RcValue::from(Value::FunIntro(body)))
         },
-        Term::FunApp(ref fun, ref arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
+        Term::FunApp(fun, arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
 
         // Pairs
-        Term::PairType(ref fst_ty, ref snd_ty) => {
+        Term::PairType(fst_ty, snd_ty) => {
             let fst_ty = eval(fst_ty, env)?;
             let snd_ty = Closure::new(snd_ty.clone(), env.clone());
 
             Ok(RcValue::from(Value::PairType(fst_ty, snd_ty)))
         },
-        Term::PairIntro(ref fst, ref snd /* _, _, _ */) => {
+        Term::PairIntro(fst, snd /* _, _, _ */) => {
             let fst = eval(fst, env)?;
             let snd = eval(snd, env)?;
 
             Ok(RcValue::from(Value::PairIntro(fst, snd)))
         },
-        Term::PairFst(ref pair) => do_pair_fst(&eval(pair, env)?),
-        Term::PairSnd(ref pair) => do_pair_snd(&eval(pair, env)?),
+        Term::PairFst(pair) => do_pair_fst(&eval(pair, env)?),
+        Term::PairSnd(pair) => do_pair_snd(&eval(pair, env)?),
 
         // Universes
-        Term::Universe(level) => Ok(RcValue::from(Value::Universe(level))),
+        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
     }
 }
 
 /// Quote back a term into normal form
 pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeError> {
-    match *term.inner {
-        Value::Neutral(ref term) => {
+    match term.inner.as_ref() {
+        Value::Neutral(term) => {
             let neutral = read_back_neutral(level, term)?;
 
             Ok(RcNormal::from(Normal::Neutral(neutral)))
         },
 
         // Functions
-        Value::FunType(ref param_ty, ref body_ty) => {
+        Value::FunType(param_ty, body_ty) => {
             let param = RcValue::var(level);
             let param_ty = param_ty.clone();
             let body_ty = do_closure_app(body_ty, param)?;
@@ -149,7 +149,7 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
                 read_back_term(level + 1, &body_ty)?,
             )))
         },
-        Value::FunIntro(ref body) => {
+        Value::FunIntro(body) => {
             let param = RcValue::var(level);
             let body = read_back_term(level + 1, &do_closure_app(body, param.clone())?)?;
 
@@ -157,7 +157,7 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
         },
 
         // Pairs
-        Value::PairType(ref fst_ty, ref snd_ty) => {
+        Value::PairType(fst_ty, snd_ty) => {
             let fst = RcValue::var(level);
             let fst_ty = fst_ty.clone();
             let snd_ty = do_closure_app(snd_ty, fst)?;
@@ -167,7 +167,7 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
                 read_back_term(level + 1, &snd_ty)?,
             )))
         },
-        Value::PairIntro(ref fst, ref snd) => {
+        Value::PairIntro(fst, snd) => {
             let fst = read_back_term(level, &fst)?;
             let snd = read_back_term(level, &snd)?;
 
@@ -175,7 +175,7 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
         },
 
         // Universes
-        Value::Universe(level) => Ok(RcNormal::from(Normal::Universe(level))),
+        Value::Universe(level) => Ok(RcNormal::from(Normal::Universe(*level))),
     }
 }
 
@@ -184,24 +184,24 @@ pub fn read_back_neutral(
     level: DbLevel,
     neutral: &domain::RcNeutral,
 ) -> Result<normal::RcNeutral, NbeError> {
-    match &*neutral.inner {
+    match &neutral.inner.as_ref() {
         domain::Neutral::Var(var_level) => {
             let index = DbIndex(level.0 - var_level.0);
 
             Ok(normal::RcNeutral::from(normal::Neutral::Var(index)))
         },
-        domain::Neutral::FunApp(ref fun, ref arg) => {
+        domain::Neutral::FunApp(fun, arg) => {
             let fun = read_back_neutral(level, fun)?;
             let arg = read_back_term(level, arg)?;
 
             Ok(normal::RcNeutral::from(normal::Neutral::FunApp(fun, arg)))
         },
-        domain::Neutral::PairFst(ref pair) => {
+        domain::Neutral::PairFst(pair) => {
             let pair = read_back_neutral(level, pair)?;
 
             Ok(normal::RcNeutral::from(normal::Neutral::PairFst(pair)))
         },
-        domain::Neutral::PairSnd(ref pair) => {
+        domain::Neutral::PairSnd(pair) => {
             let pair = read_back_neutral(level, pair)?;
 
             Ok(normal::RcNeutral::from(normal::Neutral::PairSnd(pair)))
@@ -211,17 +211,14 @@ pub fn read_back_neutral(
 
 /// Check whether a semantic type is a subtype of another
 pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
-    match (&*ty1.inner, &*ty2.inner) {
-        (&Value::Neutral(ref term1), &Value::Neutral(ref term2)) => {
+    match (&ty1.inner.as_ref(), &ty2.inner.as_ref()) {
+        (&Value::Neutral(term1), &Value::Neutral(term2)) => {
             let term1 = read_back_neutral(level, term1)?;
             let term2 = read_back_neutral(level, term2)?;
 
             Ok(term1 == term2)
         },
-        (
-            &Value::FunType(ref param_ty1, ref body_ty1),
-            &Value::FunType(ref param_ty2, ref body_ty2),
-        ) => {
+        (&Value::FunType(param_ty1, body_ty1), &Value::FunType(param_ty2, body_ty2)) => {
             let param = RcValue::var(level);
 
             Ok(check_subtype(level, param_ty2, param_ty1)? && {
@@ -230,10 +227,7 @@ pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool,
                 check_subtype(level + 1, &body_ty1, &body_ty2)?
             })
         },
-        (
-            &Value::PairType(ref fst_ty1, ref snd_ty1),
-            &Value::PairType(ref fst_ty2, ref snd_ty2),
-        ) => {
+        (&Value::PairType(fst_ty1, snd_ty1), &Value::PairType(fst_ty2, snd_ty2)) => {
             let fst = RcValue::var(level);
 
             Ok(check_subtype(level, fst_ty1, fst_ty2)? && {
