@@ -1,6 +1,5 @@
 use language_reporting::{Diagnostic, Label};
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
-use std::iter::Peekable;
 use std::str::Chars;
 
 use crate::token::{DelimKind, Token, TokenKind};
@@ -82,7 +81,9 @@ pub struct Lexer<'file> {
     /// The file we are lexing
     file: &'file File,
     /// An iterator of unicode characters to consume
-    chars: Peekable<Chars<'file>>,
+    chars: Chars<'file>,
+    /// One character of lookahead, making this lexer LR(1)
+    peeked: Option<char>,
     /// The start of the next token to be emitted
     token_start: ByteIndex,
     /// The end of the next token to be emitted
@@ -94,9 +95,13 @@ pub struct Lexer<'file> {
 impl<'file> Lexer<'file> {
     /// Create a new lexer from the source file
     pub fn new(file: &'file File) -> Lexer<'file> {
+        let mut chars = file.contents().chars();
+        let peeked = chars.next();
+
         Lexer {
             file,
-            chars: file.contents().chars().peekable(),
+            chars,
+            peeked,
             token_start: ByteIndex::from(0),
             token_end: ByteIndex::from(0),
             diagnostics: Vec::new(),
@@ -149,14 +154,14 @@ impl<'file> Lexer<'file> {
     }
 
     /// Return the next character in the source string
-    fn peek(&mut self) -> Option<char> {
-        self.chars.peek().map(char::clone)
+    fn peek(&self) -> Option<char> {
+        self.peeked
     }
 
     /// Bump the current position in the source string by one character,
     /// returning the current character and byte position.
     fn advance(&mut self) -> Option<char> {
-        let current = self.chars.next();
+        let current = std::mem::replace(&mut self.peeked, self.chars.next());
         self.token_end += match current {
             Some(ch) => ByteSize::from_char_len_utf8(ch),
             None => ByteSize::from(0),
