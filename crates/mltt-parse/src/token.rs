@@ -1,4 +1,5 @@
 use mltt_span::FileSpan;
+use std::fmt;
 
 /// A kind of delimiter
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -44,7 +45,7 @@ pub enum TokenKind {
 }
 
 /// A token in the source file, to be emitted by the `Lexer`
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Token<'file> {
     /// The token kind
     pub kind: TokenKind,
@@ -61,5 +62,18 @@ impl Token<'_> {
 
     pub fn is_keyword(&self, slice: &str) -> bool {
         self.kind == TokenKind::Keyword && self.slice == slice
+    }
+}
+
+impl fmt::Debug for Token<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{kind:?}@[{start}, {end}) {slice:?}",
+            kind = self.kind,
+            start = self.span.start().to_usize(),
+            end = self.span.end().to_usize(),
+            slice = self.slice,
+        )
     }
 }

@@ -153,13 +153,12 @@ impl<'file> Lexer<'file> {
         Token { kind, slice, span }
     }
 
-    /// Return the next character in the source string
+    /// Peek at the current lookahead character.
     fn peek(&self) -> Option<char> {
         self.peeked
     }
 
-    /// Bump the current position in the source string by one character,
-    /// returning the current character and byte position.
+    /// Consume the current character and load the next one. Return the old token.
     fn advance(&mut self) -> Option<char> {
         let current = std::mem::replace(&mut self.peeked, self.chars.next());
         self.token_end += match current {
@@ -469,13 +468,7 @@ impl<'file> Iterator for Lexer<'file> {
         let consumed = self.consume_token().map(|tag| self.emit(tag));
         match consumed {
             None => log::debug!("eof"),
-            Some(ref token) => log::debug!(
-                "emit {kind:?} ({start}..{end}) {slice:?}",
-                kind = token.kind,
-                start = token.span.start().to_usize(),
-                end = token.span.end().to_usize(),
-                slice = token.slice,
-            ),
+            Some(ref token) => log::debug!("emit {:?}", token),
         }
         consumed
     }
