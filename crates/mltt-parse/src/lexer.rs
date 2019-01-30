@@ -401,10 +401,13 @@ impl<'file> Lexer<'file> {
     /// Consume float exponents, returning `true` if an exponent was found
     fn skip_float_exponent(&mut self) -> Result<bool, Diagnostic<FileSpan>> {
         if self.skip_if(|ch| ch == 'e' || ch == 'E') {
-            Err(
-                Diagnostic::new_bug("float exponents are not yet implmented")
-                    .with_label(Label::new_primary(self.token_span())),
-            )
+            self.skip_if(|ch| ch == '-' || ch == '+');
+            if self.skip_separated_digits(is_dec_digit) == 0 {
+                Err(Diagnostic::new_error("no valid digits found in exponent")
+                    .with_label(Label::new_primary(self.token_span())))
+            } else {
+                Ok(true)
+            }
         } else {
             Ok(false)
         }
@@ -609,12 +612,20 @@ mod tests {
     #[test]
     fn float_literal() {
         test! {
-            "  122.345 1.0  ",
-            "~~             " => (TokenKind::Whitespace, "  "),
-            "  ~~~~~~~      " => (TokenKind::FloatLiteral, "122.345"),
-            "         ~     " => (TokenKind::Whitespace, " "),
-            "          ~~~  " => (TokenKind::FloatLiteral, "1.0"),
-            "             ~~" => (TokenKind::Whitespace, "  "),
+            "  122.345 1.0 0e1 0E2 0.3e-2_3 0_1.0e_1_  ",
+            "~~                                        " => (TokenKind::Whitespace, "  "),
+            "  ~~~~~~~                                 " => (TokenKind::FloatLiteral, "122.345"),
+            "         ~                                " => (TokenKind::Whitespace, " "),
+            "          ~~~                             " => (TokenKind::FloatLiteral, "1.0"),
+            "             ~                            " => (TokenKind::Whitespace, " "),
+            "              ~~~                         " => (TokenKind::FloatLiteral, "0e1"),
+            "                 ~                        " => (TokenKind::Whitespace, " "),
+            "                  ~~~                     " => (TokenKind::FloatLiteral, "0E2"),
+            "                     ~                    " => (TokenKind::Whitespace, " "),
+            "                      ~~~~~~~~            " => (TokenKind::FloatLiteral, "0.3e-2_3"),
+            "                              ~           " => (TokenKind::Whitespace, " "),
+            "                               ~~~~~~~~~  " => (TokenKind::FloatLiteral, "0_1.0e_1_"),
+            "                                        ~~" => (TokenKind::Whitespace, "  "),
         };
     }
 
