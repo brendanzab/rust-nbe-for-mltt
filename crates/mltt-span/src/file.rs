@@ -263,4 +263,22 @@ mod test {
 
         assert_eq!(files.location(file_id, 100), None);
     }
+
+    #[test]
+    fn line_span_sources() {
+        let mut files = Files::new();
+        let file_id = files.add("test", "foo\nbar\r\nbaz");
+
+        let line_sources = (0..4)
+            .map(|line| {
+                let line_span = files.line_span(file_id, LineIndex::from(line))?;
+                files.source(line_span)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            line_sources,
+            [Some("foo\n"), Some("bar\r\n"), Some("baz"), None],
+        );
+    }
 }
