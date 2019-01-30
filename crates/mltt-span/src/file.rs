@@ -2,11 +2,11 @@ use std::ops;
 
 use crate::{ByteIndex, ByteSize, ColumnIndex, LineIndex, Location, Span};
 
-/// A handle that points to a file in the database
+/// A handle that points to a file in the database.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileId(usize);
 
-/// A span in a file
+/// A span in a file.
 pub type FileSpan = Span<FileId>;
 
 fn line_starts(text: &str) -> Vec<ByteIndex> {
@@ -27,12 +27,16 @@ fn line_starts(text: &str) -> Vec<ByteIndex> {
         .collect()
 }
 
-/// The contents of a file that is stored in the database
+/// The contents of a file that is stored in the database.
 #[derive(Debug, Clone)]
 pub struct File {
+    /// The id of the file in the database.
     id: FileId,
+    /// The name of the file.
     name: String,
+    /// The source code of the file.
     contents: String,
+    /// The starting byte indices in the source code.
     line_starts: Vec<ByteIndex>,
 }
 
@@ -63,19 +67,19 @@ impl File {
     }
 }
 
-/// A database of source file
+/// A database of source files.
 #[derive(Debug, Clone)]
 pub struct Files {
     files: Vec<File>,
 }
 
 impl Files {
-    /// Create a new, empty database
+    /// Create a new, empty database.
     pub fn new() -> Files {
         Files { files: Vec::new() }
     }
 
-    /// Add a file to the database, returning the handle that can be used to refer to it again
+    /// Add a file to the database, returning the handle that can be used to refer to it again.
     pub fn add(&mut self, name: impl Into<String>, contents: impl Into<String>) -> FileId {
         let file_id = FileId(self.files.len());
         let contents = contents.into();
@@ -109,19 +113,16 @@ impl Files {
         let byte = byte.into();
         let line_starts = file.line_starts();
         match line_starts.binary_search(&byte) {
-            // Found the start of a line directly:
+            // Found the start of a line
             Ok(line) => Some(Location {
                 line: LineIndex::from(line),
                 column: ColumnIndex::from(0),
                 byte,
             }),
+            // Found something in the middle of a line
             Err(next_line) => {
                 let line = LineIndex::from(next_line - 1);
-
-                // Found something in the middle.
                 let line_start = line_starts[line.to_usize()];
-
-                // count utf-8 characters to find column
                 let column = ColumnIndex::from_str(file.contents(), line_start, byte)?;
 
                 Some(Location { line, column, byte })
@@ -138,7 +139,7 @@ impl Files {
         Some(Span::new(file_id, line_start, next_line_start))
     }
 
-    /// Return a slice of the source file, given a span
+    /// Return a slice of the source file, given a span.
     pub fn source(&self, span: FileSpan) -> Option<&str> {
         let start = span.start().to_usize();
         let end = span.end().to_usize();
