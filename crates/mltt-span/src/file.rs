@@ -161,10 +161,8 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn byte_span(&self, file_id: FileId, from_index: usize, to_index: usize) -> Option<FileSpan> {
-        let file_span = self[file_id].span();
         let span = Span::new(file_id, from_index, to_index);
-
-        if file_span.contains(span) {
+        if self[file_id].span().contains(span) {
             Some(span)
         } else {
             None
