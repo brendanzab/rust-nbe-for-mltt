@@ -1,6 +1,6 @@
 use std::ops;
 
-use crate::{ByteIndex, ByteSize, ColumnIndex, LineIndex, LineSize, Location, Span};
+use crate::{ByteIndex, ByteSize, ColumnIndex, LineIndex, Location, Span};
 
 /// A handle that points to a file in the database
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -9,31 +9,55 @@ pub struct FileId(usize);
 /// A span in a file
 pub type FileSpan = Span<FileId>;
 
+fn line_starts(text: &str) -> Vec<ByteIndex> {
+    let mut acc = ByteIndex::from(0);
+    let end_index = ByteIndex::from(0) + ByteSize::from_str_len_utf8(text);
+    text.lines()
+        .map(|line_text| {
+            let line_start = acc;
+            acc += ByteSize::from_str_len_utf8(line_text);
+            if text[acc.to_usize()..].starts_with("\r\n") {
+                acc += ByteSize::from_str_len_utf8("\r\n");
+            } else if text[acc.to_usize()..].starts_with("\n") {
+                acc += ByteSize::from_str_len_utf8("\n");
+            }
+            line_start
+        })
+        .chain(std::iter::once(end_index))
+        .collect()
+}
+
 /// The contents of a file that is stored in the database
 #[derive(Debug, Clone)]
 pub struct File {
     id: FileId,
     name: String,
     contents: String,
+    line_starts: Vec<ByteIndex>,
 }
 
 impl File {
-    /// Get the handle that points to this file
+    /// Get the handle that points to this file.
     pub fn id(&self) -> FileId {
         self.id
     }
 
-    /// Get the name of the file
+    /// Get the name of the file.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get a reference to the contents of the file
+    /// Get a slice to the contents of the file.
     pub fn contents(&self) -> &str {
         &self.contents
     }
 
-    /// Get the span of the source of this file
+    /// Get a slice to the line start indices of the file.
+    pub fn line_starts(&self) -> &[ByteIndex] {
+        &self.line_starts
+    }
+
+    /// Get the span of the source of this file.
     pub fn span(&self) -> FileSpan {
         Span::from_str(self.id(), self.contents())
     }
@@ -54,11 +78,16 @@ impl Files {
     /// Add a file to the database, returning the handle that can be used to refer to it again
     pub fn add(&mut self, name: impl Into<String>, contents: impl Into<String>) -> FileId {
         let file_id = FileId(self.files.len());
+        let contents = contents.into();
+        let line_starts = line_starts(&contents);
+
         self.files.push(File {
             id: file_id,
             name: name.into(),
-            contents: contents.into(),
+            contents,
+            line_starts,
         });
+
         file_id
     }
 
@@ -68,65 +97,45 @@ impl Files {
         line: impl Into<LineIndex>,
         column: impl Into<ColumnIndex>,
     ) -> Option<ByteIndex> {
-        let source = &self[file_id].contents;
+        let file = &self[file_id];
         let line = line.into();
         let column = column.into();
-        let mut current_line = LineIndex::from(0);
-        let mut current_byte = ByteIndex::from(0);
-
-        for (pos, _) in source.match_indices('\n') {
-            let pos = ByteIndex::from(pos);
-            if current_line >= line {
-                return Some(column.to_byte_index(source, current_byte));
-            } else {
-                current_line += LineSize::from(1);
-                current_byte = pos + ByteSize::from_char_len_utf8('\n');
-            }
-        }
-
-        None
+        let line_start = *file.line_starts().get(line.to_usize())?;
+        Some(column.to_byte_index(file.contents(), line_start))
     }
 
     pub fn location(&self, file_id: FileId, byte: impl Into<ByteIndex>) -> Option<Location> {
-        let source = &self[file_id].contents;
+        let file = &self[file_id];
         let byte = byte.into();
-        let mut current_line = LineIndex::from(0);
-        let mut current_byte = ByteIndex::from(0);
+        let line_starts = file.line_starts();
+        match line_starts.binary_search(&byte) {
+            // Found the start of a line directly:
+            Ok(line) => Some(Location {
+                line: LineIndex::from(line),
+                column: ColumnIndex::from(0),
+                byte,
+            }),
+            Err(next_line) => {
+                let line = LineIndex::from(next_line - 1);
 
-        for (pos, _) in source.match_indices('\n') {
-            let pos = ByteIndex::from(pos);
-            if pos > byte {
-                return Some(Location {
-                    byte,
-                    line: LineIndex::from(current_line),
-                    column: ColumnIndex::from_str(source, byte, current_byte),
-                });
-            } else {
-                current_line += LineSize::from(1);
-                current_byte = pos;
-            }
+                // Found something in the middle.
+                let line_start = line_starts[line.to_usize()];
+
+                // count utf-8 characters to find column
+                let column = ColumnIndex::from_str(file.contents(), line_start, byte)?;
+
+                Some(Location { line, column, byte })
+            },
         }
-
-        None
     }
 
     pub fn line_span(&self, file_id: FileId, line: impl Into<LineIndex>) -> Option<FileSpan> {
-        let source = &self[file_id].contents;
+        let file = &self[file_id];
         let line = line.into();
-        let mut current_line = LineIndex::from(0);
-        let mut current_byte = ByteIndex::from(0);
+        let line_start = *file.line_starts().get(line.to_usize())?;
+        let next_line_start = *file.line_starts().get(line.to_usize() + 1)?;
 
-        for (pos, _) in source.match_indices('\n') {
-            let pos = ByteIndex::from(pos);
-            if current_line >= line {
-                return Some(Span::new(file_id, current_byte, pos));
-            } else {
-                current_line += LineSize::from(1);
-                current_byte = pos + ByteSize::from_char_len_utf8('\n');
-            }
-        }
-
-        None
+        Some(Span::new(file_id, line_start, next_line_start))
     }
 
     /// Return a slice of the source file, given a span
@@ -134,7 +143,7 @@ impl Files {
         let start = span.start().to_usize();
         let end = span.end().to_usize();
 
-        Some(&self[span.source()].contents[start..end])
+        self[span.source()].contents.get(start..end)
     }
 }
 
@@ -186,5 +195,72 @@ impl ops::Index<FileId> for Files {
 
     fn index(&self, index: FileId) -> &File {
         &self.files[index.0]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn line_starts() {
+        let mut files = Files::new();
+        let file_id = files.add("test", "foo\nbar\r\nbaz");
+
+        assert_eq!(
+            files[file_id].line_starts(),
+            [
+                ByteIndex::from(0), // "foo\n"
+                ByteIndex::from(4), // "bar\r\n"
+                ByteIndex::from(9), // "baz"
+                ByteIndex::from(12),
+            ],
+        );
+    }
+
+    #[test]
+    fn location() {
+        let mut files = Files::new();
+        let file_id = files.add("test", "foo\nbar\r\nbaz");
+
+        assert_eq!(
+            files.location(file_id, 0),
+            Some(Location {
+                line: LineIndex::from(0),
+                column: ColumnIndex::from(0),
+                byte: ByteIndex::from(0),
+            }),
+        );
+
+        assert_eq!(
+            files.location(file_id, 7),
+            Some(Location {
+                line: LineIndex::from(1),
+                column: ColumnIndex::from(3),
+                byte: ByteIndex::from(7),
+            }),
+        );
+
+        assert_eq!(
+            files.location(file_id, 8),
+            Some(Location {
+                line: LineIndex::from(1),
+                column: ColumnIndex::from(4),
+                byte: ByteIndex::from(8),
+            }),
+        );
+
+        assert_eq!(
+            files.location(file_id, 9),
+            Some(Location {
+                line: LineIndex::from(2),
+                column: ColumnIndex::from(0),
+                byte: ByteIndex::from(9),
+            }),
+        );
+
+        assert_eq!(files.location(file_id, 100), None);
     }
 }

@@ -8,9 +8,13 @@ use crate::{ByteIndex, ByteSize};
 pub struct ColumnIndex(usize);
 
 impl ColumnIndex {
-    pub fn from_str(src: &str, line_start_byte: ByteIndex, column_byte: ByteIndex) -> ColumnIndex {
-        let line_src = &src[line_start_byte.to_usize()..column_byte.to_usize()];
-        ColumnIndex::from(line_src.graphemes(true).count())
+    pub fn from_str(
+        src: &str,
+        line_start_byte: ByteIndex,
+        column_byte: ByteIndex,
+    ) -> Option<ColumnIndex> {
+        let line_src = &src.get(line_start_byte.to_usize()..column_byte.to_usize())?;
+        Some(ColumnIndex::from(line_src.graphemes(true).count()))
     }
 
     pub fn to_usize(self) -> usize {
