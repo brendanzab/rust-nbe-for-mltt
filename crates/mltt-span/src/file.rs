@@ -176,10 +176,7 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn location(&self, file_id: FileId, index: usize) -> Option<language_reporting::Location> {
-        Files::location(self, file_id, index).map(|location| language_reporting::Location {
-            line: location.line.to_usize(),
-            column: location.column.to_usize(),
-        })
+        Files::location(self, file_id, index).map(Location::into)
     }
 
     fn line_span(&self, file_id: FileId, line: usize) -> Option<FileSpan> {
