@@ -1,6 +1,6 @@
 use std::ops;
 
-use crate::{ByteIndex, ByteSize, ColumnIndex, LineIndex, Location, Span};
+use crate::{ByteIndex, ColumnIndex, LineIndex, Location, Span};
 
 /// A handle that points to a file in the database.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -8,24 +8,6 @@ pub struct FileId(usize);
 
 /// A span in a file.
 pub type FileSpan = Span<FileId>;
-
-fn line_starts(text: &str) -> Vec<ByteIndex> {
-    let mut acc = ByteIndex::from(0);
-    let end_index = ByteIndex::from(0) + ByteSize::from_str_len_utf8(text);
-    text.lines()
-        .map(|line_text| {
-            let line_start = acc;
-            acc += ByteSize::from_str_len_utf8(line_text);
-            if text[acc.to_usize()..].starts_with("\r\n") {
-                acc += ByteSize::from_str_len_utf8("\r\n");
-            } else if text[acc.to_usize()..].starts_with("\n") {
-                acc += ByteSize::from_str_len_utf8("\n");
-            }
-            line_start
-        })
-        .chain(std::iter::once(end_index))
-        .collect()
-}
 
 /// The contents of a file that is stored in the database.
 #[derive(Debug, Clone)]
@@ -83,8 +65,15 @@ impl Files {
     pub fn add(&mut self, name: impl Into<String>, contents: impl Into<String>) -> FileId {
         let file_id = FileId(self.files.len());
         let contents = contents.into();
-        let line_starts = line_starts(&contents);
 
+        // Pre-compute the line starting positions
+        let line_starts = std::iter::once(0)
+            .chain(contents.match_indices('\n').map(|(i, _)| i + 1))
+            .chain(std::iter::once(contents.len()))
+            .map(ByteIndex::from)
+            .collect();
+
+        // Add the file to the database
         self.files.push(File {
             id: file_id,
             name: name.into(),
@@ -203,15 +192,16 @@ mod test {
     #[test]
     fn line_starts() {
         let mut files = Files::new();
-        let file_id = files.add("test", "foo\nbar\r\nbaz");
+        let file_id = files.add("test", "foo\nbar\r\n\nbaz");
 
         assert_eq!(
             files[file_id].line_starts(),
             [
-                ByteIndex::from(0), // "foo\n"
-                ByteIndex::from(4), // "bar\r\n"
-                ByteIndex::from(9), // "baz"
-                ByteIndex::from(12),
+                ByteIndex::from(0),  // "foo\n"
+                ByteIndex::from(4),  // "bar\r\n"
+                ByteIndex::from(9),  // ""
+                ByteIndex::from(10), // "baz"
+                ByteIndex::from(13),
             ],
         );
     }
@@ -219,7 +209,7 @@ mod test {
     #[test]
     fn location() {
         let mut files = Files::new();
-        let file_id = files.add("test", "foo\nbar\r\nbaz");
+        let file_id = files.add("test", "foo\nbar\r\n\nbaz");
 
         assert_eq!(
             files.location(file_id, 0),
@@ -263,9 +253,9 @@ mod test {
     #[test]
     fn line_span_sources() {
         let mut files = Files::new();
-        let file_id = files.add("test", "foo\nbar\r\nbaz");
+        let file_id = files.add("test", "foo\nbar\r\n\nbaz");
 
-        let line_sources = (0..4)
+        let line_sources = (0..5)
             .map(|line| {
                 let line_span = files.line_span(file_id, LineIndex::from(line))?;
                 files.source(line_span)
@@ -274,7 +264,13 @@ mod test {
 
         assert_eq!(
             line_sources,
-            [Some("foo\n"), Some("bar\r\n"), Some("baz"), None],
+            [
+                Some("foo\n"),
+                Some("bar\r\n"),
+                Some("\n"),
+                Some("baz"),
+                None
+            ],
         );
     }
 }
