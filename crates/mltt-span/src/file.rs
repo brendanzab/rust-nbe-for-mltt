@@ -94,7 +94,17 @@ impl Files {
         let line = line.into();
         let column = column.into();
         let line_start = *file.line_starts().get(line.to_usize())?;
+
         Some(column.to_byte_index(file.contents(), line_start))
+    }
+
+    pub fn line_span(&self, file_id: FileId, line: impl Into<LineIndex>) -> Option<FileSpan> {
+        let file = &self[file_id];
+        let line = line.into();
+        let line_start = *file.line_starts().get(line.to_usize())?;
+        let next_line_start = *file.line_starts().get(line.to_usize() + 1)?;
+
+        Some(Span::new(file_id, line_start, next_line_start))
     }
 
     pub fn location(&self, file_id: FileId, byte: impl Into<ByteIndex>) -> Option<Location> {
@@ -117,15 +127,6 @@ impl Files {
                 Some(Location { line, column, byte })
             },
         }
-    }
-
-    pub fn line_span(&self, file_id: FileId, line: impl Into<LineIndex>) -> Option<FileSpan> {
-        let file = &self[file_id];
-        let line = line.into();
-        let line_start = *file.line_starts().get(line.to_usize())?;
-        let next_line_start = *file.line_starts().get(line.to_usize() + 1)?;
-
-        Some(Span::new(file_id, line_start, next_line_start))
     }
 
     /// Return a slice of the source file, given a span.
@@ -162,12 +163,12 @@ impl language_reporting::ReportingFiles for Files {
         Files::byte_index(self, file_id, line, column).map(ByteIndex::to_usize)
     }
 
-    fn location(&self, file_id: FileId, index: usize) -> Option<language_reporting::Location> {
-        Files::location(self, file_id, index).map(Location::into)
-    }
-
     fn line_span(&self, file_id: FileId, line: usize) -> Option<FileSpan> {
         Files::line_span(self, file_id, line)
+    }
+
+    fn location(&self, file_id: FileId, index: usize) -> Option<language_reporting::Location> {
+        Files::location(self, file_id, index).map(Location::into)
     }
 
     fn source(&self, span: FileSpan) -> Option<String> {
