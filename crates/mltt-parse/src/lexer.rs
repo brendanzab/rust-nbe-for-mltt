@@ -161,10 +161,7 @@ impl<'file> Lexer<'file> {
     /// Consume the current character and load the next one. Return the old token.
     fn advance(&mut self) -> Option<char> {
         let current = std::mem::replace(&mut self.peeked, self.chars.next());
-        self.token_end += match current {
-            Some(ch) => ByteSize::from_char_len_utf8(ch),
-            None => ByteSize::from(0),
-        };
+        self.token_end += current.map_or(ByteSize::from(0), ByteSize::from_char_len_utf8);
         current
     }
 
