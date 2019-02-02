@@ -93,22 +93,11 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(&*body.inner)),
-                Term::FunIntro(_, body) => Doc::nil()
-                    .append("\\")
-                    .append("_")
-                    .append(Doc::space())
-                    .append("=>")
-                    .append(Doc::space())
-                    .append(to_doc_app(&*body.inner)),
-                _ => to_doc_arrow(term),
-            }
-        }
-
-        fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
-            match term {
                 Term::FunType(Some(name), param_ty, body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
+                            .append("Fun")
+                            .append(Doc::space())
                             .append("(")
                             .append(Doc::as_string(name))
                             .append(Doc::space())
@@ -121,27 +110,51 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(&*body_ty.inner)),
+                Term::FunIntro(_, body) => Doc::nil()
+                    .append("fun")
+                    .append(Doc::space())
+                    .append("_")
+                    .append(Doc::space())
+                    .append("=>")
+                    .append(Doc::space())
+                    .append(to_doc_app(&*body.inner)),
+                Term::PairType(_, fst_ty, snd_ty) => Doc::nil()
+                    .append("Pair")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::space())
+                    .append("_")
+                    .append(Doc::space())
+                    .append(":")
+                    .append(to_doc_term(&*fst_ty.inner))
+                    .append(",")
+                    .append(Doc::space())
+                    .append(to_doc_term(&*snd_ty.inner))
+                    .append(Doc::space())
+                    .append("}"),
+                Term::PairIntro(fst, snd) => Doc::nil()
+                    .append("pair")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::space())
+                    .append(to_doc_term(&*fst.inner))
+                    .append(",")
+                    .append(Doc::space())
+                    .append(to_doc_term(&*snd.inner))
+                    .append(Doc::space())
+                    .append("}"),
+                _ => to_doc_arrow(term),
+            }
+        }
+
+        fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
+            match term {
                 Term::FunType(None, param_ty, body_ty) => Doc::nil()
                     .append(to_doc_app(&*param_ty.inner))
                     .append(Doc::space())
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(&*body_ty.inner)),
-                Term::PairType(_, fst_ty, snd_ty) => Doc::nil()
-                    .append(Doc::group(
-                        Doc::nil()
-                            .append("(")
-                            .append("_")
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(to_doc_term(&*fst_ty.inner))
-                            .append(")"),
-                    ))
-                    .append(Doc::space())
-                    .append("*")
-                    .append(Doc::space())
-                    .append(to_doc_app(&*snd_ty.inner)),
                 _ => to_doc_app(term),
             }
         }
@@ -159,13 +172,6 @@ impl Term {
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
                 Term::Var(name) => Doc::as_string(name),
-                Term::PairIntro(fst, snd) => Doc::nil()
-                    .append("<")
-                    .append(to_doc_term(&*fst.inner))
-                    .append(",")
-                    .append(Doc::space())
-                    .append(to_doc_term(&*snd.inner))
-                    .append(">"),
                 Term::PairFst(pair) => to_doc_atomic(&*pair.inner).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(&*pair.inner).append(".2"),
                 Term::Universe(UniverseLevel(level)) => {

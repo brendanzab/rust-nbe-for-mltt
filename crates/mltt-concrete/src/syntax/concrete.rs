@@ -5,7 +5,17 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
-    Definition { name: String, ann: Term, def: Term },
+    Declaration {
+        docs: Vec<String>,
+        name: String,
+        ann: Term,
+    },
+    Definition {
+        docs: Vec<String>,
+        name: String,
+        params: Vec<String>,
+        body: Term,
+    },
 }
 
 /// Concrete terms
@@ -23,13 +33,13 @@ pub enum Term {
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(String, Box<Term>, Box<Term>),
+    FunType(Vec<(Vec<String>, Term)>, Box<Term>),
     /// Non-dependent function types
     FunArrowType(Box<Term>, Box<Term>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
-    FunIntro(String, Box<Term>),
+    FunIntro(Vec<String>, Box<Term>),
     /// Apply a function to an argument
     FunApp(Box<Term>, Vec<Term>),
 
@@ -80,13 +90,71 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(body)),
-                Term::FunIntro(name, body) => Doc::nil()
-                    .append("\\")
-                    .append(Doc::as_string(name))
+                Term::FunType(params, body_ty) => Doc::nil()
+                    .append(Doc::group(
+                        Doc::nil()
+                            .append("Fun")
+                            .append(Doc::space())
+                            .append(Doc::intersperse(
+                                params.iter().map(|(param_names, param_ty)| {
+                                    Doc::nil()
+                                        .append("(")
+                                        .append(Doc::intersperse(
+                                            param_names.iter().map(Doc::as_string),
+                                            Doc::space(),
+                                        ))
+                                        .append(Doc::space())
+                                        .append(":")
+                                        .append(Doc::space())
+                                        .append(to_doc_term(param_ty))
+                                        .append(")")
+                                }),
+                                Doc::space(),
+                            )),
+                    ))
+                    .append(Doc::space())
+                    .append("->")
+                    .append(Doc::space())
+                    .append(to_doc_app(body_ty)),
+                Term::FunIntro(names, body) => Doc::nil()
+                    .append("fun")
+                    .append(Doc::space())
+                    .append(Doc::intersperse(
+                        names.iter().map(Doc::as_string),
+                        Doc::space(),
+                    ))
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())
                     .append(to_doc_app(body)),
+                Term::PairType(name, fst_ty, snd_ty) => Doc::nil()
+                    .append("Pair")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::space())
+                    .append(name.as_ref().map_or(Doc::nil(), |name| {
+                        Doc::nil()
+                            .append(Doc::as_string(name))
+                            .append(Doc::space())
+                            .append(":")
+                    }))
+                    .append(to_doc_term(fst_ty))
+                    .append(",")
+                    .append(Doc::space())
+                    .append(to_doc_term(snd_ty))
+                    .append(Doc::space())
+                    .append("}"),
+                Term::PairIntro(fst, snd) => Doc::nil()
+                    .append("pair")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::space())
+                    .append(to_doc_term(fst))
+                    .append(",")
+                    .append(Doc::space())
+                    .append(to_doc_term(snd))
+                    .append(Doc::space())
+                    .append("}"),
                 _ => to_doc_arrow(term),
             }
         }
@@ -99,42 +167,6 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty)),
-                Term::FunType(name, param_ty, body_ty) => Doc::nil()
-                    .append(Doc::group(
-                        Doc::nil()
-                            .append("(")
-                            .append(Doc::as_string(name))
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(to_doc_term(param_ty))
-                            .append(")"),
-                    ))
-                    .append(Doc::space())
-                    .append("->")
-                    .append(Doc::space())
-                    .append(to_doc_app(body_ty)),
-                Term::PairType(None, fst_ty, snd_ty) => Doc::nil()
-                    .append(to_doc_term(fst_ty))
-                    .append(Doc::space())
-                    .append("*")
-                    .append(Doc::space())
-                    .append(to_doc_term(snd_ty)),
-                Term::PairType(Some(name), fst_ty, snd_ty) => Doc::nil()
-                    .append(Doc::group(
-                        Doc::nil()
-                            .append("(")
-                            .append(Doc::as_string(name))
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(to_doc_term(fst_ty))
-                            .append(")"),
-                    ))
-                    .append(Doc::space())
-                    .append("*")
-                    .append(Doc::space())
-                    .append(to_doc_app(snd_ty)),
                 _ => to_doc_app(term),
             }
         }
@@ -156,13 +188,6 @@ impl Term {
             match term {
                 Term::Var(name) => Doc::as_string(name),
                 Term::Parens(term) => Doc::text("(").append(to_doc_term(term)).append(")"),
-                Term::PairIntro(fst, snd) => Doc::nil()
-                    .append("<")
-                    .append(to_doc_term(fst))
-                    .append(",")
-                    .append(Doc::space())
-                    .append(to_doc_term(snd))
-                    .append(">"),
                 Term::PairFst(pair) => to_doc_atomic(pair).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(pair).append(".2"),
                 Term::Universe(None) => Doc::text("Type"),

@@ -29,7 +29,6 @@ pub enum TokenKind {
     IntLiteral,
     FloatLiteral,
 
-    BSlash,
     Caret,
     Colon,
     Dot,

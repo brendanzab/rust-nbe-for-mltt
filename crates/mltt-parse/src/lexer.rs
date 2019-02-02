@@ -5,7 +5,9 @@ use std::str::Chars;
 use crate::token::{DelimKind, Token, TokenKind};
 
 /// The keywords used in the language
-pub const KEYWORDS: [&str; 3] = ["in", "let", "Type"];
+pub const KEYWORDS: [&str; 9] = [
+    "in", "let", "Type", "fst", "snd", "Fun", "fun", "Pair", "pair",
+];
 
 fn is_whitespace(ch: char) -> bool {
     match ch {
@@ -242,7 +244,6 @@ impl<'file> Lexer<'file> {
     fn consume_symbol(&mut self) -> TokenKind {
         self.skip_while(is_symbol);
         match self.token_slice() {
-            "\\" => TokenKind::BSlash,
             "^" => TokenKind::Caret,
             ":" => TokenKind::Colon,
             "," => TokenKind::Comma,
@@ -663,7 +664,7 @@ mod tests {
         test! {
             r" \ ^ : , .. = -> => ? ; ",
             r"~                       " => (TokenKind::Whitespace, " "),
-            r" ~                      " => (TokenKind::BSlash, r"\"),
+            r" ~                      " => (TokenKind::Symbol, r"\"),
             r"  ~                     " => (TokenKind::Whitespace, " "),
             r"   ~                    " => (TokenKind::Caret, "^"),
             r"    ~                   " => (TokenKind::Whitespace, " "),

@@ -60,7 +60,8 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
             },
             core::Term::FunIntro(/* param_ty, */ body) => {
                 let (name, body) = env.with_binding(|env| resugar_app(body, env));
-                concrete::Term::FunIntro(name, Box::new(body))
+                // TODO: flatten params
+                concrete::Term::FunIntro(vec![name], Box::new(body))
             },
             _ => resugar_arrow(term, env),
         }
@@ -72,7 +73,8 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
                 let param_ty = resugar_term(param_ty, env);
                 let (name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
                 // TODO: only use `name` if it is used in `body_ty`
-                concrete::Term::FunType(name, Box::new(param_ty), Box::new(body_ty))
+                // TODO: flatten params
+                concrete::Term::FunType(vec![(vec![name], param_ty)], Box::new(body_ty))
             },
             core::Term::PairType(fst_ty, snd_ty) => {
                 let fst_ty = resugar_term(fst_ty, env);

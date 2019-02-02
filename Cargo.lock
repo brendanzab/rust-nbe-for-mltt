@@ -168,6 +168,7 @@ version = "0.1.0"
 dependencies = [
  "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mltt-concrete 0.1.0",
  "mltt-span 0.1.0",
  "pretty_assertions 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty_env_logger 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -201,6 +202,7 @@ dependencies = [
 name = "mltt-test-harness"
 version = "0.1.0"
 dependencies = [
+ "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
  "mltt-concrete 0.1.0",
  "mltt-core 0.1.0",
  "mltt-parse 0.1.0",
