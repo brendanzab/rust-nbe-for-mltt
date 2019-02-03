@@ -191,10 +191,7 @@ impl Term {
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
                 Term::Var(name) => Doc::as_string(name),
-                Term::Literal(Literal::String(value)) => Doc::as_string(value),
-                Term::Literal(Literal::Char(value)) => Doc::as_string(value),
-                Term::Literal(Literal::Int(value)) => Doc::as_string(value),
-                Term::Literal(Literal::Float(value)) => Doc::as_string(value),
+                Term::Literal(literal) => Doc::as_string(&literal.value),
                 Term::Parens(term) => Doc::text("(").append(to_doc_term(term)).append(")"),
                 Term::PairFst(pair) => to_doc_atomic(pair).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(pair).append(".2"),

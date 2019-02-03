@@ -37,7 +37,7 @@
 
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::syntax::concrete::{Item, Term};
-use mltt_concrete::syntax::Literal;
+use mltt_concrete::syntax::{Literal, LiteralKind};
 use mltt_span::FileSpan;
 
 use crate::token::{DelimKind, Token, TokenKind};
@@ -436,22 +436,34 @@ where
 
     /// Parse the trailing part of a string literal
     fn parse_string_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal::String(token.slice.to_owned())))
+        Ok(Term::Literal(Literal {
+            kind: LiteralKind::String,
+            value: token.slice.to_owned(),
+        }))
     }
 
     /// Parse the trailing part of a character literal
     fn parse_char_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal::Char(token.slice.to_owned())))
+        Ok(Term::Literal(Literal {
+            kind: LiteralKind::Char,
+            value: token.slice.to_owned(),
+        }))
     }
 
     /// Parse the trailing part of a integer literal
     fn parse_int_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal::Int(token.slice.to_owned())))
+        Ok(Term::Literal(Literal {
+            kind: LiteralKind::Int,
+            value: token.slice.to_owned(),
+        }))
     }
 
     /// Parse the trailing part of a floating point literal
     fn parse_float_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal::Float(token.slice.to_owned())))
+        Ok(Term::Literal(Literal {
+            kind: LiteralKind::Float,
+            value: token.slice.to_owned(),
+        }))
     }
 
     /// Parse the trailing part of a function introduction
@@ -710,25 +722,43 @@ mod tests {
     fn string_literal() {
         test_term!(
             "\"value\"",
-            Term::Literal(Literal::String("\"value\"".to_owned())),
+            Term::Literal(Literal {
+                kind: LiteralKind::String,
+                value: "\"value\"".to_owned()
+            }),
         );
     }
 
     #[test]
     fn char_literal() {
-        test_term!("'\\n'", Term::Literal(Literal::Char("'\\n'".to_owned())));
+        test_term!(
+            "'\\n'",
+            Term::Literal(Literal {
+                kind: LiteralKind::Char,
+                value: "'\\n'".to_owned()
+            }),
+        );
     }
 
     #[test]
     fn int_literal() {
-        test_term!("0xA_F00", Term::Literal(Literal::Int("0xA_F00".to_owned())));
+        test_term!(
+            "0xA_F00",
+            Term::Literal(Literal {
+                kind: LiteralKind::Int,
+                value: "0xA_F00".to_owned()
+            }),
+        );
     }
 
     #[test]
     fn float_literal() {
         test_term!(
             "0.3_46e_23",
-            Term::Literal(Literal::Float("0.3_46e_23".to_owned())),
+            Term::Literal(Literal {
+                kind: LiteralKind::Float,
+                value: "0.3_46e_23".to_owned()
+            }),
         );
     }
 
