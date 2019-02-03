@@ -5,6 +5,8 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
+use super::Literal;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
     pub inner: Rc<Term>,
@@ -29,6 +31,8 @@ impl fmt::Display for RcTerm {
 pub enum Term {
     /// Variables
     Var(String),
+    /// Literals
+    Literal(Literal),
     /// Let bindings
     Let(String, RcTerm, RcTerm),
     /// A term that is explicitly annotated with a type
@@ -172,6 +176,10 @@ impl Term {
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
                 Term::Var(name) => Doc::as_string(name),
+                Term::Literal(Literal::String(value)) => Doc::as_string(value),
+                Term::Literal(Literal::Char(value)) => Doc::as_string(value),
+                Term::Literal(Literal::Int(value)) => Doc::as_string(value),
+                Term::Literal(Literal::Float(value)) => Doc::as_string(value),
                 Term::PairFst(pair) => to_doc_atomic(&*pair.inner).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(&*pair.inner).append(".2"),
                 Term::Universe(UniverseLevel(level)) => {

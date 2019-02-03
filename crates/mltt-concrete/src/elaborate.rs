@@ -151,6 +151,7 @@ pub fn check_term<'term>(
     expected_ty: &RcType,
 ) -> Result<core::RcTerm, TypeError> {
     match term.inner.as_ref() {
+        raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
             let def_value = context.eval(&def)?;
@@ -241,6 +242,7 @@ pub fn synth_term<'term>(
             None => Err(TypeError::UnboundVariable(name.clone())),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
         },
+        raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
             let def_value = context.eval(&def)?;

@@ -5,6 +5,7 @@ use crate::syntax::{concrete, raw};
 pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
     match term {
         concrete::Term::Var(name) => raw::RcTerm::from(raw::Term::Var(name.clone())),
+        concrete::Term::Literal(literal) => raw::RcTerm::from(raw::Term::Literal(literal.clone())),
         concrete::Term::Let(name, def, body) => {
             let def = desugar_term(def);
             let body = desugar_term(body);

@@ -3,6 +3,8 @@
 use pretty::{BoxDoc, Doc};
 use std::fmt;
 
+use super::Literal;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Declaration {
@@ -23,6 +25,8 @@ pub enum Item {
 pub enum Term {
     /// Variables
     Var(String),
+    /// Literals
+    Literal(Literal),
     /// Let bindings
     Let(String, Box<Term>, Box<Term>),
     /// A term that is explicitly annotated with a type
@@ -187,6 +191,10 @@ impl Term {
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
                 Term::Var(name) => Doc::as_string(name),
+                Term::Literal(Literal::String(value)) => Doc::as_string(value),
+                Term::Literal(Literal::Char(value)) => Doc::as_string(value),
+                Term::Literal(Literal::Int(value)) => Doc::as_string(value),
+                Term::Literal(Literal::Float(value)) => Doc::as_string(value),
                 Term::Parens(term) => Doc::text("(").append(to_doc_term(term)).append(")"),
                 Term::PairFst(pair) => to_doc_atomic(pair).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(pair).append(".2"),

@@ -37,6 +37,7 @@
 
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::syntax::concrete::{Item, Term};
+use mltt_concrete::syntax::Literal;
 use mltt_span::FileSpan;
 
 use crate::token::{DelimKind, Token, TokenKind};
@@ -336,10 +337,10 @@ where
                 let term = self.parse_var(token)?;
                 self.parse_fun_app(term)
             },
-            (TokenKind::StringLiteral, _) => unimplemented!("string literal"),
-            (TokenKind::CharLiteral, _) => unimplemented!("char literal"),
-            (TokenKind::IntLiteral, _) => unimplemented!("int literal"),
-            (TokenKind::FloatLiteral, _) => unimplemented!("float literal"),
+            (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
+            (TokenKind::CharLiteral, _) => self.parse_char_literal(token),
+            (TokenKind::IntLiteral, _) => self.parse_int_literal(token),
+            (TokenKind::FloatLiteral, _) => self.parse_float_literal(token),
             (TokenKind::Open(DelimKind::Paren), _) => {
                 let term = self.parse_parens(token)?;
                 self.parse_fun_app(term)
@@ -404,10 +405,10 @@ where
         // Prefix operators
         let mut term = match (token.kind, token.slice) {
             (TokenKind::Identifier, _) => self.parse_var(token),
-            (TokenKind::StringLiteral, _) => unimplemented!("string literal"),
-            (TokenKind::CharLiteral, _) => unimplemented!("char literal"),
-            (TokenKind::IntLiteral, _) => unimplemented!("int literal"),
-            (TokenKind::FloatLiteral, _) => unimplemented!("float literal"),
+            (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
+            (TokenKind::CharLiteral, _) => self.parse_char_literal(token),
+            (TokenKind::IntLiteral, _) => self.parse_int_literal(token),
+            (TokenKind::FloatLiteral, _) => self.parse_float_literal(token),
             (TokenKind::Open(DelimKind::Paren), _) => self.parse_parens(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
@@ -428,12 +429,32 @@ where
         Ok(term)
     }
 
-    /// Expect the trailing part of a variable
+    /// Parse the trailing part of a variable
     fn parse_var(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         Ok(Term::Var(token.slice.to_owned()))
     }
 
-    /// Expect the trailing part of a function introduction
+    /// Parse the trailing part of a string literal
+    fn parse_string_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        Ok(Term::Literal(Literal::String(token.slice.to_owned())))
+    }
+
+    /// Parse the trailing part of a character literal
+    fn parse_char_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        Ok(Term::Literal(Literal::Char(token.slice.to_owned())))
+    }
+
+    /// Parse the trailing part of a integer literal
+    fn parse_int_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        Ok(Term::Literal(Literal::Int(token.slice.to_owned())))
+    }
+
+    /// Parse the trailing part of a floating point literal
+    fn parse_float_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        Ok(Term::Literal(Literal::Float(token.slice.to_owned())))
+    }
+
+    /// Parse the trailing part of a function introduction
     ///
     /// ```text
     /// fun-ty ::= ("("IDENTIFIER+ ":" term(0) ")")+ "->" term(50 - 1)
@@ -475,7 +496,7 @@ where
         Ok(Term::FunType(params, Box::new(body_ty)))
     }
 
-    /// Expect the trailing part of a function introduction
+    /// Parse the trailing part of a function introduction
     ///
     /// ```text
     /// fun-intro ::= IDENTIFIER+ "=>" term(0)
@@ -499,7 +520,7 @@ where
         Ok(Term::FunIntro(params, Box::new(body)))
     }
 
-    /// Expect the trailing part of a parenthesis grouping
+    /// Parse the trailing part of a parenthesis grouping
     ///
     /// ```text
     /// parens ::= term(0) ")"
@@ -511,7 +532,7 @@ where
         Ok(Term::Parens(Box::new(term)))
     }
 
-    /// Expect the trailing part of a pair type
+    /// Parse the trailing part of a pair type
     ///
     /// ```text
     /// pair-intro ::= "{" (IDENTIFIER ":")? term(0) "," term(0) "}"
@@ -530,7 +551,7 @@ where
         Ok(Term::PairType(fst_name, Box::new(fst), Box::new(snd)))
     }
 
-    /// Expect the trailing part of a pair introduction
+    /// Parse the trailing part of a pair introduction
     ///
     /// ```text
     /// pair-intro ::= "{" term(0) "," term(0) "}"
@@ -545,7 +566,7 @@ where
         Ok(Term::PairIntro(Box::new(fst), Box::new(snd)))
     }
 
-    /// Expect the trailing part of a let expression
+    /// Parse the trailing part of a let expression
     ///
     /// ```text
     /// let ::= IDENTIFIER "=" term(0) "in" term(0)
@@ -560,7 +581,7 @@ where
         Ok(Term::Let(name, Box::new(def_term), Box::new(body_term)))
     }
 
-    /// Expect the trailing part of a universe
+    /// Parse the trailing part of a universe
     ///
     /// ```text
     /// universe ::= ("^" INT_LITERAL)?
@@ -576,7 +597,7 @@ where
         }
     }
 
-    /// Expect the trailing part of a projection
+    /// Parse the trailing part of a projection
     ///
     /// ```text
     /// pair-proj ::= ("fst" | "snd")
@@ -597,7 +618,7 @@ where
         }
     }
 
-    /// Expect the trailing part of a type annotation
+    /// Parse the trailing part of a type annotation
     ///
     /// ```text
     /// ann ::= term(20 - 1)
@@ -608,7 +629,7 @@ where
         Ok(Term::Ann(Box::new(lhs), Box::new(rhs)))
     }
 
-    /// Expect the trailing part of a function arrow
+    /// Parse the trailing part of a function arrow
     ///
     /// ```text
     /// fun-arrow-type ::= term(50 - 1)
@@ -623,7 +644,7 @@ where
         Ok(Term::FunArrowType(Box::new(lhs), Box::new(rhs)))
     }
 
-    /// Expect the trailing part of a function application
+    /// Parse the trailing part of a function application
     ///
     /// ```text
     /// fun-app ::= arg-term(0)*
@@ -683,6 +704,32 @@ mod tests {
     #[test]
     fn var() {
         test_term!("var", Term::Var("var".to_owned()));
+    }
+
+    #[test]
+    fn string_literal() {
+        test_term!(
+            "\"value\"",
+            Term::Literal(Literal::String("\"value\"".to_owned())),
+        );
+    }
+
+    #[test]
+    fn char_literal() {
+        test_term!("'\\n'", Term::Literal(Literal::Char("'\\n'".to_owned())));
+    }
+
+    #[test]
+    fn int_literal() {
+        test_term!("0xA_F00", Term::Literal(Literal::Int("0xA_F00".to_owned())));
+    }
+
+    #[test]
+    fn float_literal() {
+        test_term!(
+            "0.3_46e_23",
+            Term::Literal(Literal::Float("0.3_46e_23".to_owned())),
+        );
     }
 
     #[test]
