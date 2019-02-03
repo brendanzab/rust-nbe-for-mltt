@@ -34,6 +34,12 @@ impl From<Value> for RcValue {
     }
 }
 
+impl AsRef<Value> for RcValue {
+    fn as_ref(&self) -> &Value {
+        self.inner.as_ref()
+    }
+}
+
 impl RcValue {
     /// Construct a variable
     pub fn var(level: impl Into<DbLevel>) -> RcValue {
@@ -89,6 +95,12 @@ impl From<Neutral> for RcNeutral {
         RcNeutral {
             inner: Rc::new(src),
         }
+    }
+}
+
+impl AsRef<Neutral> for RcNeutral {
+    fn as_ref(&self) -> &Neutral {
+        self.inner.as_ref()
     }
 }
 

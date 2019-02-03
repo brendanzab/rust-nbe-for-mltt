@@ -39,7 +39,7 @@ impl fmt::Display for NbeError {
 
 /// Return the first element of a pair
 fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
-    match pair.inner.as_ref() {
+    match pair.as_ref() {
         Value::PairIntro(fst, _) => Ok(fst.clone()),
         Value::Neutral(pair) => {
             let fst = domain::RcNeutral::from(domain::Neutral::PairFst(pair.clone()));
@@ -51,7 +51,7 @@ fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
 
 /// Return the second element of a pair
 fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
-    match pair.inner.as_ref() {
+    match pair.as_ref() {
         Value::PairIntro(_, snd) => Ok(snd.clone()),
         Value::Neutral(pair_ne) => {
             let snd = domain::RcNeutral::from(domain::Neutral::PairSnd(pair_ne.clone()));
@@ -70,7 +70,7 @@ pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeErr
 
 /// Apply a function to an argument
 pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
-    match fun.inner.as_ref() {
+    match fun.as_ref() {
         Value::FunIntro(body) => do_closure_app(body, arg),
         Value::Neutral(fun) => {
             let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), arg.clone()));
@@ -82,7 +82,7 @@ pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
 
 /// Evaluate a syntactic term into a semantic value
 pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
-    match term.inner.as_ref() {
+    match term.as_ref() {
         Term::Var(DbIndex(index)) => match env.get(*index as usize) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
@@ -131,7 +131,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 
 /// Quote back a term into normal form
 pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeError> {
-    match term.inner.as_ref() {
+    match term.as_ref() {
         Value::Neutral(term) => {
             let neutral = read_back_neutral(level, term)?;
 
@@ -184,7 +184,7 @@ pub fn read_back_neutral(
     level: DbLevel,
     neutral: &domain::RcNeutral,
 ) -> Result<normal::RcNeutral, NbeError> {
-    match &neutral.inner.as_ref() {
+    match &neutral.as_ref() {
         domain::Neutral::Var(var_level) => {
             let index = DbIndex(level.0 - var_level.0);
 
@@ -211,7 +211,7 @@ pub fn read_back_neutral(
 
 /// Check whether a semantic type is a subtype of another
 pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
-    match (&ty1.inner.as_ref(), &ty2.inner.as_ref()) {
+    match (&ty1.as_ref(), &ty2.as_ref()) {
         (&Value::Neutral(term1), &Value::Neutral(term2)) => {
             let term1 = read_back_neutral(level, term1)?;
             let term2 = read_back_neutral(level, term2)?;

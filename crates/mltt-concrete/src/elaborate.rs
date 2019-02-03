@@ -150,7 +150,7 @@ pub fn check_term<'term>(
     term: &'term raw::RcTerm,
     expected_ty: &RcType,
 ) -> Result<core::RcTerm, TypeError> {
-    match term.inner.as_ref() {
+    match term.as_ref() {
         raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
@@ -175,7 +175,7 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
-        raw::Term::FunIntro(name, body) => match expected_ty.inner.as_ref() {
+        raw::Term::FunIntro(name, body) => match expected_ty.as_ref() {
             Value::FunType(param_ty, body_ty) => {
                 let mut context = context.clone();
                 let param = context.insert_binder(name, param_ty.clone());
@@ -200,7 +200,7 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
-        raw::Term::PairIntro(raw_fst, raw_snd) => match expected_ty.inner.as_ref() {
+        raw::Term::PairIntro(raw_fst, raw_snd) => match expected_ty.as_ref() {
             Value::PairType(fst_ty, snd_ty) => {
                 let fst = check_term(context, raw_fst, fst_ty)?;
                 let fst_value = context.eval(&fst)?;
@@ -214,7 +214,7 @@ pub fn check_term<'term>(
             }),
         },
 
-        raw::Term::Universe(term_level) => match expected_ty.inner.as_ref() {
+        raw::Term::Universe(term_level) => match expected_ty.as_ref() {
             Value::Universe(ann_level) if term_level < ann_level => {
                 Ok(core::RcTerm::from(core::Term::Universe(*term_level)))
             },
@@ -237,7 +237,7 @@ pub fn synth_term<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
 ) -> Result<(core::RcTerm, RcType), TypeError> {
-    match raw_term.inner.as_ref() {
+    match raw_term.as_ref() {
         raw::Term::Var(name) => match context.lookup_binder(name.as_str()) {
             None => Err(TypeError::UnboundVariable(name.clone())),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
@@ -264,7 +264,7 @@ pub fn synth_term<'term>(
 
         raw::Term::FunApp(raw_fun, raw_arg) => {
             let (fun, fun_ty) = synth_term(context, raw_fun)?;
-            match fun_ty.inner.as_ref() {
+            match fun_ty.as_ref() {
                 Value::FunType(param_ty, body_ty) => {
                     let arg = check_term(context, raw_arg, param_ty)?;
                     let arg_value = context.eval(&arg)?;
@@ -280,7 +280,7 @@ pub fn synth_term<'term>(
 
         raw::Term::PairFst(raw_pair) => {
             let (pair, pair_ty) = synth_term(context, raw_pair)?;
-            match pair_ty.inner.as_ref() {
+            match pair_ty.as_ref() {
                 Value::PairType(fst_ty, _) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
                     Ok((fst, fst_ty.clone()))
@@ -292,7 +292,7 @@ pub fn synth_term<'term>(
         },
         raw::Term::PairSnd(raw_pair) => {
             let (pair, pair_ty) = synth_term(context, raw_pair)?;
-            match pair_ty.inner.as_ref() {
+            match pair_ty.as_ref() {
                 Value::PairType(_, snd_ty) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
                     let fst_value = context.eval(&fst)?;
@@ -315,7 +315,7 @@ pub fn check_term_ty<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
 ) -> Result<core::RcTerm, TypeError> {
-    match raw_term.inner.as_ref() {
+    match raw_term.as_ref() {
         raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
             let def_value = context.eval(&def)?;
@@ -356,7 +356,7 @@ pub fn check_term_ty<'term>(
 
         _ => {
             let (term, term_ty) = synth_term(context, raw_term)?;
-            match *term_ty.inner {
+            match term_ty.as_ref() {
                 Value::Universe(_) => Ok(term),
                 _ => Err(TypeError::ExpectedUniverse {
                     over: None,

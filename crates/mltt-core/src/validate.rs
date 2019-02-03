@@ -130,7 +130,7 @@ impl fmt::Display for TypeError {
 
 /// Check that a term conforms to a given type
 pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
-    match term.inner.as_ref() {
+    match term.as_ref() {
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
@@ -147,7 +147,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 
             check_term(&body_ty_context, body_ty, expected_ty)
         },
-        Term::FunIntro(body) => match expected_ty.inner.as_ref() {
+        Term::FunIntro(body) => match expected_ty.as_ref() {
             Value::FunType(param_ty, body_ty) => {
                 let mut body_context = context.clone();
                 let param = body_context.insert_binder(param_ty.clone());
@@ -160,7 +160,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }),
         },
 
-        Term::PairIntro(fst, snd) => match expected_ty.inner.as_ref() {
+        Term::PairIntro(fst, snd) => match expected_ty.as_ref() {
             Value::PairType(fst_ty, snd_ty) => {
                 check_term(context, fst, fst_ty)?;
                 let fst_value = context.eval(fst)?;
@@ -171,7 +171,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }),
         },
 
-        Term::Universe(term_level) => match expected_ty.inner.as_ref() {
+        Term::Universe(term_level) => match expected_ty.as_ref() {
             Value::Universe(ann_level) if term_level < ann_level => Ok(()),
             _ => Err(TypeError::ExpectedUniverse {
                 over: Some(*term_level),
@@ -185,7 +185,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 
 /// Synthesize the type of the term
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
-    match term.inner.as_ref() {
+    match term.as_ref() {
         Term::Var(index) => match context.lookup_binder(*index) {
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
@@ -200,7 +200,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
         Term::FunApp(fun, arg) => {
             let fun_ty = synth_term(context, fun)?;
-            match fun_ty.inner.as_ref() {
+            match fun_ty.as_ref() {
                 Value::FunType(arg_ty, body_ty) => {
                     check_term(context, arg, arg_ty)?;
                     let arg_value = context.eval(arg)?;
@@ -214,7 +214,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
         Term::PairFst(pair) => {
             let pair_ty = synth_term(context, pair)?;
-            match pair_ty.inner.as_ref() {
+            match pair_ty.as_ref() {
                 Value::PairType(fst_ty, _) => Ok(fst_ty.clone()),
                 _ => Err(TypeError::ExpectedPairType {
                     found: pair_ty.clone(),
@@ -223,7 +223,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         },
         Term::PairSnd(pair) => {
             let pair_ty = synth_term(context, pair)?;
-            match pair_ty.inner.as_ref() {
+            match pair_ty.as_ref() {
                 Value::PairType(_, snd_ty) => {
                     let fst = context.eval(&RcTerm::from(Term::PairFst(pair.clone())))?;
                     Ok(nbe::do_closure_app(snd_ty, fst)?)
@@ -240,7 +240,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
 /// Check that the given term is a type
 pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> {
-    match term.inner.as_ref() {
+    match term.as_ref() {
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
@@ -262,7 +262,7 @@ pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> 
 
         _ => {
             let synth_ty = synth_term(context, term)?;
-            match synth_ty.inner.as_ref() {
+            match synth_ty.as_ref() {
                 Value::Universe(_) => Ok(()),
                 _ => Err(TypeError::ExpectedUniverse {
                     over: None,

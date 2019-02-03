@@ -42,7 +42,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     // order to cut down on extraneous parentheses.
 
     fn resugar_term(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match term.inner.as_ref() {
+        match term.as_ref() {
             core::Term::PairIntro(fst, snd /* fst_ty, snd_ty */) => concrete::Term::PairIntro(
                 Box::new(resugar_term(fst, env)),
                 Box::new(resugar_term(snd, env)),
@@ -52,7 +52,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match term.inner.as_ref() {
+        match term.as_ref() {
             core::Term::Let(def, /* def_ty, */ body) => {
                 let def = resugar_app(def, env);
                 let (name, body) = env.with_binding(|env| resugar_term(body, env));
@@ -68,7 +68,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match term.inner.as_ref() {
+        match term.as_ref() {
             core::Term::FunType(param_ty, body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
                 let (name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
@@ -87,7 +87,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_app(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match term.inner.as_ref() {
+        match term.as_ref() {
             core::Term::FunApp(fun, arg) => match resugar_term(fun, env) {
                 concrete::Term::FunApp(fun, mut args) => {
                     args.push(resugar_atomic(arg, env));
@@ -100,7 +100,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
     }
 
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
-        match term.inner.as_ref() {
+        match term.as_ref() {
             core::Term::Var(index) => concrete::Term::Var(env.lookup_index(*index)),
             core::Term::PairFst(pair) => {
                 concrete::Term::PairFst(Box::new(resugar_atomic(pair, env)))

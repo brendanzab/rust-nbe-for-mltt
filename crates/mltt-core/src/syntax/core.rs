@@ -21,6 +21,12 @@ impl From<Term> for RcTerm {
     }
 }
 
+impl AsRef<Term> for RcTerm {
+    fn as_ref(&self) -> &Term {
+        self.inner.as_ref()
+    }
+}
+
 impl fmt::Display for RcTerm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.inner.fmt(f)
@@ -84,11 +90,11 @@ impl Term {
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())
-                    .append(to_doc_app(&*def.inner))
+                    .append(to_doc_app(def.as_ref()))
                     .append(Doc::space())
                     .append("in")
                     .append(Doc::space())
-                    .append(to_doc_term(&*body.inner)),
+                    .append(to_doc_term(body.as_ref())),
                 Term::FunType(param_ty, body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
@@ -99,13 +105,13 @@ impl Term {
                             .append(Doc::space())
                             .append(":")
                             .append(Doc::space())
-                            .append(to_doc_term(&*param_ty.inner))
+                            .append(to_doc_term(param_ty.as_ref()))
                             .append(")"),
                     ))
                     .append(Doc::space())
                     .append("->")
                     .append(Doc::space())
-                    .append(to_doc_app(&*body_ty.inner)),
+                    .append(to_doc_app(body_ty.as_ref())),
                 Term::FunIntro(body) => Doc::nil()
                     .append("fun")
                     .append(Doc::space())
@@ -113,7 +119,7 @@ impl Term {
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())
-                    .append(to_doc_app(&*body.inner)),
+                    .append(to_doc_app(body.as_ref())),
                 Term::PairType(fst_ty, snd_ty) => Doc::nil()
                     .append("Pair")
                     .append(Doc::space())
@@ -122,10 +128,10 @@ impl Term {
                     .append("_")
                     .append(Doc::space())
                     .append(":")
-                    .append(to_doc_term(&*fst_ty.inner))
+                    .append(to_doc_term(fst_ty.as_ref()))
                     .append(",")
                     .append(Doc::space())
-                    .append(to_doc_term(&*snd_ty.inner))
+                    .append(to_doc_term(snd_ty.as_ref()))
                     .append(Doc::space())
                     .append("}"),
                 Term::PairIntro(fst, snd) => Doc::nil()
@@ -133,10 +139,10 @@ impl Term {
                     .append(Doc::space())
                     .append("{")
                     .append(Doc::space())
-                    .append(to_doc_term(&*fst.inner))
+                    .append(to_doc_term(fst.as_ref()))
                     .append(",")
                     .append(Doc::space())
-                    .append(to_doc_term(&*snd.inner))
+                    .append(to_doc_term(snd.as_ref()))
                     .append(Doc::space())
                     .append("}"),
                 _ => to_doc_app(term),
@@ -146,9 +152,9 @@ impl Term {
         fn to_doc_app(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
                 Term::FunApp(fun, arg) => Doc::nil()
-                    .append(to_doc_term(&*fun.inner))
+                    .append(to_doc_term(fun.as_ref()))
                     .append(Doc::space())
-                    .append(to_doc_atomic(&*arg.inner)),
+                    .append(to_doc_atomic(arg.as_ref())),
                 _ => to_doc_atomic(term),
             }
         }
@@ -156,8 +162,8 @@ impl Term {
         fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
                 Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
-                Term::PairFst(pair) => to_doc_atomic(&*pair.inner).append(".1"),
-                Term::PairSnd(pair) => to_doc_atomic(&*pair.inner).append(".2"),
+                Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".1"),
+                Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".2"),
                 Term::Universe(UniverseLevel(level)) => {
                     Doc::text("Type^").append(Doc::as_string(level))
                 },
