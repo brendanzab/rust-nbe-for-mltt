@@ -131,6 +131,7 @@ impl fmt::Display for TypeError {
 /// Check that a term conforms to a given type
 pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
     match term.as_ref() {
+        Term::Literal(literal) => unimplemented!("literals {:?}", literal),
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
@@ -190,6 +191,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
+        Term::Literal(literal) => unimplemented!("literals {:?}", literal),
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             let def_ty = synth_term(context, def)?;

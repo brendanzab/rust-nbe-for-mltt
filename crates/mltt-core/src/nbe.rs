@@ -87,6 +87,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
+        Term::Literal(literal) => Ok(RcValue::from(Value::Literal(literal.clone()))),
         Term::Let(def, /* _, */ body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
@@ -137,6 +138,9 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
 
             Ok(RcNormal::from(Normal::Neutral(neutral)))
         },
+
+        // Literals
+        Value::Literal(literal) => Ok(RcNormal::from(Normal::Literal(literal.clone()))),
 
         // Functions
         Value::FunType(param_ty, body_ty) => {

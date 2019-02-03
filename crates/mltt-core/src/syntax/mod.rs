@@ -2,6 +2,7 @@
 //!
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
+use pretty::{BoxDoc, Doc};
 use std::ops;
 
 pub mod core;
@@ -86,5 +87,41 @@ impl ops::Add<u32> for UniverseLevel {
     fn add(mut self, other: u32) -> UniverseLevel {
         self += other;
         self
+    }
+}
+
+/// Literals
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum Literal {
+    String(String),
+    Char(char),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    S8(i8),
+    S16(i16),
+    S32(i32),
+    S64(i64),
+    F32(f32),
+    F64(f64),
+}
+
+impl Literal {
+    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
+        match *self {
+            Literal::String(ref value) => Doc::text(format!("{:?}", value)),
+            Literal::Char(value) => Doc::text(format!("{:?}", value)),
+            Literal::U8(value) => Doc::as_string(&value),
+            Literal::U16(value) => Doc::as_string(&value),
+            Literal::U32(value) => Doc::as_string(&value),
+            Literal::U64(value) => Doc::as_string(&value),
+            Literal::S8(value) => Doc::as_string(&value),
+            Literal::S16(value) => Doc::as_string(&value),
+            Literal::S32(value) => Doc::as_string(&value),
+            Literal::S64(value) => Doc::as_string(&value),
+            Literal::F32(value) => Doc::as_string(&value),
+            Literal::F64(value) => Doc::as_string(&value),
+        }
     }
 }

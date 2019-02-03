@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, UniverseLevel};
+use crate::syntax::{DbIndex, Literal, UniverseLevel};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcNormal {
@@ -40,6 +40,9 @@ impl RcNormal {
 pub enum Normal {
     /// Neutral values, annotated with a type
     Neutral(RcNeutral),
+
+    /// Literal values
+    Literal(Literal),
 
     /// Dependent function types
     FunType(RcNormal, RcNormal),
