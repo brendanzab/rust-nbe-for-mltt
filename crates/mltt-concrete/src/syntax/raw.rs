@@ -7,6 +7,23 @@ use std::rc::Rc;
 
 use super::Literal;
 
+/// Top-level items in a module
+#[derive(Debug, Clone, PartialEq)]
+pub enum Item {
+    /// Forward-declarations
+    Declaration {
+        docs: Vec<String>,
+        name: String,
+        ann: RcTerm,
+    },
+    /// Term definitions
+    Definition {
+        docs: Vec<String>,
+        name: String,
+        body: RcTerm,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
     pub inner: Rc<Term>,

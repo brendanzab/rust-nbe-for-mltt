@@ -2,6 +2,44 @@ use mltt_core::syntax::UniverseLevel;
 
 use crate::syntax::{concrete, raw};
 
+pub fn desugar_module(items: &[concrete::Item]) -> Vec<raw::Item> {
+    items.iter().map(desugar_item).collect()
+}
+
+pub fn desugar_item(item: &concrete::Item) -> raw::Item {
+    match item {
+        concrete::Item::Declaration { docs, name, ann } => raw::Item::Declaration {
+            docs: docs.clone(),
+            name: name.clone(),
+            ann: desugar_term(ann),
+        },
+        concrete::Item::Definition {
+            docs,
+            name,
+            params,
+            ann,
+            body,
+        } => raw::Item::Definition {
+            docs: docs.clone(),
+            name: name.clone(),
+            body: {
+                let body = match ann {
+                    Some(ann) => {
+                        let ann = desugar_term(ann);
+                        let body = desugar_term(body);
+                        raw::RcTerm::from(raw::Term::Ann(body, ann))
+                    },
+                    None => desugar_term(body),
+                };
+
+                params.iter().rev().fold(body, |acc, name| {
+                    raw::RcTerm::from(raw::Term::FunIntro(name.clone(), acc))
+                })
+            },
+        },
+    }
+}
+
 pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
     match term {
         concrete::Term::Var(name) => raw::RcTerm::from(raw::Term::Var(name.clone())),

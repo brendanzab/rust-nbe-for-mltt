@@ -1,5 +1,5 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
-// use mltt_concrete::desugar;
+use mltt_concrete::desugar;
 // use mltt_concrete::elaborate;
 // use mltt_core::validate;
 use mltt_parse::lexer::Lexer;
@@ -19,8 +19,8 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
     let file_id = files.add("test", src);
 
     let lexer = Lexer::new(&files[file_id]);
-    let program = match parser::parse_program(lexer) {
-        Ok(program) => program,
+    let module = match parser::parse_module(lexer) {
+        Ok(module) => module,
         Err(diagnostic) => {
             let writer = StandardStream::stdout(ColorChoice::Always);
             language_reporting::emit(
@@ -36,10 +36,7 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
 
     // TODO:
 
-    // let (concrete_module, errors) = parser::parse_module(Lexer::new(&files[file_id]));
-    // assert_eq!(errors, vec![]);
-
-    // let raw_module = desugar::desugar_module(&raw_module);
+    let raw_module = desugar::desugar_module(&module);
     // let (core_module, errors) = elaborate::elaborate_module(&raw_module);
     // assert_eq!(errors, vec![]);
 

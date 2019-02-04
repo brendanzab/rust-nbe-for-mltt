@@ -8,7 +8,7 @@
 //! module  ::= item* EOF
 //!
 //! item    ::= DOC_COMMENT* IDENTIFIER ":" term ";"
-//!           | DOC_COMMENT* IDENTIFIER IDENTIFIER* "=" term ";"
+//!           | DOC_COMMENT* IDENTIFIER IDENTIFIER* (":" term)? "=" term ";"
 //!
 //! term    ::= IDENTIFIER
 //!           | STRING_LITERAL
@@ -42,13 +42,13 @@ use mltt_span::FileSpan;
 
 use crate::token::{DelimKind, Token, TokenKind};
 
-pub fn parse_program<'file>(
+pub fn parse_module<'file>(
     tokens: impl Iterator<Item = Token<'file>> + 'file,
 ) -> Result<Vec<Item>, Diagnostic<FileSpan>> {
     let mut parser = Parser::new(tokens);
-    let program = parser.parse_program()?;
+    let module = parser.parse_module()?;
     parser.expect_eof()?;
-    Ok(program)
+    Ok(module)
 }
 
 pub fn parse_item<'file>(
@@ -237,12 +237,12 @@ where
         docs
     }
 
-    /// Expect a program
+    /// Expect a module
     ///
     /// ```text
-    /// program ::= item*
+    /// module ::= item*
     /// ```
-    fn parse_program(&mut self) -> Result<Vec<Item>, Diagnostic<FileSpan>> {
+    fn parse_module(&mut self) -> Result<Vec<Item>, Diagnostic<FileSpan>> {
         let mut items = Vec::new();
         while self.peek().is_some() {
             items.push(self.parse_item()?);
@@ -254,7 +254,7 @@ where
     ///
     /// ```text
     /// item ::= DOC_COMMENT* IDENTIFIER ":" term(0) ";"
-    ///        | DOC_COMMENT* IDENTIFIER IDENTIFIER* "=" term(0) ";"
+    ///        | DOC_COMMENT* IDENTIFIER IDENTIFIER* (":" term(0))? "=" term(0) ";"
     /// ```
     fn parse_item(&mut self) -> Result<Item, Diagnostic<FileSpan>> {
         log::trace!("expecting item");
@@ -278,6 +278,13 @@ where
             while let Some(name) = self.try_identifier() {
                 params.push(name);
             }
+
+            let ann = if self.try_match(TokenKind::Colon).is_some() {
+                Some(self.parse_term(Prec(0))?)
+            } else {
+                None
+            };
+
             if self.try_match(TokenKind::Equals).is_some() {
                 let body = self.parse_term(Prec(0))?;
                 self.expect_match(TokenKind::Semicolon)?;
@@ -286,6 +293,7 @@ where
                     docs,
                     name,
                     params,
+                    ann,
                     body,
                 })
             } else if params.is_empty() {

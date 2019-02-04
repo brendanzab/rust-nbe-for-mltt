@@ -19,6 +19,7 @@ pub enum Item {
         docs: Vec<String>,
         name: String,
         params: Vec<String>,
+        ann: Option<Term>,
         body: Term,
     },
 }
