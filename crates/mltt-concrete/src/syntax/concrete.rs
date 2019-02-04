@@ -5,13 +5,16 @@ use std::fmt;
 
 use super::Literal;
 
+/// Top-level items in a module
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
+    /// Forward-declarations
     Declaration {
         docs: Vec<String>,
         name: String,
         ann: Term,
     },
+    /// Term definitions
     Definition {
         docs: Vec<String>,
         name: String,
