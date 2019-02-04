@@ -147,10 +147,10 @@ impl fmt::Display for TypeError {
 /// Check that a given term conforms to an expected type
 pub fn check_term<'term>(
     context: &Context<'term>,
-    term: &'term raw::RcTerm,
+    raw_term: &'term raw::RcTerm,
     expected_ty: &RcType,
 ) -> Result<core::RcTerm, TypeError> {
-    match term.as_ref() {
+    match raw_term.as_ref() {
         raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;
@@ -225,7 +225,7 @@ pub fn check_term<'term>(
         },
 
         _ => {
-            let (synth, synth_ty) = synth_term(context, term)?;
+            let (synth, synth_ty) = synth_term(context, raw_term)?;
             context.expect_subtype(&synth_ty, expected_ty)?;
             Ok(synth)
         },
