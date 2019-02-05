@@ -8,4 +8,5 @@ publish = false
 
 [dependencies]
 im = "12.2.0"
+log = "0.4"
 pretty = "0.5.2"

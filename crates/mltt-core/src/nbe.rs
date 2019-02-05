@@ -190,7 +190,7 @@ pub fn read_back_neutral(
 ) -> Result<normal::RcNeutral, NbeError> {
     match &neutral.as_ref() {
         domain::Neutral::Var(var_level) => {
-            let index = DbIndex(level.0 - var_level.0);
+            let index = DbIndex(level.0 - (var_level.0 + 1));
 
             Ok(normal::RcNeutral::from(normal::Neutral::Var(index)))
         },

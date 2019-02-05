@@ -4,9 +4,18 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, Literal, UniverseLevel};
+use crate::syntax::{normal, DbIndex, Literal, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
+
+/// Top-level items
+#[derive(Debug, Clone, PartialEq)]
+pub struct Item {
+    pub doc: String,
+    pub name: String,
+    pub ann: RcTerm,
+    pub term: RcTerm,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcTerm {
@@ -180,6 +189,49 @@ impl Term {
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.to_doc().pretty(100_000).fmt(f)
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
+    }
+}
+
+impl From<&'_ normal::RcNormal> for RcTerm {
+    fn from(src: &normal::RcNormal) -> RcTerm {
+        RcTerm::from(src.as_ref())
+    }
+}
+
+impl From<&'_ normal::Normal> for RcTerm {
+    fn from(src: &normal::Normal) -> RcTerm {
+        RcTerm::from(match src {
+            normal::Normal::Neutral(neutral) => return RcTerm::from(neutral),
+            normal::Normal::Literal(literal) => Term::Literal(literal.clone()),
+            normal::Normal::FunType(param_ty, body_ty) => {
+                Term::FunType(RcTerm::from(param_ty), RcTerm::from(body_ty))
+            },
+            normal::Normal::FunIntro(body) => Term::FunIntro(RcTerm::from(body)),
+            normal::Normal::PairType(fst_ty, snd_ty) => {
+                Term::PairType(RcTerm::from(fst_ty), RcTerm::from(snd_ty))
+            },
+            normal::Normal::PairIntro(fst, snd) => {
+                Term::PairIntro(RcTerm::from(fst), RcTerm::from(snd))
+            },
+            normal::Normal::Universe(level) => Term::Universe(*level),
+        })
+    }
+}
+
+impl From<&'_ normal::RcNeutral> for RcTerm {
+    fn from(src: &normal::RcNeutral) -> RcTerm {
+        RcTerm::from(src.as_ref())
+    }
+}
+
+impl From<&'_ normal::Neutral> for RcTerm {
+    fn from(src: &normal::Neutral) -> RcTerm {
+        RcTerm::from(match src {
+            normal::Neutral::Var(index) => Term::Var(*index),
+            normal::Neutral::FunApp(fun, arg) => Term::FunApp(RcTerm::from(fun), RcTerm::from(arg)),
+            normal::Neutral::PairFst(pair) => Term::PairFst(RcTerm::from(pair)),
+            normal::Neutral::PairSnd(pair) => Term::PairSnd(RcTerm::from(pair)),
+        })
     }
 }

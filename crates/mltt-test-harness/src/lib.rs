@@ -1,7 +1,7 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use mltt_concrete::desugar;
-// use mltt_concrete::elaborate;
-// use mltt_core::validate;
+use mltt_concrete::elaborate;
+use mltt_core::validate;
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
 use mltt_span::Files;
@@ -34,12 +34,7 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
         },
     };
 
-    // TODO:
-
     let raw_module = desugar::desugar_module(&module);
-    // let (core_module, errors) = elaborate::elaborate_module(&raw_module);
-    // assert_eq!(errors, vec![]);
-
-    // let result = validate::validate_module(&core_module);
-    // assert_eq!(result, Ok(()));
+    let core_module = elaborate::check_module(&raw_module).unwrap();
+    validate::check_module(&core_module).unwrap();
 }

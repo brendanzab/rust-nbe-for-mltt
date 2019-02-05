@@ -24,6 +24,15 @@ pub enum Item {
     },
 }
 
+impl Item {
+    pub fn is_definition(&self) -> bool {
+        match self {
+            Item::Declaration { .. } => false,
+            Item::Definition { .. } => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RcTerm {
     pub inner: Rc<Term>,
@@ -111,7 +120,7 @@ impl Term {
                 Term::Let(name, def, body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append(Doc::as_string(name))
+                    .append(name)
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())
@@ -126,7 +135,7 @@ impl Term {
                             .append("Fun")
                             .append(Doc::space())
                             .append("(")
-                            .append(Doc::as_string(name))
+                            .append(name)
                             .append(Doc::space())
                             .append(":")
                             .append(Doc::space())
@@ -137,10 +146,10 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty.as_ref())),
-                Term::FunIntro(_, body) => Doc::nil()
+                Term::FunIntro(name, body) => Doc::nil()
                     .append("fun")
                     .append(Doc::space())
-                    .append("_")
+                    .append(name)
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())
@@ -215,6 +224,6 @@ impl Term {
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.to_doc().pretty(100_000).fmt(f)
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }

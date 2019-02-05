@@ -1,0 +1,5 @@
+test1 : Type^1;
+test1 = Type^0;
+
+test2 : Type^23;
+test2 = Type^0;

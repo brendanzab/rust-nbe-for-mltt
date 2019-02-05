@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::nbe::{self, NbeError};
-use crate::syntax::core::{self, RcTerm, Term};
+use crate::syntax::core::{self, Item, RcTerm, Term};
 use crate::syntax::domain::{self, RcType, RcValue, Value};
 use crate::syntax::{DbIndex, DbLevel, UniverseLevel};
 
@@ -126,6 +126,25 @@ impl fmt::Display for TypeError {
             TypeError::Nbe(err) => err.fmt(f),
         }
     }
+}
+
+/// Check that this is a valid module
+pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
+    let mut context = Context::new();
+
+    for item in items {
+        log::trace!("checking item:\t{}", item.name);
+
+        check_term_ty(&context, &item.ann)?;
+        let ty = context.eval(&item.ann)?;
+        check_term(&context, &item.term, &ty)?;
+        let value = context.eval(&item.term)?;
+        context.insert_local(value, ty);
+
+        log::trace!("validated item:\t{}", item.name);
+    }
+
+    Ok(())
 }
 
 /// Check that a term conforms to a given type

@@ -89,7 +89,7 @@ impl Term {
                 Term::Let(name, def, body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append(Doc::as_string(name))
+                    .append(name)
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())
@@ -141,10 +141,7 @@ impl Term {
                     .append("{")
                     .append(Doc::space())
                     .append(name.as_ref().map_or(Doc::nil(), |name| {
-                        Doc::nil()
-                            .append(Doc::as_string(name))
-                            .append(Doc::space())
-                            .append(":")
+                        Doc::nil().append(name).append(Doc::space()).append(":")
                     }))
                     .append(to_doc_term(fst_ty))
                     .append(",")
@@ -211,6 +208,6 @@ impl Term {
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.to_doc().pretty(100_000).fmt(f)
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }

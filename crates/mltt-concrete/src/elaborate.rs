@@ -9,7 +9,7 @@
 
 use im;
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, DbIndex, DbLevel, UniverseLevel};
+use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, UniverseLevel};
 use std::error::Error;
 use std::fmt;
 
@@ -74,7 +74,11 @@ impl<'term> Context<'term> {
     pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &domain::RcType)> {
         for (i, (n, ty)) in self.binders.iter().enumerate() {
             if Some(name) == n.map(String::as_str) {
-                return Some((DbIndex(i as u32), ty));
+                let level = DbIndex(i as u32);
+
+                log::trace!("lookup binder: {} -> @{}", name, level.0);
+
+                return Some((level, ty));
             }
         }
         None
@@ -83,6 +87,10 @@ impl<'term> Context<'term> {
     /// Evaluate a term using the evaluation environment
     pub fn eval(&self, term: &core::RcTerm) -> Result<domain::RcValue, NbeError> {
         nbe::eval(term, self.values())
+    }
+
+    pub fn read_back(&self, value: &domain::RcValue) -> Result<normal::RcNormal, NbeError> {
+        nbe::read_back_term(self.level(), value)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
@@ -102,6 +110,9 @@ impl<'term> Context<'term> {
 /// An error produced during type checking
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
+    AlreadyDeclared(String),
+    AlreadyDefined(String),
+    AlreadyDocumented(String),
     ExpectedFunType {
         found: domain::RcType,
     },
@@ -136,6 +147,9 @@ impl Error for TypeError {
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            TypeError::AlreadyDeclared(name) => write!(f, "already declared: `{}`", name),
+            TypeError::AlreadyDefined(name) => write!(f, "already defined: `{}`", name),
+            TypeError::AlreadyDocumented(name) => write!(f, "already documented: `{}`", name),
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedUniverse { over, .. } => match over {
@@ -148,6 +162,127 @@ impl fmt::Display for TypeError {
             TypeError::Nbe(err) => err.fmt(f),
         }
     }
+}
+
+/// Concatenate a bunch of lines of documentation into a single string, removing
+/// comment prefixes if they are found.
+fn concat_docs(doc_lines: &[String]) -> String {
+    let mut doc = String::new();
+    for doc_line in doc_lines {
+        // Strip the `||| ` or `|||` prefix left over from tokenization
+        // We assume that each line of documentation has a trailing new line
+        doc.push_str(match doc_line {
+            doc_line if doc_line.starts_with("||| ") => &doc_line["||| ".len()..],
+            doc_line if doc_line.starts_with("|||") => &doc_line["|||".len()..],
+            doc_line => doc_line,
+        });
+    }
+    doc
+}
+
+/// Select the documentation from either the declaration or the definition,
+/// returning an error if both are present.
+fn merge_docs(name: &str, decl_docs: &[String], defn_docs: &[String]) -> Result<String, TypeError> {
+    match (decl_docs, defn_docs) {
+        ([], []) => Ok("".to_owned()),
+        (docs, []) => Ok(concat_docs(docs)),
+        ([], docs) => Ok(concat_docs(docs)),
+        (_, _) => Err(TypeError::AlreadyDocumented(name.to_owned())),
+    }
+}
+
+/// Check that this is a valid module
+pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeError> {
+    // Declarations that may be waiting to be defined
+    let mut forward_declarations = im::HashMap::new();
+    // The local elaboration context
+    let mut context = Context::new();
+    // The elaborated items
+    let mut core_items = {
+        let expected_defn_count = raw_items.iter().filter(|i| i.is_definition()).count();
+        Vec::with_capacity(expected_defn_count)
+    };
+
+    for raw_item in raw_items {
+        use im::hashmap::Entry;
+
+        match raw_item {
+            raw::Item::Declaration { docs, name, ann } => {
+                log::trace!("checking declaration:\t\t{}\t: {}", name, ann);
+
+                match forward_declarations.entry(name) {
+                    // No previous declaration for this name was seen, so we can
+                    // go-ahead and type check, elaborate, and then add it to
+                    // the context
+                    Entry::Vacant(entry) => {
+                        let ty = check_term_ty(&context, ann)?;
+                        // Ensure that we evaluate the forward declaration in
+                        // the current context - if we wait until later more
+                        // definitions might have come in to scope!
+                        //
+                        // NOTE: I'm not sure how this reordering affects name
+                        // binding - we might need to account for it!
+                        let ty = context.eval(&ty)?;
+                        entry.insert(Some((docs, ty)));
+                    },
+                    // There's a declaration for this name already pending - we
+                    // can't add a new one!
+                    Entry::Occupied(_) => return Err(TypeError::AlreadyDeclared(name.clone())),
+                }
+            },
+            raw::Item::Definition { docs, name, body } => {
+                log::trace!("checking definition:\t\t{}\t= {}", name, body);
+
+                let (doc, term, ty) = match forward_declarations.entry(name) {
+                    // No prior declaration was found, so we'll try synthesizing
+                    // its type instead
+                    Entry::Vacant(entry) => {
+                        let docs = concat_docs(docs);
+                        let (term, ty) = synth_term(&context, body)?;
+                        entry.insert(None);
+                        (docs, term, ty)
+                    },
+                    // Something has happened with this declaration, let's
+                    // 'take' a look!
+                    Entry::Occupied(mut entry) => match entry.get_mut().take() {
+                        // We found a prior declaration, so we'll use it as a
+                        // basis for checking the definition
+                        Some((decl_docs, ty)) => {
+                            let docs = merge_docs(name, decl_docs, docs)?;
+                            let term = check_term(&context, body, &ty)?;
+                            (docs, term, ty)
+                        },
+                        // This declaration was already given a definition, so
+                        // this is an error!
+                        //
+                        // NOTE: Some languages (eg. Haskell, Agda, Idris, and
+                        // Erlang) turn duplicate definitions into case matches.
+                        // Languages like Elm don't. What should we do here?
+                        None => return Err(TypeError::AlreadyDefined(name.clone())),
+                    },
+                };
+                let value = context.eval(&term)?;
+                // NOTE: Not sure how expensive this readback is here! We should
+                // definitely investigate fusing the conversion between
+                // `value::Value -> normal::Normal -> core::Term` by way of
+                // visitors...
+                let ann = core::RcTerm::from(&context.read_back(&ty)?);
+
+                log::trace!("elaborated declaration:\t{}\t: {}", name, ann);
+                log::trace!("elaborated definition:\t{}\t= {}", name, term);
+
+                context.insert_local(name, value, ty);
+                core_items.push(core::Item {
+                    doc,
+                    name: name.clone(),
+                    ann,
+                    term,
+                });
+            },
+        }
+    }
+
+    Ok(core_items)
 }
 
 /// Check that a given term conforms to an expected type
