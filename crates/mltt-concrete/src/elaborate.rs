@@ -9,9 +9,7 @@
 
 use im;
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::core;
-use mltt_core::syntax::domain::{self, RcType, RcValue, Value};
-use mltt_core::syntax::{DbIndex, DbLevel, UniverseLevel};
+use mltt_core::syntax::{core, domain, DbIndex, DbLevel, UniverseLevel};
 use std::error::Error;
 use std::fmt;
 
@@ -25,7 +23,7 @@ pub struct Context<'term> {
     /// Values to be used during evaluation
     values: domain::Env,
     /// The user-defined names and type annotations of the binders we have passed over
-    binders: im::Vector<(Option<&'term String>, RcType)>,
+    binders: im::Vector<(Option<&'term String>, domain::RcType)>,
 }
 
 impl<'term> Context<'term> {
@@ -52,8 +50,8 @@ impl<'term> Context<'term> {
     pub fn insert_local(
         &mut self,
         name: impl Into<Option<&'term String>>,
-        value: RcValue,
-        ty: RcType,
+        value: domain::RcValue,
+        ty: domain::RcType,
     ) {
         self.level += 1;
         self.values.push_front(value);
@@ -61,15 +59,19 @@ impl<'term> Context<'term> {
     }
 
     /// Add a new binder to the context, returning a value that points to the parameter
-    pub fn insert_binder(&mut self, name: impl Into<Option<&'term String>>, ty: RcType) -> RcValue {
-        let param = RcValue::var(self.level());
+    pub fn insert_binder(
+        &mut self,
+        name: impl Into<Option<&'term String>>,
+        ty: domain::RcType,
+    ) -> domain::RcValue {
+        let param = domain::RcValue::var(self.level());
         self.insert_local(name, param.clone(), ty);
         param
     }
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
-    pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &RcType)> {
+    pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &domain::RcType)> {
         for (i, (n, ty)) in self.binders.iter().enumerate() {
             if Some(name) == n.map(String::as_str) {
                 return Some((DbIndex(i as u32), ty));
@@ -84,7 +86,11 @@ impl<'term> Context<'term> {
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
-    pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
+    pub fn expect_subtype(
+        &self,
+        ty1: &domain::RcType,
+        ty2: &domain::RcType,
+    ) -> Result<(), TypeError> {
         if nbe::check_subtype(self.level(), ty1, ty2)? {
             Ok(())
         } else {
@@ -97,16 +103,16 @@ impl<'term> Context<'term> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
     ExpectedFunType {
-        found: RcType,
+        found: domain::RcType,
     },
     ExpectedPairType {
-        found: RcType,
+        found: domain::RcType,
     },
     ExpectedUniverse {
         over: Option<UniverseLevel>,
-        found: RcType,
+        found: domain::RcType,
     },
-    ExpectedSubtype(RcType, RcType),
+    ExpectedSubtype(domain::RcType, domain::RcType),
     AmbiguousTerm(raw::RcTerm),
     UnboundVariable(String),
     Nbe(NbeError),
@@ -148,7 +154,7 @@ impl fmt::Display for TypeError {
 pub fn check_term<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
-    expected_ty: &RcType,
+    expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
     match raw_term.as_ref() {
         raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
@@ -176,7 +182,7 @@ pub fn check_term<'term>(
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
         raw::Term::FunIntro(name, body) => match expected_ty.as_ref() {
-            Value::FunType(param_ty, body_ty) => {
+            domain::Value::FunType(param_ty, body_ty) => {
                 let mut context = context.clone();
                 let param = context.insert_binder(name, param_ty.clone());
                 let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
@@ -201,7 +207,7 @@ pub fn check_term<'term>(
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
         raw::Term::PairIntro(raw_fst, raw_snd) => match expected_ty.as_ref() {
-            Value::PairType(fst_ty, snd_ty) => {
+            domain::Value::PairType(fst_ty, snd_ty) => {
                 let fst = check_term(context, raw_fst, fst_ty)?;
                 let fst_value = context.eval(&fst)?;
                 let snd_ty_value = nbe::do_closure_app(snd_ty, fst_value)?;
@@ -215,7 +221,7 @@ pub fn check_term<'term>(
         },
 
         raw::Term::Universe(term_level) => match expected_ty.as_ref() {
-            Value::Universe(ann_level) if term_level < ann_level => {
+            domain::Value::Universe(ann_level) if term_level < ann_level => {
                 Ok(core::RcTerm::from(core::Term::Universe(*term_level)))
             },
             _ => Err(TypeError::ExpectedUniverse {
@@ -236,7 +242,7 @@ pub fn check_term<'term>(
 pub fn synth_term<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
-) -> Result<(core::RcTerm, RcType), TypeError> {
+) -> Result<(core::RcTerm, domain::RcType), TypeError> {
     match raw_term.as_ref() {
         raw::Term::Var(name) => match context.lookup_binder(name.as_str()) {
             None => Err(TypeError::UnboundVariable(name.clone())),
@@ -265,7 +271,7 @@ pub fn synth_term<'term>(
         raw::Term::FunApp(raw_fun, raw_arg) => {
             let (fun, fun_ty) = synth_term(context, raw_fun)?;
             match fun_ty.as_ref() {
-                Value::FunType(param_ty, body_ty) => {
+                domain::Value::FunType(param_ty, body_ty) => {
                     let arg = check_term(context, raw_arg, param_ty)?;
                     let arg_value = context.eval(&arg)?;
                     let term = core::RcTerm::from(core::Term::FunApp(fun, arg));
@@ -281,7 +287,7 @@ pub fn synth_term<'term>(
         raw::Term::PairFst(raw_pair) => {
             let (pair, pair_ty) = synth_term(context, raw_pair)?;
             match pair_ty.as_ref() {
-                Value::PairType(fst_ty, _) => {
+                domain::Value::PairType(fst_ty, _) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
                     Ok((fst, fst_ty.clone()))
                 },
@@ -293,7 +299,7 @@ pub fn synth_term<'term>(
         raw::Term::PairSnd(raw_pair) => {
             let (pair, pair_ty) = synth_term(context, raw_pair)?;
             match pair_ty.as_ref() {
-                Value::PairType(_, snd_ty) => {
+                domain::Value::PairType(_, snd_ty) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
                     let fst_value = context.eval(&fst)?;
                     let snd = core::RcTerm::from(core::Term::PairSnd(pair));
@@ -357,7 +363,7 @@ pub fn check_term_ty<'term>(
         _ => {
             let (term, term_ty) = synth_term(context, raw_term)?;
             match term_ty.as_ref() {
-                Value::Universe(_) => Ok(term),
+                domain::Value::Universe(_) => Ok(term),
                 _ => Err(TypeError::ExpectedUniverse {
                     over: None,
                     found: term_ty,
