@@ -89,6 +89,7 @@ impl<'term> Context<'term> {
         nbe::eval(term, self.values())
     }
 
+    /// Read back a value into normal form
     pub fn read_back(&self, value: &domain::RcValue) -> Result<normal::RcNormal, NbeError> {
         nbe::read_back_term(self.level(), value)
     }
