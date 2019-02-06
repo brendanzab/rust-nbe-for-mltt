@@ -1,7 +1,8 @@
 # rust-nbe-for-mltt
 
 Danny Gratzer's implementation of [Normalization by Evaluation for Martin-Löf
-Type Theory][nbe-for-mltt], ported to Rust.
+Type Theory][nbe-for-mltt], ported to Rust. This will probably become the basis
+for a new front-end for [Pikelet](https://github.com/pikelet-lang/pikelet).
 
 In traditional type checking and normalization that uses [DeBruijn indices][de-bruijn-indices],
 you are required to shift variable indices whenever you open up binders. This
@@ -25,11 +26,13 @@ syntax, and DeBruijn levels in the syntax of the semantic domain.
 
 - [x] Convert data types to Rust
 - [x] Port NbE and bidirectional type checking
-- [ ] Add a parser for the concrete syntax
+- [x] Add a parser for the concrete syntax
 - [x] Desugaring of concrete syntax to core syntax
 - [x] Resugaring of core syntax to concrete syntax
 - [x] Pretty printing
 - [ ] Add a REPL
+- [ ] Pattern matching elaboration
+- [ ] Dependent record types
 - [ ] Type checking and normalization tests
 - [ ] Experiment with using visitors
 - [ ] Preserve pretty names through type checking and normalization
