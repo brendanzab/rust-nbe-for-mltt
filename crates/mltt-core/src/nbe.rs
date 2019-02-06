@@ -7,7 +7,7 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::syntax::core::{self, RcTerm, Term};
+use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
 use crate::syntax::normal::{self, Normal, RcNormal};
 use crate::syntax::{DbIndex, DbLevel};
@@ -243,25 +243,4 @@ pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool,
         (&Value::Universe(level1), &Value::Universe(level2)) => Ok(level1 <= level2),
         _ => Ok(false),
     }
-}
-
-/// Convert a core environment into the initial environment for normalization
-fn initial_env(env: &core::Env) -> Result<domain::Env, NbeError> {
-    let mut new_env = domain::Env::new();
-
-    for _ in env {
-        let index = DbLevel((env.len() - new_env.len()) as u32);
-        let ann = RcValue::var(index);
-        new_env.push_front(ann);
-    }
-
-    Ok(new_env)
-}
-
-/// Do a full normalization by first evaluating, and then reading back the result
-pub fn normalize(env: &core::Env, term: &RcTerm) -> Result<RcNormal, NbeError> {
-    let env = initial_env(env)?;
-    let term = eval(term, &env)?;
-
-    read_back_term(DbLevel(env.len() as u32), &term)
 }
