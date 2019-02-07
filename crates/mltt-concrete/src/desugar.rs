@@ -86,10 +86,10 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
                 raw::RcTerm::from(raw::Term::FunIntro(name.clone(), acc))
             })
         },
-        concrete::Term::FunApp(fun, args) => args.iter().fold(desugar_term(fun), |acc, arg| {
-            let arg = desugar_term(arg);
-            raw::RcTerm::from(raw::Term::FunApp(acc, arg))
-        }),
+        concrete::Term::FunApp(fun, args) => raw::RcTerm::from(raw::Term::FunApp(
+            desugar_term(fun),
+            args.iter().map(desugar_term).collect(),
+        )),
 
         // Pairs
         concrete::Term::PairType(name, fst_ty, snd_ty) => {

@@ -74,7 +74,7 @@ pub enum Term {
     /// Introduce a function
     FunIntro(String, RcTerm),
     /// Apply a function to an argument
-    FunApp(RcTerm, RcTerm),
+    FunApp(RcTerm, Vec<RcTerm>),
 
     /// Dependent pair types
     PairType(Option<String>, RcTerm, RcTerm),
@@ -196,10 +196,13 @@ impl Term {
 
         fn to_doc_app(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
-                Term::FunApp(fun, arg) => Doc::nil()
+                Term::FunApp(fun, args) => Doc::nil()
                     .append(to_doc_term(fun.as_ref()))
                     .append(Doc::space())
-                    .append(to_doc_atomic(arg.as_ref())),
+                    .append(Doc::intersperse(
+                        args.iter().map(|arg| to_doc_atomic(arg.as_ref())),
+                        Doc::space(),
+                    )),
                 _ => to_doc_atomic(term),
             }
         }
