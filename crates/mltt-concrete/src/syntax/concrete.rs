@@ -18,8 +18,8 @@ pub enum Item {
     Definition {
         docs: Vec<String>,
         name: String,
-        params: Vec<String>,
-        ann: Option<Term>,
+        param_names: Vec<String>,
+        body_ty: Option<Term>,
         body: Term,
     },
 }

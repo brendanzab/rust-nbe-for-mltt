@@ -14,23 +14,23 @@ pub fn desugar_item(item: &concrete::Item) -> raw::Item {
         concrete::Item::Definition {
             docs,
             name,
-            params,
-            ann,
+            param_names,
+            body_ty,
             body,
         } => raw::Item::Definition {
             docs: docs.clone(),
             name: name.clone(),
             body: {
-                let body = match ann {
-                    Some(ann) => {
-                        let ann = desugar_term(ann);
+                let body = match body_ty {
+                    Some(body_ty) => {
+                        let body_ty = desugar_term(body_ty);
                         let body = desugar_term(body);
-                        raw::RcTerm::from(raw::Term::Ann(body, ann))
+                        raw::RcTerm::from(raw::Term::Ann(body, body_ty))
                     },
                     None => desugar_term(body),
                 };
 
-                raw::RcTerm::from(raw::Term::FunIntro(params.clone(), body))
+                raw::RcTerm::from(raw::Term::FunIntro(param_names.clone(), body))
             },
         },
     }

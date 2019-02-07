@@ -274,12 +274,12 @@ where
         } else {
             log::trace!("expecting item definition");
 
-            let mut params = Vec::new();
-            while let Some(name) = self.try_identifier() {
-                params.push(name);
+            let mut param_names = Vec::new();
+            while let Some(param_name) = self.try_identifier() {
+                param_names.push(param_name);
             }
 
-            let ann = if self.try_match(TokenKind::Colon).is_some() {
+            let body_ty = if self.try_match(TokenKind::Colon).is_some() {
                 Some(self.parse_term(Prec(0))?)
             } else {
                 None
@@ -292,11 +292,11 @@ where
                 Ok(Item::Definition {
                     docs,
                     name,
-                    params,
-                    ann,
+                    param_names,
+                    body_ty,
                     body,
                 })
-            } else if params.is_empty() {
+            } else if param_names.is_empty() {
                 // TODO: Span
                 Err(Diagnostic::new_error("expected declaration or definition"))
             } else {
