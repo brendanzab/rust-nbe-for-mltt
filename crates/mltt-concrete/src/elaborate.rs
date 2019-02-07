@@ -422,19 +422,15 @@ pub fn synth_term<'term>(
             let (mut fun, mut fun_ty) = synth_term(context, raw_fun)?;
 
             for raw_arg in raw_args {
-                match fun_ty.as_ref() {
-                    domain::Value::FunType(param_ty, body_ty) => {
-                        let arg = check_term(context, raw_arg, param_ty)?;
-                        let arg_value = context.eval(&arg)?;
+                if let domain::Value::FunType(param_ty, body_ty) = fun_ty.as_ref() {
+                    let arg = check_term(context, raw_arg, param_ty)?;
+                    let arg_value = context.eval(&arg)?;
 
-                        fun = core::RcTerm::from(core::Term::FunApp(fun, arg));
-                        fun_ty = nbe::do_closure_app(body_ty, arg_value)?;
-                    },
-                    _ => {
-                        return Err(TypeError::ExpectedFunType {
-                            found: fun_ty.clone(),
-                        });
-                    },
+                    fun = core::RcTerm::from(core::Term::FunApp(fun, arg));
+                    fun_ty = nbe::do_closure_app(body_ty, arg_value)?;
+                } else {
+                    let found = fun_ty.clone();
+                    return Err(TypeError::ExpectedFunType { found });
                 }
             }
 
