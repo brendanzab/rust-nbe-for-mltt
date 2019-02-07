@@ -53,9 +53,14 @@ impl<'term> Context<'term> {
         value: domain::RcValue,
         ty: domain::RcType,
     ) {
+        let name = name.into();
+        match name {
+            Some(name) => log::trace!("insert local: {}", name),
+            None => log::trace!("insert fresh local"),
+        }
         self.level += 1;
         self.values.push_front(value);
-        self.binders.push_front((name.into(), ty));
+        self.binders.push_front((name, ty));
     }
 
     /// Add a new binder to the context, returning a value that points to the parameter
@@ -292,6 +297,8 @@ pub fn check_term<'term>(
     raw_term: &'term raw::RcTerm,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
+    log::trace!("checking term:\t\t{}", raw_term);
+
     match raw_term.as_ref() {
         raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         raw::Term::Let(name, raw_def, raw_body) => {
@@ -393,6 +400,8 @@ pub fn synth_term<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    log::trace!("synthesizing term:\t\t{}", raw_term);
+
     match raw_term.as_ref() {
         raw::Term::Var(name) => match context.lookup_binder(name.as_str()) {
             None => Err(TypeError::UnboundVariable(name.clone())),
@@ -474,6 +483,8 @@ pub fn check_term_ty<'term>(
     context: &Context<'term>,
     raw_term: &'term raw::RcTerm,
 ) -> Result<core::RcTerm, TypeError> {
+    log::trace!("checking term is type:\t{}", raw_term);
+
     match raw_term.as_ref() {
         raw::Term::Let(name, raw_def, raw_body) => {
             let (def, def_ty) = synth_term(context, raw_def)?;

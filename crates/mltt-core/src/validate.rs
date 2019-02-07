@@ -149,6 +149,8 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
 
 /// Check that a term conforms to a given type
 pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
+    log::trace!("checking term:\t\t{}", term);
+
     match term.as_ref() {
         Term::Literal(literal) => unimplemented!("literals {:?}", literal),
         Term::Let(def, body) => {
@@ -205,6 +207,8 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 
 /// Synthesize the type of the term
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
+    log::trace!("synthesizing term:\t\t{}", term);
+
     match term.as_ref() {
         Term::Var(index) => match context.lookup_binder(*index) {
             None => Err(TypeError::UnboundVariable),
@@ -261,6 +265,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
 /// Check that the given term is a type
 pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> {
+    log::trace!("checking term is type:\t{}", term);
+
     match term.as_ref() {
         Term::Let(def, body) => {
             let mut body_context = context.clone();
