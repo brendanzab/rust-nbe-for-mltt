@@ -317,6 +317,17 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
+        raw::Term::FunArrowType(raw_param_ty, raw_body_ty) => {
+            let param_ty = check_term_ty(context, raw_param_ty)?;
+            let param_ty_value = context.eval(&param_ty)?;
+            let body_ty = {
+                let mut context = context.clone();
+                context.insert_binder(None, param_ty_value);
+                check_term_ty(&context, raw_body_ty)?
+            };
+
+            Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
+        },
         raw::Term::FunIntro(name, body) => match expected_ty.as_ref() {
             domain::Value::FunType(param_ty, body_ty) => {
                 let mut context = context.clone();
@@ -486,6 +497,17 @@ pub fn check_term_ty<'term>(
             let body_ty = {
                 let mut context = context.clone();
                 context.insert_binder(name, param_ty_value);
+                check_term_ty(&context, raw_body_ty)?
+            };
+
+            Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
+        },
+        raw::Term::FunArrowType(raw_param_ty, raw_body_ty) => {
+            let param_ty = check_term_ty(context, raw_param_ty)?;
+            let param_ty_value = context.eval(&param_ty)?;
+            let body_ty = {
+                let mut context = context.clone();
+                context.insert_binder(None, param_ty_value);
                 check_term_ty(&context, raw_body_ty)?
             };
 

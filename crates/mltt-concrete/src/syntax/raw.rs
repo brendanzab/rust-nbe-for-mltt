@@ -70,7 +70,9 @@ pub enum Term {
     Ann(RcTerm, RcTerm),
 
     /// Dependent function types
-    FunType(Option<String>, RcTerm, RcTerm),
+    FunType(String, RcTerm, RcTerm),
+    /// Non-dependent function types
+    FunArrowType(RcTerm, RcTerm),
     /// Introduce a function
     FunIntro(String, RcTerm),
     /// Apply a function to an argument
@@ -128,7 +130,7 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(body.as_ref())),
-                Term::FunType(Some(name), param_ty, body_ty) => Doc::nil()
+                Term::FunType(name, param_ty, body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("Fun")
@@ -184,7 +186,7 @@ impl Term {
 
         fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
-                Term::FunType(None, param_ty, body_ty) => Doc::nil()
+                Term::FunArrowType(param_ty, body_ty) => Doc::nil()
                     .append(to_doc_app(param_ty.as_ref()))
                     .append(Doc::space())
                     .append("->")
