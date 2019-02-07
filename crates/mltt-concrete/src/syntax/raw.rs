@@ -1,6 +1,5 @@
 //! The unchecked raw syntax
 
-use mltt_core::syntax::UniverseLevel;
 use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
@@ -87,7 +86,7 @@ pub enum Term {
     PairSnd(RcTerm),
 
     /// Universe of types
-    Universe(UniverseLevel),
+    Universe(Option<u32>),
 }
 
 impl RcTerm {
@@ -211,9 +210,8 @@ impl Term {
                 Term::Literal(literal) => literal.to_doc(),
                 Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".2"),
-                Term::Universe(UniverseLevel(level)) => {
-                    Doc::text("Type^").append(Doc::as_string(level))
-                },
+                Term::Universe(None) => Doc::text("Type"),
+                Term::Universe(Some(level)) => Doc::text("Type^").append(Doc::as_string(level)),
                 _ => Doc::text("(").append(to_doc_term(term)).append(")"),
             }
         }

@@ -1,5 +1,3 @@
-use mltt_core::syntax::UniverseLevel;
-
 use crate::syntax::{concrete, raw};
 
 pub fn desugar_module(items: &[concrete::Item]) -> Vec<raw::Item> {
@@ -118,9 +116,6 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
         },
 
         // Universes
-        concrete::Term::Universe(level) => match level {
-            None => raw::RcTerm::from(raw::Term::Universe(UniverseLevel(0))),
-            Some(level) => raw::RcTerm::from(raw::Term::Universe(UniverseLevel(*level))),
-        },
+        concrete::Term::Universe(level) => raw::RcTerm::from(raw::Term::Universe(*level)),
     }
 }

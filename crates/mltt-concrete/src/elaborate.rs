@@ -356,14 +356,17 @@ pub fn check_term<'term>(
             }),
         },
 
-        raw::Term::Universe(term_level) => match expected_ty.as_ref() {
-            domain::Value::Universe(ann_level) if term_level < ann_level => {
-                Ok(core::RcTerm::from(core::Term::Universe(*term_level)))
-            },
-            _ => Err(TypeError::ExpectedUniverse {
-                over: Some(*term_level),
-                found: expected_ty.clone(),
-            }),
+        raw::Term::Universe(term_level) => {
+            let term_level = UniverseLevel::from(term_level.unwrap_or(0));
+            match expected_ty.as_ref() {
+                domain::Value::Universe(ann_level) if term_level < *ann_level => {
+                    Ok(core::RcTerm::from(core::Term::Universe(term_level)))
+                },
+                _ => Err(TypeError::ExpectedUniverse {
+                    over: Some(term_level),
+                    found: expected_ty.clone(),
+                }),
+            }
         },
 
         _ => {
@@ -494,7 +497,10 @@ pub fn check_term_ty<'term>(
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
 
-        raw::Term::Universe(level) => Ok(core::RcTerm::from(core::Term::Universe(*level))),
+        raw::Term::Universe(level) => {
+            let level = UniverseLevel::from(level.unwrap_or(0));
+            Ok(core::RcTerm::from(core::Term::Universe(level)))
+        },
 
         _ => {
             let (term, term_ty) = synth_term(context, raw_term)?;
