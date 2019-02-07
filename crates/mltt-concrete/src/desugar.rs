@@ -30,9 +30,7 @@ pub fn desugar_item(item: &concrete::Item) -> raw::Item {
                     None => desugar_term(body),
                 };
 
-                params.iter().rev().fold(body, |acc, name| {
-                    raw::RcTerm::from(raw::Term::FunIntro(name.clone(), acc))
-                })
+                raw::RcTerm::from(raw::Term::FunIntro(params.clone(), body))
             },
         },
     }
@@ -79,12 +77,8 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
 
             raw::RcTerm::from(raw::Term::FunArrowType(param_ty, body_ty))
         },
-        concrete::Term::FunIntro(names, body) => {
-            let body = desugar_term(body);
-
-            names.iter().rev().fold(body, |acc, name| {
-                raw::RcTerm::from(raw::Term::FunIntro(name.clone(), acc))
-            })
+        concrete::Term::FunIntro(param_names, body) => {
+            raw::RcTerm::from(raw::Term::FunIntro(param_names.clone(), desugar_term(body)))
         },
         concrete::Term::FunApp(fun, args) => raw::RcTerm::from(raw::Term::FunApp(
             desugar_term(fun),

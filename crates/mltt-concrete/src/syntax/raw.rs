@@ -74,7 +74,7 @@ pub enum Term {
     /// Non-dependent function types
     FunArrowType(RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(String, RcTerm),
+    FunIntro(Vec<String>, RcTerm),
     /// Apply a function to an argument
     FunApp(RcTerm, Vec<RcTerm>),
 
@@ -147,10 +147,13 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty.as_ref())),
-                Term::FunIntro(name, body) => Doc::nil()
+                Term::FunIntro(param_names, body) => Doc::nil()
                     .append("fun")
                     .append(Doc::space())
-                    .append(name)
+                    .append(Doc::intersperse(
+                        param_names.iter().map(Doc::as_string),
+                        Doc::space(),
+                    ))
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())

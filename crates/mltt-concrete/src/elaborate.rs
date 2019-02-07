@@ -335,18 +335,24 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
-        raw::Term::FunIntro(name, body) => match expected_ty.as_ref() {
-            domain::Value::FunType(param_ty, body_ty) => {
-                let mut context = context.clone();
-                let param = context.insert_binder(name, param_ty.clone());
-                let body_ty = nbe::do_closure_app(body_ty, param.clone())?;
-                let body = check_term(&context, body, &body_ty)?;
+        raw::Term::FunIntro(param_names, body) => {
+            let mut body_context = context.clone();
+            let mut expected_ty = expected_ty.clone();
 
-                Ok(core::RcTerm::from(core::Term::FunIntro(body)))
-            },
-            _ => Err(TypeError::ExpectedFunType {
-                found: expected_ty.clone(),
-            }),
+            for param_name in param_names.iter() {
+                if let domain::Value::FunType(param_ty, body_ty) = expected_ty.as_ref() {
+                    let param = body_context.insert_binder(param_name, param_ty.clone());
+                    expected_ty = nbe::do_closure_app(body_ty, param)?;
+                } else {
+                    let found = expected_ty.clone();
+                    return Err(TypeError::ExpectedFunType { found });
+                }
+            }
+
+            Ok((0..param_names.len())
+                .fold(check_term(&body_context, body, &expected_ty)?, |acc, _| {
+                    core::RcTerm::from(core::Term::FunIntro(acc))
+                }))
         },
 
         raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {

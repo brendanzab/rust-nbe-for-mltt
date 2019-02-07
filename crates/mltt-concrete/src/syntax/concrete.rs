@@ -124,11 +124,11 @@ impl Term {
                     .append("->")
                     .append(Doc::space())
                     .append(to_doc_app(body_ty)),
-                Term::FunIntro(names, body) => Doc::nil()
+                Term::FunIntro(param_names, body) => Doc::nil()
                     .append("fun")
                     .append(Doc::space())
                     .append(Doc::intersperse(
-                        names.iter().map(Doc::as_string),
+                        param_names.iter().map(Doc::as_string),
                         Doc::space(),
                     ))
                     .append(Doc::space())
