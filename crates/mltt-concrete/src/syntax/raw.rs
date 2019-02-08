@@ -19,6 +19,8 @@ pub enum Item {
     Definition {
         docs: Vec<String>,
         name: String,
+        param_names: Vec<String>,
+        body_ty: Option<RcTerm>,
         body: RcTerm,
     },
 }

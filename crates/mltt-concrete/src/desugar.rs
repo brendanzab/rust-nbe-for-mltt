@@ -20,18 +20,9 @@ pub fn desugar_item(item: &concrete::Item) -> raw::Item {
         } => raw::Item::Definition {
             docs: docs.clone(),
             name: name.clone(),
-            body: {
-                let body = match body_ty {
-                    Some(body_ty) => {
-                        let body_ty = desugar_term(body_ty);
-                        let body = desugar_term(body);
-                        raw::RcTerm::from(raw::Term::Ann(body, body_ty))
-                    },
-                    None => desugar_term(body),
-                };
-
-                raw::RcTerm::from(raw::Term::FunIntro(param_names.clone(), body))
-            },
+            param_names: param_names.clone(),
+            body_ty: body_ty.as_ref().map(desugar_term),
+            body: desugar_term(body),
         },
     }
 }

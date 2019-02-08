@@ -236,7 +236,13 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
                     Entry::Occupied(_) => return Err(TypeError::AlreadyDeclared(name.clone())),
                 }
             },
-            raw::Item::Definition { docs, name, body } => {
+            raw::Item::Definition {
+                docs,
+                name,
+                param_names,
+                body_ty,
+                body,
+            } => {
                 log::trace!("checking definition:\t\t{}\t= {}", name, body);
 
                 let (doc, term, ty) = match forward_declarations.entry(name) {
@@ -244,7 +250,8 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
                     // its type instead
                     Entry::Vacant(entry) => {
                         let docs = concat_docs(docs);
-                        let (term, ty) = synth_term(&context, body)?;
+                        let (term, ty) =
+                            synth_fun_intro(&context, param_names, body_ty.as_ref(), body)?;
                         entry.insert(None);
                         (docs, term, ty)
                     },
@@ -255,7 +262,13 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
                             let docs = merge_docs(name, decl_docs, docs)?;
-                            let term = check_term(&context, body, &ty)?;
+                            let term = check_fun_intro(
+                                &context,
+                                param_names,
+                                body_ty.as_ref(),
+                                body,
+                                &ty,
+                            )?;
                             (docs, term, ty)
                         },
                         // This declaration was already given a definition, so
@@ -289,6 +302,66 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
     }
 
     Ok(core_items)
+}
+
+pub fn synth_ann<'term>(
+    context: &Context<'term>,
+    raw_term: &'term raw::RcTerm,
+    raw_ty: &'term raw::RcTerm,
+) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    let ty = check_term_ty(context, raw_ty)?;
+    let ty_value = context.eval(&ty)?;
+    let term = check_term(context, raw_term, &ty_value)?;
+
+    Ok((term, ty_value))
+}
+
+pub fn check_fun_intro<'term>(
+    context: &Context<'term>,
+    param_names: &'term [String],
+    raw_body_ty: Option<&'term raw::RcTerm>,
+    raw_body: &'term raw::RcTerm,
+    expected_ty: &domain::RcType,
+) -> Result<core::RcTerm, TypeError> {
+    let mut body_context = context.clone();
+    let mut expected_ty = expected_ty.clone();
+
+    for param_name in param_names.iter() {
+        if let domain::Value::FunType(param_ty, body_ty) = expected_ty.as_ref() {
+            let param = body_context.insert_binder(param_name, param_ty.clone());
+            expected_ty = nbe::do_closure_app(body_ty, param)?;
+        } else {
+            let found = expected_ty.clone();
+            return Err(TypeError::ExpectedFunType { found });
+        }
+    }
+
+    let body = match raw_body_ty {
+        None => check_term(&body_context, raw_body, &expected_ty)?,
+        Some(raw_body_ty) => {
+            let (body, body_ty) = synth_ann(context, raw_body, raw_body_ty)?;
+            context.expect_subtype(&body_ty, &expected_ty)?;
+            body
+        },
+    };
+
+    Ok((0..param_names.len()).fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))))
+}
+
+pub fn synth_fun_intro<'term>(
+    context: &Context<'term>,
+    param_names: &'term [String],
+    raw_body_ty: Option<&'term raw::RcTerm>,
+    raw_body: &'term raw::RcTerm,
+) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    if !param_names.is_empty() {
+        unimplemented!("type annotations needed");
+    }
+
+    match raw_body_ty {
+        None => synth_term(context, raw_body),
+        Some(raw_body_ty) => synth_ann(context, raw_body, raw_body_ty),
+    }
 }
 
 /// Check that a given term conforms to an expected type
@@ -342,24 +415,8 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
-        raw::Term::FunIntro(param_names, body) => {
-            let mut body_context = context.clone();
-            let mut expected_ty = expected_ty.clone();
-
-            for param_name in param_names.iter() {
-                if let domain::Value::FunType(param_ty, body_ty) = expected_ty.as_ref() {
-                    let param = body_context.insert_binder(param_name, param_ty.clone());
-                    expected_ty = nbe::do_closure_app(body_ty, param)?;
-                } else {
-                    let found = expected_ty.clone();
-                    return Err(TypeError::ExpectedFunType { found });
-                }
-            }
-
-            Ok((0..param_names.len())
-                .fold(check_term(&body_context, body, &expected_ty)?, |acc, _| {
-                    core::RcTerm::from(core::Term::FunIntro(acc))
-                }))
+        raw::Term::FunIntro(param_names, raw_body) => {
+            check_fun_intro(context, param_names, None, raw_body, expected_ty)
         },
 
         raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {
@@ -432,13 +489,7 @@ pub fn synth_term<'term>(
 
             Ok((core::RcTerm::from(core::Term::Let(def, body)), body_ty))
         },
-        raw::Term::Ann(raw_term, raw_ann) => {
-            let ann = check_term_ty(context, raw_ann)?;
-            let ann_value = context.eval(&ann)?;
-            let term = check_term(context, raw_term, &ann_value)?;
-
-            Ok((term, ann_value))
-        },
+        raw::Term::Ann(raw_term, raw_ty) => synth_ann(context, raw_term, raw_ty),
         raw::Term::Parens(raw_term) => synth_term(context, raw_term),
 
         raw::Term::FunApp(raw_fun, raw_args) => {
