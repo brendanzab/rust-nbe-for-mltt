@@ -313,24 +313,30 @@ pub fn check_term<'term>(
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
 
-        raw::Term::FunType(name, raw_param_ty, raw_body_ty) => {
-            let param_ty = check_term_ty(context, raw_param_ty)?;
-            let param_ty_value = context.eval(&param_ty)?;
-            let body_ty = {
-                let mut context = context.clone();
-                context.insert_binder(name, param_ty_value);
-                check_term_ty(&context, raw_body_ty)?
-            };
+        raw::Term::FunType(raw_params, raw_body_ty) => {
+            let mut context = context.clone();
+            let mut param_tys = Vec::new();
 
-            Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
+            for (param_names, raw_param_ty) in raw_params {
+                for param_name in param_names {
+                    let param_ty = check_term(&context, raw_param_ty, expected_ty)?;
+                    context.insert_binder(param_name, context.eval(&param_ty)?);
+                    param_tys.push(param_ty);
+                }
+            }
+
+            Ok(param_tys.into_iter().rev().fold(
+                check_term(&context, raw_body_ty, expected_ty)?,
+                |acc, param_ty| core::RcTerm::from(core::Term::FunType(param_ty, acc)),
+            ))
         },
         raw::Term::FunArrowType(raw_param_ty, raw_body_ty) => {
-            let param_ty = check_term_ty(context, raw_param_ty)?;
+            let param_ty = check_term(context, raw_param_ty, expected_ty)?;
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
                 let mut context = context.clone();
                 context.insert_binder(None, param_ty_value);
-                check_term_ty(&context, raw_body_ty)?
+                check_term(&context, raw_body_ty, expected_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
@@ -356,12 +362,12 @@ pub fn check_term<'term>(
         },
 
         raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {
-            let fst_ty = check_term_ty(context, raw_fst_ty)?;
+            let fst_ty = check_term(context, raw_fst_ty, expected_ty)?;
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
                 let mut context = context.clone();
                 context.insert_binder(name, fst_ty_value);
-                check_term_ty(&context, raw_snd_ty)?
+                check_term(&context, raw_snd_ty, expected_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
@@ -504,16 +510,24 @@ pub fn check_term_ty<'term>(
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
 
-        raw::Term::FunType(name, raw_param_ty, raw_body_ty) => {
-            let param_ty = check_term_ty(context, raw_param_ty)?;
-            let param_ty_value = context.eval(&param_ty)?;
-            let body_ty = {
-                let mut context = context.clone();
-                context.insert_binder(name, param_ty_value);
-                check_term_ty(&context, raw_body_ty)?
-            };
+        raw::Term::FunType(raw_params, raw_body_ty) => {
+            let mut context = context.clone();
+            let mut param_tys = Vec::new();
 
-            Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
+            for (param_names, raw_param_ty) in raw_params {
+                for param_name in param_names {
+                    let param_ty = check_term_ty(&context, raw_param_ty)?;
+                    context.insert_binder(param_name, context.eval(&param_ty)?);
+                    param_tys.push(param_ty);
+                }
+            }
+
+            Ok(param_tys
+                .into_iter()
+                .rev()
+                .fold(check_term_ty(&context, raw_body_ty)?, |acc, param_ty| {
+                    core::RcTerm::from(core::Term::FunType(param_ty, acc))
+                }))
         },
         raw::Term::FunArrowType(raw_param_ty, raw_body_ty) => {
             let param_ty = check_term_ty(context, raw_param_ty)?;

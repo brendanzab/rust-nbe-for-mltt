@@ -70,7 +70,7 @@ pub enum Term {
     Ann(RcTerm, RcTerm),
 
     /// Dependent function types
-    FunType(String, RcTerm, RcTerm),
+    FunType(Vec<(Vec<String>, RcTerm)>, RcTerm),
     /// Non-dependent function types
     FunArrowType(RcTerm, RcTerm),
     /// Introduce a function
@@ -130,18 +130,27 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(body.as_ref())),
-                Term::FunType(name, param_ty, body_ty) => Doc::nil()
+                Term::FunType(params, body_ty) => Doc::nil()
                     .append(Doc::group(
                         Doc::nil()
                             .append("Fun")
                             .append(Doc::space())
-                            .append("(")
-                            .append(name)
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(to_doc_term(param_ty.as_ref()))
-                            .append(")"),
+                            .append(Doc::intersperse(
+                                params.iter().map(|(param_names, param_ty)| {
+                                    Doc::nil()
+                                        .append("(")
+                                        .append(Doc::intersperse(
+                                            param_names.iter().map(Doc::as_string),
+                                            Doc::space(),
+                                        ))
+                                        .append(Doc::space())
+                                        .append(":")
+                                        .append(Doc::space())
+                                        .append(to_doc_term(param_ty.as_ref()))
+                                        .append(")")
+                                }),
+                                Doc::space(),
+                            )),
                     ))
                     .append(Doc::space())
                     .append("->")
