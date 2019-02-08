@@ -14,7 +14,7 @@ syntax, and DeBruijn levels in the syntax of the semantic domain.
 
 | Syntax        | Binding method              | Example                         |
 |---------------|-----------------------------|---------------------------------|
-| Concrete, Raw | Nominal                     | `λz. (λy. y (λx. x)) (λx. z x)` |
+| Concrete      | Nominal                     | `λz. (λy. y (λx. x)) (λx. z x)` |
 | Core, Normal  | Nameless (DeBruijn Indices) | `λ . (λ . 0 (λ . 0)) (λ . 1 0)` |
 | Domain        | Nameless (DeBruijn Levels)  | `λ . (λ . 1 (λ . 2)) (λ . 0 1)` |
 

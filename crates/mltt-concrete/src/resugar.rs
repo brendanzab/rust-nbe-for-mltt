@@ -1,6 +1,6 @@
 use mltt_core::syntax::{core, DbIndex, UniverseLevel};
 
-use crate::syntax::concrete;
+use crate::syntax;
 
 pub struct Env {
     counter: usize,
@@ -33,17 +33,17 @@ impl Env {
     }
 }
 
-pub fn resugar(term: &core::RcTerm) -> concrete::Term {
+pub fn resugar(term: &core::RcTerm) -> syntax::Term {
     resugar_env(term, &mut Env::new())
 }
 
-pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
+pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
     // Using precedence climbing (mirroring the language grammar) in
     // order to cut down on extraneous parentheses.
 
-    fn resugar_term(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
+    fn resugar_term(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
-            core::Term::PairIntro(fst, snd /* fst_ty, snd_ty */) => concrete::Term::PairIntro(
+            core::Term::PairIntro(fst, snd /* fst_ty, snd_ty */) => syntax::Term::PairIntro(
                 Box::new(resugar_term(fst, env)),
                 Box::new(resugar_term(snd, env)),
             ),
@@ -51,66 +51,62 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
         }
     }
 
-    fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
+    fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
             core::Term::Let(def, /* def_ty, */ body) => {
                 let def = resugar_app(def, env);
                 let (name, body) = env.with_binding(|env| resugar_term(body, env));
-                concrete::Term::Let(name, Box::new(def), Box::new(body))
+                syntax::Term::Let(name, Box::new(def), Box::new(body))
             },
             core::Term::FunIntro(/* param_ty, */ body) => {
                 let (name, body) = env.with_binding(|env| resugar_app(body, env));
                 // TODO: flatten params
-                concrete::Term::FunIntro(vec![name], Box::new(body))
+                syntax::Term::FunIntro(vec![name], Box::new(body))
             },
             _ => resugar_arrow(term, env),
         }
     }
 
-    fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
+    fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
             core::Term::FunType(param_ty, body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
                 let (name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
                 // TODO: only use `name` if it is used in `body_ty`
                 // TODO: flatten params
-                concrete::Term::FunType(vec![(vec![name], param_ty)], Box::new(body_ty))
+                syntax::Term::FunType(vec![(vec![name], param_ty)], Box::new(body_ty))
             },
             core::Term::PairType(fst_ty, snd_ty) => {
                 let fst_ty = resugar_term(fst_ty, env);
                 let (name, snd_ty) = env.with_binding(|env| resugar_app(snd_ty, env));
                 // TODO: only use `name` if it is used in `body_ty`
-                concrete::Term::PairType(Some(name), Box::new(fst_ty), Box::new(snd_ty))
+                syntax::Term::PairType(Some(name), Box::new(fst_ty), Box::new(snd_ty))
             },
             _ => resugar_app(term, env),
         }
     }
 
-    fn resugar_app(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
+    fn resugar_app(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
             core::Term::FunApp(fun, arg) => match resugar_term(fun, env) {
-                concrete::Term::FunApp(fun, mut args) => {
+                syntax::Term::FunApp(fun, mut args) => {
                     args.push(resugar_atomic(arg, env));
-                    concrete::Term::FunApp(fun, args)
+                    syntax::Term::FunApp(fun, args)
                 },
-                fun => concrete::Term::FunApp(Box::new(fun), vec![resugar_atomic(arg, env)]),
+                fun => syntax::Term::FunApp(Box::new(fun), vec![resugar_atomic(arg, env)]),
             },
             _ => resugar_atomic(term, env),
         }
     }
 
-    fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> concrete::Term {
+    fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
-            core::Term::Var(index) => concrete::Term::Var(env.lookup_index(*index)),
-            core::Term::PairFst(pair) => {
-                concrete::Term::PairFst(Box::new(resugar_atomic(pair, env)))
-            },
-            core::Term::PairSnd(pair) => {
-                concrete::Term::PairSnd(Box::new(resugar_atomic(pair, env)))
-            },
-            core::Term::Universe(UniverseLevel(0)) => concrete::Term::Universe(None),
-            core::Term::Universe(UniverseLevel(level)) => concrete::Term::Universe(Some(*level)),
-            _ => concrete::Term::Parens(Box::new(resugar_term(term, env))),
+            core::Term::Var(index) => syntax::Term::Var(env.lookup_index(*index)),
+            core::Term::PairFst(pair) => syntax::Term::PairFst(Box::new(resugar_atomic(pair, env))),
+            core::Term::PairSnd(pair) => syntax::Term::PairSnd(Box::new(resugar_atomic(pair, env))),
+            core::Term::Universe(UniverseLevel(0)) => syntax::Term::Universe(None),
+            core::Term::Universe(UniverseLevel(level)) => syntax::Term::Universe(Some(*level)),
+            _ => syntax::Term::Parens(Box::new(resugar_term(term, env))),
         }
     }
 

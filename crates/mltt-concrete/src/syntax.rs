@@ -1,9 +1,18 @@
-//! The concrete syntax
+//! The concrete syntax tree for the language
+//!
+//! This could also be referred to as a 'parse tree'. We should aim to be able
+//! to reproduce the source code that the user typed in based on this syntax
+//! tree.
+//!
+//! In the future we might want to use a different representation that makes
+//! incremental updates faster. [Swift's parse tree] seems like an interesting
+//! approach to this problem, but comes with the downside of extra memory
+//! overhead and complexity.
+//!
+//! [Swift's parse tree]: https://github.com/apple/swift/tree/daf7d249a528ceea3c6b8ff8f5226be9af67f85c/lib/Syntax
 
 use pretty::{BoxDoc, Doc};
 use std::fmt;
-
-use super::Literal;
 
 /// Top-level items in a module
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +31,45 @@ pub enum Item {
         body_ty: Option<Term>,
         body: Term,
     },
+}
+
+impl Item {
+    pub fn is_definition(&self) -> bool {
+        match self {
+            Item::Declaration { .. } => false,
+            Item::Definition { .. } => true,
+        }
+    }
+}
+
+/// The kind of literal
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LiteralKind {
+    /// String literals
+    String,
+    /// Char literals
+    Char,
+    /// Integer literals
+    Int,
+    /// Floating point literals
+    Float,
+}
+
+/// Concrete literals
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Literal {
+    /// The kind of literal
+    pub kind: LiteralKind,
+    /// We use a string here, because we'll be using type information to do
+    /// further parsing of these. For example we need to know the size of an
+    /// integer literal before we can know whether the literal is overflowing.
+    pub value: String,
+}
+
+impl Literal {
+    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
+        Doc::as_string(&self.value)
+    }
 }
 
 /// Concrete terms

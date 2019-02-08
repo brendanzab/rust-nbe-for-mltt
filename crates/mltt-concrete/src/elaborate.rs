@@ -1,8 +1,9 @@
-//! Elaboration of the implicit syntax into the explicit syntax
+//! Elaboration of the concrete syntax into the core syntax.
 //!
 //! Performs the following:
 //!
 //! - name resolution
+//! - desugaring
 //! - pattern compilation (TODO)
 //! - bidirectional type checking
 //! - elaboration of holes (TODO)
@@ -13,7 +14,7 @@ use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, UniverseLevel};
 use std::error::Error;
 use std::fmt;
 
-use crate::syntax::raw;
+use crate::syntax::{Item, Term};
 
 /// Local elaboration context
 #[derive(Debug, Clone, PartialEq)]
@@ -130,7 +131,7 @@ pub enum TypeError {
         found: domain::RcType,
     },
     ExpectedSubtype(domain::RcType, domain::RcType),
-    AmbiguousTerm(raw::RcTerm),
+    AmbiguousTerm(Term),
     UnboundVariable(String),
     Nbe(NbeError),
 }
@@ -198,22 +199,22 @@ fn merge_docs(name: &str, decl_docs: &[String], defn_docs: &[String]) -> Result<
 }
 
 /// Check that this is a valid module
-pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeError> {
+pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeError> {
     // Declarations that may be waiting to be defined
     let mut forward_declarations = im::HashMap::new();
     // The local elaboration context
     let mut context = Context::new();
     // The elaborated items
     let mut core_items = {
-        let expected_defn_count = raw_items.iter().filter(|i| i.is_definition()).count();
+        let expected_defn_count = concrete_items.iter().filter(|i| i.is_definition()).count();
         Vec::with_capacity(expected_defn_count)
     };
 
-    for raw_item in raw_items {
+    for concrete_item in concrete_items {
         use im::hashmap::Entry;
 
-        match raw_item {
-            raw::Item::Declaration { docs, name, ann } => {
+        match concrete_item {
+            Item::Declaration { docs, name, ann } => {
                 log::trace!("checking declaration:\t\t{}\t: {}", name, ann);
 
                 match forward_declarations.entry(name) {
@@ -236,7 +237,7 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
                     Entry::Occupied(_) => return Err(TypeError::AlreadyDeclared(name.clone())),
                 }
             },
-            raw::Item::Definition {
+            Item::Definition {
                 docs,
                 name,
                 param_names,
@@ -245,13 +246,13 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
             } => {
                 log::trace!("checking definition:\t\t{}\t= {}", name, body);
 
+                let body_ty = body_ty.as_ref();
                 let (doc, term, ty) = match forward_declarations.entry(name) {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
                         let docs = concat_docs(docs);
-                        let (term, ty) =
-                            synth_fun_intro(&context, param_names, body_ty.as_ref(), body)?;
+                        let (term, ty) = synth_fun_intro(&context, param_names, body_ty, body)?;
                         entry.insert(None);
                         (docs, term, ty)
                     },
@@ -262,13 +263,7 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
                             let docs = merge_docs(name, decl_docs, docs)?;
-                            let term = check_fun_intro(
-                                &context,
-                                param_names,
-                                body_ty.as_ref(),
-                                body,
-                                &ty,
-                            )?;
+                            let term = check_fun_intro(&context, param_names, body_ty, body, &ty)?;
                             (docs, term, ty)
                         },
                         // This declaration was already given a definition, so
@@ -304,23 +299,12 @@ pub fn check_module(raw_items: &[raw::Item]) -> Result<Vec<core::Item>, TypeErro
     Ok(core_items)
 }
 
-pub fn synth_ann<'term>(
-    context: &Context<'term>,
-    raw_term: &'term raw::RcTerm,
-    raw_ty: &'term raw::RcTerm,
-) -> Result<(core::RcTerm, domain::RcType), TypeError> {
-    let ty = check_term_ty(context, raw_ty)?;
-    let ty_value = context.eval(&ty)?;
-    let term = check_term(context, raw_term, &ty_value)?;
-
-    Ok((term, ty_value))
-}
-
-pub fn check_fun_intro<'term>(
+/// Check that a function introduction conforms to an expected type
+fn check_fun_intro<'term>(
     context: &Context<'term>,
     param_names: &'term [String],
-    raw_body_ty: Option<&'term raw::RcTerm>,
-    raw_body: &'term raw::RcTerm,
+    concrete_body_ty: Option<&'term Term>,
+    concrete_body: &'term Term,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
     let mut body_context = context.clone();
@@ -336,106 +320,122 @@ pub fn check_fun_intro<'term>(
         }
     }
 
-    let body = match raw_body_ty {
-        None => check_term(&body_context, raw_body, &expected_ty)?,
-        Some(raw_body_ty) => {
-            let (body, body_ty) = synth_ann(context, raw_body, raw_body_ty)?;
+    let body = match concrete_body_ty {
+        None => check_term(&body_context, concrete_body, &expected_ty)?,
+        Some(concrete_body_ty) => {
+            let body_ty = context.eval(&check_term_ty(context, concrete_body_ty)?)?;
+            let body = check_term(context, concrete_body, &body_ty)?;
             context.expect_subtype(&body_ty, &expected_ty)?;
             body
         },
     };
 
-    Ok((0..param_names.len()).fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))))
+    Ok(param_names
+        .iter()
+        .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))))
 }
 
-pub fn synth_fun_intro<'term>(
+/// Synthesize the type of a function introduction
+fn synth_fun_intro<'term>(
     context: &Context<'term>,
     param_names: &'term [String],
-    raw_body_ty: Option<&'term raw::RcTerm>,
-    raw_body: &'term raw::RcTerm,
+    concrete_body_ty: Option<&'term Term>,
+    concrete_body: &'term Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
     if !param_names.is_empty() {
+        // TODO: We will be able to type this once we have annotated patterns!
         unimplemented!("type annotations needed");
     }
 
-    match raw_body_ty {
-        None => synth_term(context, raw_body),
-        Some(raw_body_ty) => synth_ann(context, raw_body, raw_body_ty),
-    }
+    let (body, body_ty) = match concrete_body_ty {
+        None => synth_term(context, concrete_body)?,
+        Some(concrete_body_ty) => {
+            let body_ty = context.eval(&check_term_ty(context, concrete_body_ty)?)?;
+            let body = check_term(context, concrete_body, &body_ty)?;
+            (body, body_ty)
+        },
+    };
+
+    Ok((
+        param_names
+            .iter()
+            .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))),
+        body_ty,
+    ))
 }
 
 /// Check that a given term conforms to an expected type
 pub fn check_term<'term>(
     context: &Context<'term>,
-    raw_term: &'term raw::RcTerm,
+    concrete_term: &'term Term,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
-    log::trace!("checking term:\t\t{}", raw_term);
+    log::trace!("checking term:\t\t{}", concrete_term);
 
-    match raw_term.as_ref() {
-        raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
-        raw::Term::Let(name, raw_def, raw_body) => {
-            let (def, def_ty) = synth_term(context, raw_def)?;
+    match concrete_term {
+        Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
+        Term::Let(def_name, concrete_def, concrete_body) => {
+            let (def, def_ty) = synth_term(context, concrete_def)?;
             let def_value = context.eval(&def)?;
             let body = {
                 let mut context = context.clone();
-                context.insert_local(name, def_value, def_ty);
-                check_term(&context, raw_body, expected_ty)?
+                context.insert_local(def_name, def_value, def_ty);
+                check_term(&context, concrete_body, expected_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
-        raw::Term::Parens(raw_term) => check_term(context, raw_term, expected_ty),
+        Term::Parens(concrete_term) => check_term(context, concrete_term, expected_ty),
 
-        raw::Term::FunType(raw_params, raw_body_ty) => {
+        Term::FunType(concrete_params, concrete_body_ty) => {
             let mut context = context.clone();
             let mut param_tys = Vec::new();
 
-            for (param_names, raw_param_ty) in raw_params {
+            for (param_names, concrete_param_ty) in concrete_params {
                 for param_name in param_names {
-                    let param_ty = check_term(&context, raw_param_ty, expected_ty)?;
+                    let param_ty = check_term(&context, concrete_param_ty, expected_ty)?;
                     context.insert_binder(param_name, context.eval(&param_ty)?);
                     param_tys.push(param_ty);
                 }
             }
 
             Ok(param_tys.into_iter().rev().fold(
-                check_term(&context, raw_body_ty, expected_ty)?,
+                check_term(&context, concrete_body_ty, expected_ty)?,
                 |acc, param_ty| core::RcTerm::from(core::Term::FunType(param_ty, acc)),
             ))
         },
-        raw::Term::FunArrowType(raw_param_ty, raw_body_ty) => {
-            let param_ty = check_term(context, raw_param_ty, expected_ty)?;
+        Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
+            let param_ty = check_term(context, concrete_param_ty, expected_ty)?;
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
                 let mut context = context.clone();
                 context.insert_binder(None, param_ty_value);
-                check_term(&context, raw_body_ty, expected_ty)?
+                check_term(&context, concrete_body_ty, expected_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
-        raw::Term::FunIntro(param_names, raw_body) => {
-            check_fun_intro(context, param_names, None, raw_body, expected_ty)
+        Term::FunIntro(param_names, concrete_body) => {
+            check_fun_intro(context, param_names, None, concrete_body, expected_ty)
         },
 
-        raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {
-            let fst_ty = check_term(context, raw_fst_ty, expected_ty)?;
+        Term::PairType(fst_name, concrete_fst_ty, concrete_snd_ty) => {
+            let fst_ty = check_term(context, concrete_fst_ty, expected_ty)?;
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
                 let mut context = context.clone();
-                context.insert_binder(name, fst_ty_value);
-                check_term(&context, raw_snd_ty, expected_ty)?
+                context.insert_binder(fst_name, fst_ty_value);
+                check_term(&context, concrete_snd_ty, expected_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
-        raw::Term::PairIntro(raw_fst, raw_snd) => match expected_ty.as_ref() {
+        Term::PairIntro(concrete_fst, concrete_snd) => match expected_ty.as_ref() {
             domain::Value::PairType(fst_ty, snd_ty) => {
-                let fst = check_term(context, raw_fst, fst_ty)?;
+                let fst = check_term(context, concrete_fst, fst_ty)?;
                 let fst_value = context.eval(&fst)?;
                 let snd_ty_value = nbe::do_closure_app(snd_ty, fst_value)?;
-                let snd = check_term(context, raw_snd, &snd_ty_value)?;
+                let snd = check_term(context, concrete_snd, &snd_ty_value)?;
 
                 Ok(core::RcTerm::from(core::Term::PairIntro(fst, snd)))
             },
@@ -444,7 +444,7 @@ pub fn check_term<'term>(
             }),
         },
 
-        raw::Term::Universe(term_level) => {
+        Term::Universe(term_level) => {
             let term_level = UniverseLevel::from(term_level.unwrap_or(0));
             match expected_ty.as_ref() {
                 domain::Value::Universe(ann_level) if term_level < *ann_level => {
@@ -458,7 +458,7 @@ pub fn check_term<'term>(
         },
 
         _ => {
-            let (synth, synth_ty) = synth_term(context, raw_term)?;
+            let (synth, synth_ty) = synth_term(context, concrete_term)?;
             context.expect_subtype(&synth_ty, expected_ty)?;
             Ok(synth)
         },
@@ -468,36 +468,41 @@ pub fn check_term<'term>(
 /// Synthesize the type of the given term
 pub fn synth_term<'term>(
     context: &Context<'term>,
-    raw_term: &'term raw::RcTerm,
+    concrete_term: &'term Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
-    log::trace!("synthesizing term:\t\t{}", raw_term);
+    log::trace!("synthesizing term:\t\t{}", concrete_term);
 
-    match raw_term.as_ref() {
-        raw::Term::Var(name) => match context.lookup_binder(name.as_str()) {
+    match concrete_term {
+        Term::Var(name) => match context.lookup_binder(name.as_str()) {
             None => Err(TypeError::UnboundVariable(name.clone())),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
         },
-        raw::Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
-        raw::Term::Let(name, raw_def, raw_body) => {
-            let (def, def_ty) = synth_term(context, raw_def)?;
+        Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
+        Term::Let(def_name, concrete_def, concrete_body) => {
+            let (def, def_ty) = synth_term(context, concrete_def)?;
             let def_value = context.eval(&def)?;
             let (body, body_ty) = {
                 let mut context = context.clone();
-                context.insert_local(name, def_value, def_ty);
-                synth_term(&context, raw_body)?
+                context.insert_local(def_name, def_value, def_ty);
+                synth_term(&context, concrete_body)?
             };
 
             Ok((core::RcTerm::from(core::Term::Let(def, body)), body_ty))
         },
-        raw::Term::Ann(raw_term, raw_ty) => synth_ann(context, raw_term, raw_ty),
-        raw::Term::Parens(raw_term) => synth_term(context, raw_term),
+        Term::Ann(concrete_term, concrete_term_ty) => {
+            let term_ty = context.eval(&check_term_ty(context, concrete_term_ty)?)?;
+            let term = check_term(context, concrete_term, &term_ty)?;
 
-        raw::Term::FunApp(raw_fun, raw_args) => {
-            let (mut fun, mut fun_ty) = synth_term(context, raw_fun)?;
+            Ok((term, term_ty))
+        },
+        Term::Parens(concrete_term) => synth_term(context, concrete_term),
 
-            for raw_arg in raw_args {
+        Term::FunApp(concrete_fun, concrete_args) => {
+            let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
+
+            for concrete_arg in concrete_args {
                 if let domain::Value::FunType(param_ty, body_ty) = fun_ty.as_ref() {
-                    let arg = check_term(context, raw_arg, param_ty)?;
+                    let arg = check_term(context, concrete_arg, param_ty)?;
                     let arg_value = context.eval(&arg)?;
 
                     fun = core::RcTerm::from(core::Term::FunApp(fun, arg));
@@ -511,8 +516,8 @@ pub fn synth_term<'term>(
             Ok((fun, fun_ty))
         },
 
-        raw::Term::PairFst(raw_pair) => {
-            let (pair, pair_ty) = synth_term(context, raw_pair)?;
+        Term::PairFst(concrete_pair) => {
+            let (pair, pair_ty) = synth_term(context, concrete_pair)?;
             match pair_ty.as_ref() {
                 domain::Value::PairType(fst_ty, _) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
@@ -523,8 +528,8 @@ pub fn synth_term<'term>(
                 }),
             }
         },
-        raw::Term::PairSnd(raw_pair) => {
-            let (pair, pair_ty) = synth_term(context, raw_pair)?;
+        Term::PairSnd(concrete_pair) => {
+            let (pair, pair_ty) = synth_term(context, concrete_pair)?;
             match pair_ty.as_ref() {
                 domain::Value::PairType(_, snd_ty) => {
                     let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
@@ -539,81 +544,79 @@ pub fn synth_term<'term>(
             }
         },
 
-        _ => Err(TypeError::AmbiguousTerm(raw_term.clone())),
+        _ => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
     }
 }
 
 /// Check that the given term is a type
 pub fn check_term_ty<'term>(
     context: &Context<'term>,
-    raw_term: &'term raw::RcTerm,
+    concrete_term: &'term Term,
 ) -> Result<core::RcTerm, TypeError> {
-    log::trace!("checking term is type:\t{}", raw_term);
+    log::trace!("checking term is type:\t{}", concrete_term);
 
-    match raw_term.as_ref() {
-        raw::Term::Let(name, raw_def, raw_body) => {
-            let (def, def_ty) = synth_term(context, raw_def)?;
+    match concrete_term {
+        Term::Let(def_name, concrete_def, concrete_body) => {
+            let (def, def_ty) = synth_term(context, concrete_def)?;
             let def_value = context.eval(&def)?;
             let body = {
                 let mut context = context.clone();
-                context.insert_local(name, def_value, def_ty);
-                check_term_ty(&context, raw_body)?
+                context.insert_local(def_name, def_value, def_ty);
+                check_term_ty(&context, concrete_body)?
             };
 
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
-        raw::Term::Parens(raw_term) => check_term_ty(context, raw_term),
+        Term::Parens(concrete_term) => check_term_ty(context, concrete_term),
 
-        raw::Term::FunType(raw_params, raw_body_ty) => {
+        Term::FunType(concrete_params, concrete_body_ty) => {
             let mut context = context.clone();
             let mut param_tys = Vec::new();
 
-            for (param_names, raw_param_ty) in raw_params {
+            for (param_names, concrete_param_ty) in concrete_params {
                 for param_name in param_names {
-                    let param_ty = check_term_ty(&context, raw_param_ty)?;
+                    let param_ty = check_term_ty(&context, concrete_param_ty)?;
                     context.insert_binder(param_name, context.eval(&param_ty)?);
                     param_tys.push(param_ty);
                 }
             }
 
-            Ok(param_tys
-                .into_iter()
-                .rev()
-                .fold(check_term_ty(&context, raw_body_ty)?, |acc, param_ty| {
-                    core::RcTerm::from(core::Term::FunType(param_ty, acc))
-                }))
+            Ok(param_tys.into_iter().rev().fold(
+                check_term_ty(&context, concrete_body_ty)?,
+                |acc, param_ty| core::RcTerm::from(core::Term::FunType(param_ty, acc)),
+            ))
         },
-        raw::Term::FunArrowType(raw_param_ty, raw_body_ty) => {
-            let param_ty = check_term_ty(context, raw_param_ty)?;
+        Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
+            let param_ty = check_term_ty(context, concrete_param_ty)?;
             let param_ty_value = context.eval(&param_ty)?;
             let body_ty = {
                 let mut context = context.clone();
                 context.insert_binder(None, param_ty_value);
-                check_term_ty(&context, raw_body_ty)?
+                check_term_ty(&context, concrete_body_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
         },
 
-        raw::Term::PairType(name, raw_fst_ty, raw_snd_ty) => {
-            let fst_ty = check_term_ty(context, raw_fst_ty)?;
+        Term::PairType(fst_name, concrete_fst_ty, concrete_snd_ty) => {
+            let fst_ty = check_term_ty(context, concrete_fst_ty)?;
             let fst_ty_value = context.eval(&fst_ty)?;
             let snd_ty = {
                 let mut snd_ty_context = context.clone();
-                snd_ty_context.insert_binder(name, fst_ty_value);
-                check_term_ty(&snd_ty_context, raw_snd_ty)?
+                snd_ty_context.insert_binder(fst_name, fst_ty_value);
+                check_term_ty(&snd_ty_context, concrete_snd_ty)?
             };
 
             Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
         },
 
-        raw::Term::Universe(level) => {
+        Term::Universe(level) => {
             let level = UniverseLevel::from(level.unwrap_or(0));
             Ok(core::RcTerm::from(core::Term::Universe(level)))
         },
 
         _ => {
-            let (term, term_ty) = synth_term(context, raw_term)?;
+            let (term, term_ty) = synth_term(context, concrete_term)?;
             match term_ty.as_ref() {
                 domain::Value::Universe(_) => Ok(term),
                 _ => Err(TypeError::ExpectedUniverse {

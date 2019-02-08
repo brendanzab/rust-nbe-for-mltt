@@ -36,7 +36,7 @@
 //!
 
 use language_reporting::{Diagnostic, Label};
-use mltt_concrete::syntax::concrete::{Item, Term};
+use mltt_concrete::syntax::{Item, Term};
 use mltt_concrete::syntax::{Literal, LiteralKind};
 use mltt_span::FileSpan;
 
