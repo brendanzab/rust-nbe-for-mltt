@@ -68,6 +68,8 @@ pub enum Term {
     Let(String, RcTerm, RcTerm),
     /// A term that is explicitly annotated with a type
     Ann(RcTerm, RcTerm),
+    /// A parenthesized term
+    Parens(RcTerm),
 
     /// Dependent function types
     FunType(Vec<(Vec<String>, RcTerm)>, RcTerm),
@@ -225,6 +227,9 @@ impl Term {
             match term {
                 Term::Var(name) => Doc::as_string(name),
                 Term::Literal(literal) => literal.to_doc(),
+                Term::Parens(term) => Doc::text("(")
+                    .append(to_doc_term(term.as_ref()))
+                    .append(")"),
                 Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".1"),
                 Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".2"),
                 Term::Universe(None) => Doc::text("Type"),

@@ -52,7 +52,7 @@ pub fn desugar_term(term: &concrete::Term) -> raw::RcTerm {
 
             raw::RcTerm::from(raw::Term::Ann(term, ann))
         },
-        concrete::Term::Parens(term) => desugar_term(term),
+        concrete::Term::Parens(term) => raw::RcTerm::from(raw::Term::Parens(desugar_term(term))),
 
         // Functions
         concrete::Term::FunType(params, body_ty) => raw::RcTerm::from(raw::Term::FunType(

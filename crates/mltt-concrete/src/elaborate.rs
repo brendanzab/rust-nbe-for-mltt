@@ -312,6 +312,7 @@ pub fn check_term<'term>(
 
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
+        raw::Term::Parens(raw_term) => check_term(context, raw_term, expected_ty),
 
         raw::Term::FunType(raw_params, raw_body_ty) => {
             let mut context = context.clone();
@@ -438,6 +439,7 @@ pub fn synth_term<'term>(
 
             Ok((term, ann_value))
         },
+        raw::Term::Parens(raw_term) => synth_term(context, raw_term),
 
         raw::Term::FunApp(raw_fun, raw_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, raw_fun)?;
@@ -509,6 +511,7 @@ pub fn check_term_ty<'term>(
 
             Ok(core::RcTerm::from(core::Term::Let(def, body)))
         },
+        raw::Term::Parens(raw_term) => check_term_ty(context, raw_term),
 
         raw::Term::FunType(raw_params, raw_body_ty) => {
             let mut context = context.clone();
