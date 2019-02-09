@@ -1,5 +1,11 @@
-test1 : Type^1;
-test1 = Type^0;
+test : Type^1;
+test = Type;
 
-test2 : Type^23;
-test2 = Type^0;
+test0 : Type^1;
+test0 = Type^0;
+
+test-levels : Type^1 : Type^2 : Type^3 : Type^23;
+test-levels = Type^0;
+
+test-fun-type : Type^2;
+test-fun-type = Type^1 -> Type^0;
