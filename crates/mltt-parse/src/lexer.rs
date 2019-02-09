@@ -270,14 +270,14 @@ impl<'file> Lexer<'file> {
     /// Skip an ASCII character code
     fn skip_ascii_char_code(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         if !is_oct_digit(self.expect_advance()?) {
-            Err(Diagnostic::new_error("invalid ASCII character code")
-                .with_label(Label::new_primary(self.token_span())))
-        } else if !is_hex_digit(self.expect_advance()?) {
-            Err(Diagnostic::new_error("invalid ASCII character code")
-                .with_label(Label::new_primary(self.token_span())))
-        } else {
-            Ok(())
+            return Err(Diagnostic::new_error("invalid ASCII character code")
+                .with_label(Label::new_primary(self.token_span())));
         }
+        if !is_hex_digit(self.expect_advance()?) {
+            return Err(Diagnostic::new_error("invalid ASCII character code")
+                .with_label(Label::new_primary(self.token_span())));
+        }
+        Ok(())
     }
 
     /// Skip an escape
