@@ -1,3 +1,8 @@
+//! Convert the core syntax into the concrete syntax.
+//!
+//! We add back in syntactic sugar that was lost during elaboration, and also
+//! the necessary parentheses needed to appropriately group expressions.
+
 use mltt_core::syntax::{core, DbIndex, UniverseLevel};
 
 use crate::syntax;
