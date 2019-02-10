@@ -139,6 +139,7 @@ impl Term {
                     .append("_")
                     .append(Doc::space())
                     .append(":")
+                    .append(Doc::space())
                     .append(to_doc_term(fst_ty.as_ref()))
                     .append(",")
                     .append(Doc::space())

@@ -191,6 +191,7 @@ impl Term {
                     .append(name.as_ref().map_or(Doc::nil(), |name| {
                         Doc::nil().append(name).append(Doc::space()).append(":")
                     }))
+                    .append(Doc::space())
                     .append(to_doc_term(fst_ty))
                     .append(",")
                     .append(Doc::space())
