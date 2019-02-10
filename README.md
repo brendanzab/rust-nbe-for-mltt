@@ -31,9 +31,17 @@ syntax, and DeBruijn levels in the syntax of the semantic domain.
 - [x] Resugaring of core syntax to concrete syntax
 - [x] Pretty printing
 - [ ] Add a REPL
+- [ ] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
 - [ ] Dependent record types
+- [ ] Add eta rules to normalizer
+- [ ] Metavariable solving
 - [ ] Type checking and normalization tests
+- [ ] Error recovery in:
+  - [x] Lexer
+  - [ ] Parser
+  - [ ] Elaborator
+  - [ ] Validator
 - [ ] Experiment with using visitors
 - [ ] Preserve pretty names through type checking and normalization
 - [ ] Use arena allocation rather than reference counting
