@@ -1,0 +1,7 @@
+||| Dependent products
+Prod : Fun (A : Type) (B : A -> Type) -> Type;
+Prod A B = Fun (a : A) -> B a;
+
+||| Dependent sums (subtypes)
+Sum : Fun (A : Type) (B : A -> Type) -> Type;
+Sum A B = Pair { val : A, B val };
