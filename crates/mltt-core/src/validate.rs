@@ -80,16 +80,9 @@ impl Context {
 /// An error produced during type checking
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
-    ExpectedFunType {
-        found: RcType,
-    },
-    ExpectedPairType {
-        found: RcType,
-    },
-    ExpectedUniverse {
-        over: Option<UniverseLevel>,
-        found: RcType,
-    },
+    ExpectedFunType { found: RcType },
+    ExpectedPairType { found: RcType },
+    ExpectedUniverse { found: RcType },
     ExpectedSubtype(RcType, RcType),
     AmbiguousTerm(RcTerm),
     UnboundVariable,
@@ -116,10 +109,7 @@ impl fmt::Display for TypeError {
         match self {
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
-            TypeError::ExpectedUniverse { over, .. } => match over {
-                None => write!(f, "expected universe"),
-                Some(level) => write!(f, "expected universe over level `{}`", level.0),
-            },
+            TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable => write!(f, "unbound variable"),
@@ -135,7 +125,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
     for item in items {
         log::trace!("checking item:\t{}", item.name);
 
-        check_term_ty(&context, &item.term_ty)?;
+        synth_universe(&context, &item.term_ty)?;
         let term_ty = context.eval(&item.term_ty)?;
         check_term(&context, &item.term, &term_ty)?;
         let value = context.eval(&item.term)?;
@@ -145,6 +135,15 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
     }
 
     Ok(())
+}
+
+/// Ensures that the given term is a universe, returning the level of that universe
+fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, TypeError> {
+    let ty = synth_term(context, term)?;
+    match ty.as_ref() {
+        domain::Value::Universe(level) => Ok(*level),
+        _ => Err(TypeError::ExpectedUniverse { found: ty.clone() }),
+    }
 }
 
 /// Check that a term conforms to a given type
@@ -160,15 +159,6 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             check_term(&body_context, body, expected_ty)
         },
 
-        Term::FunType(ann_ty, body_ty) | Term::PairType(ann_ty, body_ty) => {
-            check_term(context, ann_ty, expected_ty)?;
-            let ann_ty_value = context.eval(ann_ty)?;
-
-            let mut body_ty_context = context.clone();
-            body_ty_context.insert_binder(ann_ty_value);
-
-            check_term(&body_ty_context, body_ty, expected_ty)
-        },
         Term::FunIntro(body) => match expected_ty.as_ref() {
             Value::FunType(param_ty, body_ty) => {
                 let mut body_context = context.clone();
@@ -193,20 +183,14 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }),
         },
 
-        Term::Universe(term_level) => match expected_ty.as_ref() {
-            Value::Universe(ann_level) if term_level < ann_level => Ok(()),
-            _ => Err(TypeError::ExpectedUniverse {
-                over: Some(*term_level),
-                found: expected_ty.clone(),
-            }),
-        },
-
         _ => context.expect_subtype(&synth_term(context, term)?, expected_ty),
     }
 }
 
 /// Synthesize the type of the term
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
+    use std::cmp;
+
     log::trace!("synthesizing term:\t\t{}", term);
 
     match term.as_ref() {
@@ -222,6 +206,21 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
             synth_term(&body_context, body)
         },
+
+        Term::FunType(ann_ty, body_ty) | Term::PairType(ann_ty, body_ty) => {
+            let ann_level = synth_universe(context, ann_ty)?;
+            let ann_ty_value = context.eval(ann_ty)?;
+
+            let mut body_ty_context = context.clone();
+            body_ty_context.insert_binder(ann_ty_value);
+
+            let body_level = synth_universe(&body_ty_context, body_ty)?;
+
+            Ok(RcValue::from(Value::Universe(cmp::max(
+                ann_level, body_level,
+            ))))
+        },
+        Term::FunIntro(_) | Term::PairIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
         Term::FunApp(fun, arg) => {
             let fun_ty = synth_term(context, fun)?;
@@ -259,43 +258,6 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             }
         },
 
-        _ => Err(TypeError::AmbiguousTerm(term.clone())),
-    }
-}
-
-/// Check that the given term is a type
-pub fn check_term_ty(context: &Context, term: &RcTerm) -> Result<(), TypeError> {
-    log::trace!("checking term is type:\t{}", term);
-
-    match term.as_ref() {
-        Term::Let(def, body) => {
-            let mut body_context = context.clone();
-            body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
-
-            check_term_ty(&body_context, body)
-        },
-
-        Term::FunType(ann, body) | Term::PairType(ann, body) => {
-            check_term_ty(context, ann)?;
-            let ann_value = context.eval(ann)?;
-
-            let mut body_context = context.clone();
-            body_context.insert_binder(ann_value);
-
-            check_term_ty(&body_context, body)
-        },
-
-        Term::Universe(_) => Ok(()),
-
-        _ => {
-            let synth_ty = synth_term(context, term)?;
-            match synth_ty.as_ref() {
-                Value::Universe(_) => Ok(()),
-                _ => Err(TypeError::ExpectedUniverse {
-                    over: None,
-                    found: synth_ty,
-                }),
-            }
-        },
+        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + 1))),
     }
 }

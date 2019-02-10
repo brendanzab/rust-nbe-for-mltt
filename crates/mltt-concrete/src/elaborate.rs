@@ -120,16 +120,9 @@ pub enum TypeError {
     AlreadyDeclared(String),
     AlreadyDefined(String),
     AlreadyDocumented(String),
-    ExpectedFunType {
-        found: domain::RcType,
-    },
-    ExpectedPairType {
-        found: domain::RcType,
-    },
-    ExpectedUniverse {
-        over: Option<UniverseLevel>,
-        found: domain::RcType,
-    },
+    ExpectedFunType { found: domain::RcType },
+    ExpectedPairType { found: domain::RcType },
+    ExpectedUniverse { found: domain::RcType },
     ExpectedSubtype(domain::RcType, domain::RcType),
     AmbiguousTerm(Term),
     UnboundVariable(String),
@@ -159,10 +152,7 @@ impl fmt::Display for TypeError {
             TypeError::AlreadyDocumented(name) => write!(f, "already documented: `{}`", name),
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
-            TypeError::ExpectedUniverse { over, .. } => match over {
-                None => write!(f, "expected universe"),
-                Some(level) => write!(f, "expected universe over level `{}`", level.0),
-            },
+            TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable(name) => write!(f, "unbound variable `{}`", name),
@@ -222,7 +212,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
                     Entry::Vacant(entry) => {
-                        let ty = check_term_ty(&context, ann)?;
+                        let (ty, _) = synth_universe(&context, ann)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
@@ -299,6 +289,42 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
     Ok(core_items)
 }
 
+/// Check that an annotated term conforms to an expected type
+fn check_ann<'term>(
+    context: &Context<'term>,
+    concrete_term: &'term Term,
+    concrete_term_ty: Option<&'term Term>,
+    expected_ty: &domain::RcType,
+) -> Result<core::RcTerm, TypeError> {
+    match concrete_term_ty {
+        None => check_term(context, concrete_term, &expected_ty),
+        Some(concrete_term_ty) => {
+            let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
+            let term_ty = context.eval(&term_ty)?;
+            let term = check_term(&context, concrete_term, &term_ty)?;
+            context.expect_subtype(&term_ty, &expected_ty)?;
+            Ok(term)
+        },
+    }
+}
+
+/// Synthesize the type of an annotated term
+fn synth_ann<'term>(
+    context: &Context<'term>,
+    concrete_term: &'term Term,
+    concrete_term_ty: Option<&'term Term>,
+) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    match concrete_term_ty {
+        None => synth_term(context, concrete_term),
+        Some(concrete_term_ty) => {
+            let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
+            let term_ty = context.eval(&term_ty)?;
+            let term = check_term(context, concrete_term, &term_ty)?;
+            Ok((term, term_ty))
+        },
+    }
+}
+
 /// Check that a function introduction conforms to an expected type
 fn check_fun_intro<'term>(
     context: &Context<'term>,
@@ -320,15 +346,7 @@ fn check_fun_intro<'term>(
         }
     }
 
-    let body = match concrete_body_ty {
-        None => check_term(&context, concrete_body, &expected_ty)?,
-        Some(concrete_body_ty) => {
-            let body_ty = context.eval(&check_term_ty(&context, concrete_body_ty)?)?;
-            let body = check_term(&context, concrete_body, &body_ty)?;
-            context.expect_subtype(&body_ty, &expected_ty)?;
-            body
-        },
-    };
+    let body = check_ann(&context, concrete_body, concrete_body_ty, &expected_ty)?;
 
     Ok(param_names
         .iter()
@@ -347,14 +365,7 @@ fn synth_fun_intro<'term>(
         unimplemented!("type annotations needed");
     }
 
-    let (body, body_ty) = match concrete_body_ty {
-        None => synth_term(context, concrete_body)?,
-        Some(concrete_body_ty) => {
-            let body_ty = context.eval(&check_term_ty(context, concrete_body_ty)?)?;
-            let body = check_term(context, concrete_body, &body_ty)?;
-            (body, body_ty)
-        },
-    };
+    let (body, body_ty) = synth_ann(&context, concrete_body, concrete_body_ty)?;
 
     Ok((
         param_names
@@ -362,6 +373,19 @@ fn synth_fun_intro<'term>(
             .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))),
         body_ty,
     ))
+}
+
+/// Ensures that the given term is a universe, returning the level of that
+/// universe and its elaborated form.
+fn synth_universe<'term>(
+    context: &Context<'term>,
+    concrete_term: &'term Term,
+) -> Result<(core::RcTerm, UniverseLevel), TypeError> {
+    let (term, ty) = synth_term(context, concrete_term)?;
+    match ty.as_ref() {
+        domain::Value::Universe(level) => Ok((term, *level)),
+        _ => Err(TypeError::ExpectedUniverse { found: ty.clone() }),
+    }
 }
 
 /// Check that a given term conforms to an expected type
@@ -387,49 +411,10 @@ pub fn check_term<'term>(
         },
         Term::Parens(concrete_term) => check_term(context, concrete_term, expected_ty),
 
-        Term::FunType(concrete_params, concrete_body_ty) => {
-            let mut context = context.clone();
-            let mut param_tys = Vec::new();
-
-            for (param_names, concrete_param_ty) in concrete_params {
-                for param_name in param_names {
-                    let param_ty = check_term(&context, concrete_param_ty, expected_ty)?;
-                    context.insert_binder(param_name, context.eval(&param_ty)?);
-                    param_tys.push(param_ty);
-                }
-            }
-
-            Ok(param_tys.into_iter().rev().fold(
-                check_term(&context, concrete_body_ty, expected_ty)?,
-                |acc, param_ty| core::RcTerm::from(core::Term::FunType(param_ty, acc)),
-            ))
-        },
-        Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
-            let param_ty = check_term(context, concrete_param_ty, expected_ty)?;
-            let param_ty_value = context.eval(&param_ty)?;
-            let body_ty = {
-                let mut context = context.clone();
-                context.insert_binder(None, param_ty_value);
-                check_term(&context, concrete_body_ty, expected_ty)?
-            };
-
-            Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
-        },
         Term::FunIntro(param_names, concrete_body) => {
             check_fun_intro(context, param_names, None, concrete_body, expected_ty)
         },
 
-        Term::PairType(fst_name, concrete_fst_ty, concrete_snd_ty) => {
-            let fst_ty = check_term(context, concrete_fst_ty, expected_ty)?;
-            let fst_ty_value = context.eval(&fst_ty)?;
-            let snd_ty = {
-                let mut context = context.clone();
-                context.insert_binder(fst_name, fst_ty_value);
-                check_term(&context, concrete_snd_ty, expected_ty)?
-            };
-
-            Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
-        },
         Term::PairIntro(concrete_fst, concrete_snd) => match expected_ty.as_ref() {
             domain::Value::PairType(fst_ty, snd_ty) => {
                 let fst = check_term(context, concrete_fst, fst_ty)?;
@@ -442,19 +427,6 @@ pub fn check_term<'term>(
             _ => Err(TypeError::ExpectedPairType {
                 found: expected_ty.clone(),
             }),
-        },
-
-        Term::Universe(term_level) => {
-            let term_level = UniverseLevel::from(term_level.unwrap_or(0));
-            match expected_ty.as_ref() {
-                domain::Value::Universe(ann_level) if term_level < *ann_level => {
-                    Ok(core::RcTerm::from(core::Term::Universe(term_level)))
-                },
-                _ => Err(TypeError::ExpectedUniverse {
-                    over: Some(term_level),
-                    found: expected_ty.clone(),
-                }),
-            }
         },
 
         _ => {
@@ -470,6 +442,8 @@ pub fn synth_term<'term>(
     context: &Context<'term>,
     concrete_term: &'term Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    use std::cmp;
+
     log::trace!("synthesizing term:\t\t{}", concrete_term);
 
     match concrete_term {
@@ -490,13 +464,49 @@ pub fn synth_term<'term>(
             Ok((core::RcTerm::from(core::Term::Let(def, body)), body_ty))
         },
         Term::Ann(concrete_term, concrete_term_ty) => {
-            let term_ty = context.eval(&check_term_ty(context, concrete_term_ty)?)?;
-            let term = check_term(context, concrete_term, &term_ty)?;
-
-            Ok((term, term_ty))
+            synth_ann(context, concrete_term, Some(concrete_term_ty))
         },
         Term::Parens(concrete_term) => synth_term(context, concrete_term),
 
+        Term::FunType(concrete_params, concrete_body_ty) => {
+            let mut context = context.clone();
+            let mut param_tys = Vec::new();
+            let mut max_level = UniverseLevel::from(0);
+
+            for (param_names, concrete_param_ty) in concrete_params {
+                for param_name in param_names {
+                    let (param_ty, param_level) = synth_universe(&context, concrete_param_ty)?;
+                    context.insert_binder(param_name, context.eval(&param_ty)?);
+                    param_tys.push(param_ty);
+                    max_level = cmp::max(max_level, param_level);
+                }
+            }
+
+            let (body_ty, body_level) = synth_universe(&context, concrete_body_ty)?;
+            max_level = cmp::max(max_level, body_level);
+
+            Ok((
+                param_tys.into_iter().rev().fold(body_ty, |acc, param_ty| {
+                    core::RcTerm::from(core::Term::FunType(param_ty, acc))
+                }),
+                domain::RcValue::from(domain::Value::Universe(max_level)),
+            ))
+        },
+        Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
+            let (param_ty, param_level) = synth_universe(context, concrete_param_ty)?;
+            let param_ty_value = context.eval(&param_ty)?;
+            let (body_ty, body_level) = {
+                let mut context = context.clone();
+                context.insert_binder(None, param_ty_value);
+                synth_universe(&context, concrete_body_ty)?
+            };
+
+            Ok((
+                core::RcTerm::from(core::Term::FunType(param_ty, body_ty)),
+                domain::RcValue::from(domain::Value::Universe(cmp::max(param_level, body_level))),
+            ))
+        },
+        Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
         Term::FunApp(concrete_fun, concrete_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
 
@@ -516,6 +526,21 @@ pub fn synth_term<'term>(
             Ok((fun, fun_ty))
         },
 
+        Term::PairType(fst_name, concrete_fst_ty, concrete_snd_ty) => {
+            let (fst_ty, fst_level) = synth_universe(context, concrete_fst_ty)?;
+            let fst_ty_value = context.eval(&fst_ty)?;
+            let (snd_ty, snd_level) = {
+                let mut context = context.clone();
+                context.insert_binder(fst_name, fst_ty_value);
+                synth_universe(&context, concrete_snd_ty)?
+            };
+
+            Ok((
+                core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)),
+                domain::RcValue::from(domain::Value::Universe(cmp::max(fst_level, snd_level))),
+            ))
+        },
+        Term::PairIntro(_, _) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
         Term::PairFst(concrete_pair) => {
             let (pair, pair_ty) = synth_term(context, concrete_pair)?;
             match pair_ty.as_ref() {
@@ -544,86 +569,12 @@ pub fn synth_term<'term>(
             }
         },
 
-        _ => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
-    }
-}
-
-/// Check that the given term is a type
-pub fn check_term_ty<'term>(
-    context: &Context<'term>,
-    concrete_term: &'term Term,
-) -> Result<core::RcTerm, TypeError> {
-    log::trace!("checking term is type:\t{}", concrete_term);
-
-    match concrete_term {
-        Term::Let(def_name, concrete_def, concrete_body) => {
-            let (def, def_ty) = synth_term(context, concrete_def)?;
-            let def_value = context.eval(&def)?;
-            let body = {
-                let mut context = context.clone();
-                context.insert_local(def_name, def_value, def_ty);
-                check_term_ty(&context, concrete_body)?
-            };
-
-            Ok(core::RcTerm::from(core::Term::Let(def, body)))
-        },
-        Term::Parens(concrete_term) => check_term_ty(context, concrete_term),
-
-        Term::FunType(concrete_params, concrete_body_ty) => {
-            let mut context = context.clone();
-            let mut param_tys = Vec::new();
-
-            for (param_names, concrete_param_ty) in concrete_params {
-                for param_name in param_names {
-                    let param_ty = check_term_ty(&context, concrete_param_ty)?;
-                    context.insert_binder(param_name, context.eval(&param_ty)?);
-                    param_tys.push(param_ty);
-                }
-            }
-
-            Ok(param_tys.into_iter().rev().fold(
-                check_term_ty(&context, concrete_body_ty)?,
-                |acc, param_ty| core::RcTerm::from(core::Term::FunType(param_ty, acc)),
-            ))
-        },
-        Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
-            let param_ty = check_term_ty(context, concrete_param_ty)?;
-            let param_ty_value = context.eval(&param_ty)?;
-            let body_ty = {
-                let mut context = context.clone();
-                context.insert_binder(None, param_ty_value);
-                check_term_ty(&context, concrete_body_ty)?
-            };
-
-            Ok(core::RcTerm::from(core::Term::FunType(param_ty, body_ty)))
-        },
-
-        Term::PairType(fst_name, concrete_fst_ty, concrete_snd_ty) => {
-            let fst_ty = check_term_ty(context, concrete_fst_ty)?;
-            let fst_ty_value = context.eval(&fst_ty)?;
-            let snd_ty = {
-                let mut snd_ty_context = context.clone();
-                snd_ty_context.insert_binder(fst_name, fst_ty_value);
-                check_term_ty(&snd_ty_context, concrete_snd_ty)?
-            };
-
-            Ok(core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)))
-        },
-
         Term::Universe(level) => {
             let level = UniverseLevel::from(level.unwrap_or(0));
-            Ok(core::RcTerm::from(core::Term::Universe(level)))
-        },
-
-        _ => {
-            let (term, term_ty) = synth_term(context, concrete_term)?;
-            match term_ty.as_ref() {
-                domain::Value::Universe(_) => Ok(term),
-                _ => Err(TypeError::ExpectedUniverse {
-                    over: None,
-                    found: term_ty,
-                }),
-            }
+            Ok((
+                core::RcTerm::from(core::Term::Universe(level)),
+                domain::RcValue::from(domain::Value::Universe(level + 1)),
+            ))
         },
     }
 }
