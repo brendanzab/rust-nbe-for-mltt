@@ -134,10 +134,10 @@ impl Term {
 
         fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
             match term {
-                Term::Let(name, def, body) => Doc::nil()
+                Term::Let(def_name, def, body) => Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append(name)
+                    .append(def_name)
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())
@@ -156,7 +156,7 @@ impl Term {
                                     Doc::nil()
                                         .append("(")
                                         .append(Doc::intersperse(
-                                            param_names.iter().map(Doc::as_string),
+                                            param_names.iter().map(Doc::text),
                                             Doc::space(),
                                         ))
                                         .append(Doc::space())
@@ -176,20 +176,20 @@ impl Term {
                     .append("fun")
                     .append(Doc::space())
                     .append(Doc::intersperse(
-                        param_names.iter().map(Doc::as_string),
+                        param_names.iter().map(Doc::text),
                         Doc::space(),
                     ))
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())
                     .append(to_doc_app(body)),
-                Term::PairType(name, fst_ty, snd_ty) => Doc::nil()
+                Term::PairType(fst_name, fst_ty, snd_ty) => Doc::nil()
                     .append("Pair")
                     .append(Doc::space())
                     .append("{")
                     .append(Doc::space())
-                    .append(name.as_ref().map_or(Doc::nil(), |name| {
-                        Doc::nil().append(name).append(Doc::space()).append(":")
+                    .append(fst_name.as_ref().map_or(Doc::nil(), |fst_name| {
+                        Doc::text(fst_name).append(Doc::space()).append(":")
                     }))
                     .append(Doc::space())
                     .append(to_doc_term(fst_ty))
