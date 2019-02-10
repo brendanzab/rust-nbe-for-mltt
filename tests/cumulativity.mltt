@@ -9,3 +9,15 @@ test-levels = Type^0;
 
 test-fun-type : Type^2;
 test-fun-type = Type^1 -> Type^0;
+
+test-fun-intro-a : Type^0 -> Type^1;
+test-fun-intro-a x = x;
+
+test-fun-intro : Type^0 -> Type^2;
+test-fun-intro = test-fun-intro-a;
+
+test-pair-intro-a : Pair { Type^1, Type^1 };
+test-pair-intro-a = pair { Type^0, Type^0 };
+
+test-pair-intro : Pair { Type^2, Type^2 };
+test-pair-intro = test-pair-intro-a;
