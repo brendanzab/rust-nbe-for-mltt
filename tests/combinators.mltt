@@ -2,14 +2,44 @@
 id : Fun (A : Type) -> A -> A;
 id A a = a;
 
-||| Creates a function that always returns the same value
+||| Creates a function that always returns the same value.
+|||
+||| Also known at the 'K Combinator' in the [SKI combinator calculus][ski-wiki].
+|||
+||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
 const : Fun (A B : Type) -> A -> B -> A;
-const A B a b = a;
+const A B a =
+    fun b => a;
+
+||| Dependent substitution.
+|||
+||| Takes three arguments and then returns the first argument applied to the
+||| third, which is then applied to the result of the second argument applied to
+||| the third.
+|||
+||| Also known as the 'S Combinator' in the [SKI combinator calculus][ski-wiki].
+|||
+||| # References
+|||
+||| - [Outrageous but Meaningful Coincidences: Dependent type-safe syntax and evaluation][dep-rep]
+|||   (Described in Section 5 as an infix `_ˢ_` operator)
+|||
+||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
+||| [dep-rep]: https://personal.cis.strath.ac.uk/conor.mcbride/pub/DepRep/DepRep.pdf
+subst :
+    Fun (A : Type) (B : A -> Type) (C : Fun (x : A) -> B x -> Type)
+        (f : Fun (x : A) (y : B x) -> C x y)
+        (g : Fun (x : A) -> B x) ->
+        (Fun (x : A) -> C x (g x));
+subst A B C f g =
+    fun x => f x (g x);
 
 ||| Function composition
 compose : Fun (A B C : Type) -> (B -> C) -> (A -> B) -> (A -> C);
-compose A B C f g a = f (g a);
+compose A B C f g =
+    fun a => f (g a);
 
 ||| Flip the order of the first two arguments to a function
 flip : Fun (A B C : Type) -> (A -> B -> C) -> (B -> A -> C);
-flip A B C f a b = f b a;
+flip A B C f =
+    fun a b => f b a;
