@@ -307,12 +307,12 @@ fn check_fun_intro<'term>(
     concrete_body: &'term Term,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
-    let mut body_context = context.clone();
+    let mut context = context.clone();
     let mut expected_ty = expected_ty.clone();
 
     for param_name in param_names.iter() {
         if let domain::Value::FunType(param_ty, body_ty) = expected_ty.as_ref() {
-            let param = body_context.insert_binder(param_name, param_ty.clone());
+            let param = context.insert_binder(param_name, param_ty.clone());
             expected_ty = nbe::do_closure_app(body_ty, param)?;
         } else {
             let found = expected_ty.clone();
@@ -321,10 +321,10 @@ fn check_fun_intro<'term>(
     }
 
     let body = match concrete_body_ty {
-        None => check_term(&body_context, concrete_body, &expected_ty)?,
+        None => check_term(&context, concrete_body, &expected_ty)?,
         Some(concrete_body_ty) => {
-            let body_ty = context.eval(&check_term_ty(context, concrete_body_ty)?)?;
-            let body = check_term(context, concrete_body, &body_ty)?;
+            let body_ty = context.eval(&check_term_ty(&context, concrete_body_ty)?)?;
+            let body = check_term(&context, concrete_body, &body_ty)?;
             context.expect_subtype(&body_ty, &expected_ty)?;
             body
         },
