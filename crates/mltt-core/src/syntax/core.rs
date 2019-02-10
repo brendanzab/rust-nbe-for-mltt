@@ -13,7 +13,7 @@ pub type Env = im::Vector<RcTerm>;
 pub struct Item {
     pub doc: String,
     pub name: String,
-    pub ann: RcTerm,
+    pub term_ty: RcTerm,
     pub term: RcTerm,
 }
 

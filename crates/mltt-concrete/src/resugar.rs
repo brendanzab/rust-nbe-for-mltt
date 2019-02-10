@@ -60,13 +60,13 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
             core::Term::Let(def, /* def_ty, */ body) => {
                 let def = resugar_app(def, env);
-                let (name, body) = env.with_binding(|env| resugar_term(body, env));
-                syntax::Term::Let(name, Box::new(def), Box::new(body))
+                let (def_name, body) = env.with_binding(|env| resugar_term(body, env));
+                syntax::Term::Let(def_name, Box::new(def), Box::new(body))
             },
             core::Term::FunIntro(/* param_ty, */ body) => {
-                let (name, body) = env.with_binding(|env| resugar_app(body, env));
+                let (param_name, body) = env.with_binding(|env| resugar_app(body, env));
                 // TODO: flatten params
-                syntax::Term::FunIntro(vec![name], Box::new(body))
+                syntax::Term::FunIntro(vec![param_name], Box::new(body))
             },
             _ => resugar_arrow(term, env),
         }
@@ -76,16 +76,16 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
             core::Term::FunType(param_ty, body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
-                let (name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
-                // TODO: only use `name` if it is used in `body_ty`
+                let (param_name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
+                // TODO: only use `param_name` if it is used in `body_ty`
                 // TODO: flatten params
-                syntax::Term::FunType(vec![(vec![name], param_ty)], Box::new(body_ty))
+                syntax::Term::FunType(vec![(vec![param_name], param_ty)], Box::new(body_ty))
             },
             core::Term::PairType(fst_ty, snd_ty) => {
                 let fst_ty = resugar_term(fst_ty, env);
-                let (name, snd_ty) = env.with_binding(|env| resugar_app(snd_ty, env));
-                // TODO: only use `name` if it is used in `body_ty`
-                syntax::Term::PairType(Some(name), Box::new(fst_ty), Box::new(snd_ty))
+                let (param_name, snd_ty) = env.with_binding(|env| resugar_app(snd_ty, env));
+                // TODO: only use `param_name` if it is used in `body_ty`
+                syntax::Term::PairType(Some(param_name), Box::new(fst_ty), Box::new(snd_ty))
             },
             _ => resugar_app(term, env),
         }

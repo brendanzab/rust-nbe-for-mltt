@@ -135,11 +135,11 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
     for item in items {
         log::trace!("checking item:\t{}", item.name);
 
-        check_term_ty(&context, &item.ann)?;
-        let ty = context.eval(&item.ann)?;
-        check_term(&context, &item.term, &ty)?;
+        check_term_ty(&context, &item.term_ty)?;
+        let term_ty = context.eval(&item.term_ty)?;
+        check_term(&context, &item.term, &term_ty)?;
         let value = context.eval(&item.term)?;
-        context.insert_local(value, ty);
+        context.insert_local(value, term_ty);
 
         log::trace!("validated item:\t{}", item.name);
     }

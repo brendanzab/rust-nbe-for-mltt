@@ -280,16 +280,16 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                 // definitely investigate fusing the conversion between
                 // `value::Value -> normal::Normal -> core::Term` by way of
                 // visitors...
-                let ann = core::RcTerm::from(&context.read_back(&ty)?);
+                let term_ty = core::RcTerm::from(&context.read_back(&ty)?);
 
-                log::trace!("elaborated declaration:\t{}\t: {}", name, ann);
+                log::trace!("elaborated declaration:\t{}\t: {}", name, term_ty);
                 log::trace!("elaborated definition:\t{}\t= {}", name, term);
 
                 context.insert_local(name, value, ty);
                 core_items.push(core::Item {
                     doc,
                     name: name.clone(),
-                    ann,
+                    term_ty,
                     term,
                 });
             },
