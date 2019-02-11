@@ -6,12 +6,18 @@ use std::rc::Rc;
 use crate::syntax::core::RcTerm;
 use crate::syntax::{DbLevel, Literal, UniverseLevel};
 
+/// An environment of values
 pub type Env = im::Vector<RcValue>;
 
 /// A closure that binds a variable
 #[derive(Debug, Clone, PartialEq)]
 pub struct Closure {
+    /// The term that the argument will be applied to.
     pub term: RcTerm,
+    /// The environment in which we'll run the term in.
+    ///
+    /// At the moment this captures the _entire_ environment - would it be
+    /// better to only capture what the `term` needs?
     pub env: Env,
 }
 
