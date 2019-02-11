@@ -1,3 +1,5 @@
+#![warn(rust_2018_idioms)]
+
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use mltt_concrete::elaborate;
 use mltt_core::validate;

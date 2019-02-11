@@ -1,3 +1,5 @@
+#![warn(rust_2018_idioms)]
+
 extern crate proc_macro;
 
 use heck::SnakeCase;
@@ -18,7 +20,7 @@ pub fn generate_tests(_tokens: proc_macro::TokenStream) -> proc_macro::TokenStre
 
 /// Recursively generate nested modules in a way that reflects the structure of
 /// the test directories
-fn generate_tests_module(result: &mut Write, base_path: &Path) {
+fn generate_tests_module(result: &mut dyn Write, base_path: &Path) {
     let mod_name = base_path.file_name().unwrap().to_str().unwrap();
     writeln!(result, "mod {} {{", mod_name.to_snake_case()).unwrap();
 
@@ -43,7 +45,7 @@ fn generate_tests_module(result: &mut Write, base_path: &Path) {
     writeln!(result, "}}").unwrap();
 }
 
-fn generate_test(result: &mut Write, test_path: &Path) {
+fn generate_test(result: &mut dyn Write, test_path: &Path) {
     let test_name_base = test_path.with_extension("");
     let test_name = test_name_base.file_name().unwrap().to_str().unwrap();
 

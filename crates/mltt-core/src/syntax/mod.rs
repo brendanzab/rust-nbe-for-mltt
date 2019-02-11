@@ -108,9 +108,9 @@ pub enum Literal {
 }
 
 impl Literal {
-    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
-        match *self {
-            Literal::String(ref value) => Doc::text(format!("{:?}", value)),
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            Literal::String(value) => Doc::text(format!("{:?}", value)),
             Literal::Char(value) => Doc::text(format!("{:?}", value)),
             Literal::U8(value) => Doc::as_string(&value),
             Literal::U16(value) => Doc::as_string(&value),

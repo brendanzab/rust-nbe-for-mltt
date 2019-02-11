@@ -74,7 +74,7 @@ trait Matcher<Given> {
 }
 
 impl Matcher<Token<'_>> for TokenKind {
-    fn is_match(&self, given: &Token) -> bool {
+    fn is_match(&self, given: &Token<'_>) -> bool {
         given.kind == *self
     }
 }
@@ -82,7 +82,7 @@ impl Matcher<Token<'_>> for TokenKind {
 struct Keyword<'a>(pub &'a str);
 
 impl Matcher<Token<'_>> for Keyword<'_> {
-    fn is_match(&self, given: &Token) -> bool {
+    fn is_match(&self, given: &Token<'_>) -> bool {
         given.kind == TokenKind::Keyword && given.slice == self.0
     }
 }
@@ -90,7 +90,7 @@ impl Matcher<Token<'_>> for Keyword<'_> {
 struct ArgTermStart;
 
 impl Matcher<Token<'_>> for ArgTermStart {
-    fn is_match(&self, given: &Token) -> bool {
+    fn is_match(&self, given: &Token<'_>) -> bool {
         match given.kind {
             TokenKind::Identifier
             | TokenKind::StringLiteral

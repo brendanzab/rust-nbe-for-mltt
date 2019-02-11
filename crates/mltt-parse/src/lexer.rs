@@ -467,9 +467,9 @@ impl<'file> Iterator for Lexer<'file> {
 
     fn next(&mut self) -> Option<Token<'file>> {
         let consumed = self.consume_token().map(|tag| self.emit(tag));
-        match consumed {
+        match &consumed {
             None => log::debug!("eof"),
-            Some(ref token) => log::debug!("emit {:?}", token),
+            Some(token) => log::debug!("emit {:?}", token),
         }
         consumed
     }

@@ -105,7 +105,7 @@ impl Error for TypeError {
 }
 
 impl fmt::Display for TypeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),

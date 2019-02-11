@@ -67,7 +67,7 @@ pub struct Literal {
 }
 
 impl Literal {
-    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::as_string(&self.value)
     }
 }
@@ -116,11 +116,11 @@ pub enum Term {
 
 impl Term {
     /// Convert the term into a pretty-printable document
-    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         // Using precedence climbing (mirroring the language grammar) in
         // order to cut down on extraneous parentheses.
 
-        fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_term(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::Ann(term, ann) => Doc::nil()
                     .append(to_doc_expr(term))
@@ -132,7 +132,7 @@ impl Term {
             }
         }
 
-        fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_expr(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::Let(def_name, def, body) => Doc::nil()
                     .append("let")
@@ -213,7 +213,7 @@ impl Term {
             }
         }
 
-        fn to_doc_arrow(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_arrow(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::FunArrowType(param_ty, body_ty) => Doc::nil()
                     .append(to_doc_app(param_ty))
@@ -225,7 +225,7 @@ impl Term {
             }
         }
 
-        fn to_doc_app(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_app(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::FunApp(fun, args) => Doc::nil()
                     .append(to_doc_term(fun))
@@ -238,7 +238,7 @@ impl Term {
             }
         }
 
-        fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_atomic(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::Var(name) => Doc::as_string(name),
                 Term::Literal(literal) => literal.to_doc(),
@@ -256,7 +256,7 @@ impl Term {
 }
 
 impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }

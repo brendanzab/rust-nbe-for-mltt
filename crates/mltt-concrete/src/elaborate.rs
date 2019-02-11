@@ -145,7 +145,7 @@ impl Error for TypeError {
 }
 
 impl fmt::Display for TypeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TypeError::AlreadyDeclared(name) => write!(f, "already declared: `{}`", name),
             TypeError::AlreadyDefined(name) => write!(f, "already defined: `{}`", name),

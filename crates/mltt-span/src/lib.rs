@@ -1,3 +1,5 @@
+#![warn(rust_2018_idioms)]
+
 mod file;
 mod index;
 mod location;

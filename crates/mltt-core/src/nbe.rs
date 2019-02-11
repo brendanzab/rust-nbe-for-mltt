@@ -32,7 +32,7 @@ impl NbeError {
 impl Error for NbeError {}
 
 impl fmt::Display for NbeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "failed to normalize: {}", self.message)
     }
 }

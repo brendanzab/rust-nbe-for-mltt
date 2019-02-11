@@ -37,7 +37,7 @@ impl AsRef<Term> for RcTerm {
 }
 
 impl fmt::Display for RcTerm {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
     }
 }
@@ -75,24 +75,24 @@ pub enum Term {
 
 impl RcTerm {
     /// Convert the term into a pretty-printable document
-    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         self.inner.to_doc()
     }
 }
 
 impl Term {
     /// Convert the term into a pretty-printable document
-    pub fn to_doc(&self) -> Doc<BoxDoc<()>> {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         // Using precedence climbing (mirroring the language grammar) in
         // order to cut down on extraneous parentheses.
 
-        fn to_doc_term(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_term(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 _ => to_doc_expr(term),
             }
         }
 
-        fn to_doc_expr(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_expr(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::Let(def, body) => Doc::nil()
                     .append("let")
@@ -161,7 +161,7 @@ impl Term {
             }
         }
 
-        fn to_doc_app(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_app(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::FunApp(fun, arg) => Doc::nil()
                     .append(to_doc_term(fun.as_ref()))
@@ -171,7 +171,7 @@ impl Term {
             }
         }
 
-        fn to_doc_atomic(term: &Term) -> Doc<BoxDoc<()>> {
+        fn to_doc_atomic(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
                 Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
                 Term::Literal(literal) => literal.to_doc(),
@@ -189,7 +189,7 @@ impl Term {
 }
 
 impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }
