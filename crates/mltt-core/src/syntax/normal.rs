@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, Literal, UniverseLevel};
+use crate::syntax::{DbIndex, Label, Literal, UniverseLevel};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcNormal {
@@ -54,6 +54,11 @@ pub enum Normal {
     /// Introduce a pair
     PairIntro(RcNormal, RcNormal),
 
+    /// Dependent record types
+    RecordType(Vec<(Label, RcNormal)>),
+    /// Introduce a record
+    RecordIntro(Vec<(Label, RcNormal)>),
+
     /// Universe of types
     Universe(UniverseLevel),
 }
@@ -100,4 +105,7 @@ pub enum Neutral {
     PairFst(RcNeutral),
     /// Project the second element of a pair
     PairSnd(RcNeutral),
+
+    /// Project on a record
+    RecordProj(RcNeutral, Label),
 }

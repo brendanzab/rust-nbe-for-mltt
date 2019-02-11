@@ -4,7 +4,7 @@ use im;
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{DbLevel, Literal, UniverseLevel};
+use crate::syntax::{DbLevel, Label, Literal, UniverseLevel};
 
 /// An environment of values
 pub type Env = im::Vector<RcValue>;
@@ -75,6 +75,13 @@ pub enum Value {
     /// Introduce a pair
     PairIntro(RcValue, RcValue),
 
+    /// Dependent record type extension
+    RecordTypeExtend(Label, RcType, Closure),
+    /// Empty record type
+    RecordTypeEmpty,
+    /// Introduce a record
+    RecordIntro(Vec<(Label, RcValue)>),
+
     /// Universe of types
     Universe(UniverseLevel),
 }
@@ -129,4 +136,7 @@ pub enum Neutral {
     PairFst(RcNeutral),
     /// Project the second element of a pair
     PairSnd(RcNeutral),
+
+    /// Project on a record
+    RecordProj(RcNeutral, Label),
 }

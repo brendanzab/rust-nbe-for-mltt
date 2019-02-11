@@ -10,7 +10,7 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{self, Item, RcTerm, Term};
 use crate::syntax::domain::{self, RcType, RcValue, Value};
-use crate::syntax::{DbIndex, DbLevel, UniverseLevel};
+use crate::syntax::{DbIndex, DbLevel, Label, UniverseLevel};
 
 /// Local type checking context
 #[derive(Debug, Clone, PartialEq)]
@@ -86,6 +86,10 @@ pub enum TypeError {
     ExpectedSubtype(RcType, RcType),
     AmbiguousTerm(RcTerm),
     UnboundVariable,
+    NoFieldInType(Label),
+    UnexpectedField { found: Label, expected: Label },
+    TooManyFieldsFound,
+    NotEnoughFieldsProvided,
     Nbe(NbeError),
 }
 
@@ -113,6 +117,14 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable => write!(f, "unbound variable"),
+            TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label.0),
+            TypeError::UnexpectedField { found, expected } => write!(
+                f,
+                "enexpected field, found `{}`, but expected `{}`",
+                found.0, expected.0,
+            ),
+            TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
+            TypeError::NotEnoughFieldsProvided => write!(f, "not enough fields provided"),
             TypeError::Nbe(err) => err.fmt(f),
         }
     }
@@ -184,6 +196,38 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             _ => Err(TypeError::ExpectedPairType {
                 found: expected_ty.clone(),
             }),
+        },
+
+        Term::RecordIntro(intro_fields) => {
+            let mut context = context.clone();
+            let mut expected_ty = expected_ty.clone();
+
+            for (label, term) in intro_fields {
+                if let domain::Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
+                    expected_ty.as_ref()
+                {
+                    if label != expected_label {
+                        return Err(TypeError::UnexpectedField {
+                            found: label.clone(),
+                            expected: expected_label.clone(),
+                        });
+                    }
+
+                    check_term(&context, term, expected_term_ty)?;
+                    let term_value = context.eval(term)?;
+
+                    context.insert_local(term_value.clone(), expected_term_ty.clone());
+                    expected_ty = nbe::do_closure_app(&rest, term_value)?;
+                } else {
+                    return Err(TypeError::TooManyFieldsFound);
+                }
+            }
+
+            if let domain::Value::RecordTypeEmpty = expected_ty.as_ref() {
+                Ok(())
+            } else {
+                Err(TypeError::NotEnoughFieldsProvided)
+            }
         },
 
         _ => context.expect_subtype(&synth_term(context, term)?, expected_ty),
@@ -259,6 +303,40 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                     found: pair_ty.clone(),
                 }),
             }
+        },
+
+        Term::RecordType(ty_fields) => {
+            let mut context = context.clone();
+            let mut max_level = UniverseLevel::from(0);
+
+            for (_, _, ty) in ty_fields {
+                let ty_level = synth_universe(&context, &ty)?;
+                context.insert_binder(context.eval(&ty)?);
+                max_level = cmp::max(max_level, ty_level);
+            }
+
+            Ok(domain::RcValue::from(domain::Value::Universe(max_level)))
+        },
+        Term::RecordIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::RecordProj(record, label) => {
+            let mut record_ty = synth_term(context, record)?;
+
+            while let domain::Value::RecordTypeExtend(current_label, current_ty, rest) =
+                record_ty.as_ref()
+            {
+                let expr = core::RcTerm::from(core::Term::RecordProj(
+                    record.clone(),
+                    current_label.clone(),
+                ));
+
+                if label == current_label {
+                    return Ok(current_ty.clone());
+                } else {
+                    record_ty = nbe::do_closure_app(rest, context.eval(&expr)?)?;
+                }
+            }
+
+            Err(TypeError::NoFieldInType(label.clone()))
         },
 
         Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + 1))),

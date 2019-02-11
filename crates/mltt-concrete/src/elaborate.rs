@@ -10,11 +10,11 @@
 
 use im;
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, UniverseLevel};
+use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
 use std::error::Error;
 use std::fmt;
 
-use crate::syntax::{Item, Term};
+use crate::syntax::{Item, RecordIntroField, Term};
 
 /// Local elaboration context
 #[derive(Debug, Clone, PartialEq)]
@@ -126,6 +126,10 @@ pub enum TypeError {
     ExpectedSubtype(domain::RcType, domain::RcType),
     AmbiguousTerm(Term),
     UnboundVariable(String),
+    NoFieldInType(String),
+    UnexpectedField { found: String, expected: String },
+    TooManyFieldsFound,
+    NotEnoughFieldsProvided,
     Nbe(NbeError),
 }
 
@@ -156,6 +160,14 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable(name) => write!(f, "unbound variable `{}`", name),
+            TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
+            TypeError::UnexpectedField { found, expected } => write!(
+                f,
+                "enexpected field, found `{}`, but expected `{}`",
+                found, expected
+            ),
+            TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
+            TypeError::NotEnoughFieldsProvided => write!(f, "not enough fields provided"),
             TypeError::Nbe(err) => err.fmt(f),
         }
     }
@@ -289,6 +301,17 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
     Ok(core_items)
 }
 
+/// Synthesize the type of an annotated term
+fn synth_var<'term>(
+    context: &Context<'term>,
+    name: &'term str,
+) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    match context.lookup_binder(name) {
+        None => Err(TypeError::UnboundVariable(name.to_owned())),
+        Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
+    }
+}
+
 /// Check that an annotated term conforms to an expected type
 fn check_ann<'term>(
     context: &Context<'term>,
@@ -375,6 +398,46 @@ fn synth_fun_intro<'term>(
     ))
 }
 
+/// Check that a record field introduction conforms to a given type
+fn check_record_intro_field<'term>(
+    context: &Context<'term>,
+    concrete_intro_field: &'term RecordIntroField,
+    expected_label: &Label,
+    expected_term_ty: &domain::RcType,
+) -> Result<(&'term String, core::RcTerm), TypeError> {
+    match concrete_intro_field {
+        RecordIntroField::Punned { label } if expected_label.0 == *label => {
+            let (term, term_ty) = synth_var(context, label)?;
+            context.expect_subtype(&term_ty, expected_term_ty)?;
+
+            Ok((label, term))
+        },
+
+        RecordIntroField::Explicit {
+            label,
+            param_names,
+            term_ty,
+            term,
+        } if expected_label.0 == *label => {
+            let term = check_fun_intro(
+                context,
+                param_names,
+                term_ty.as_ref(),
+                term,
+                expected_term_ty,
+            )?;
+
+            Ok((label, term))
+        },
+        RecordIntroField::Punned { label } | RecordIntroField::Explicit { label, .. } => {
+            Err(TypeError::UnexpectedField {
+                found: label.clone(),
+                expected: expected_label.0.clone(),
+            })
+        },
+    }
+}
+
 /// Ensures that the given term is a universe, returning the level of that
 /// universe and its elaborated form.
 fn synth_universe<'term>(
@@ -429,6 +492,39 @@ pub fn check_term<'term>(
             }),
         },
 
+        Term::RecordIntro(concrete_intro_fields) => {
+            let mut context = context.clone();
+            let mut fields = Vec::new();
+            let mut expected_ty = expected_ty.clone();
+
+            for concrete_intro_field in concrete_intro_fields {
+                if let domain::Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
+                    expected_ty.as_ref()
+                {
+                    let (found_label, term) = check_record_intro_field(
+                        &context,
+                        concrete_intro_field,
+                        expected_label,
+                        expected_term_ty,
+                    )?;
+                    let label = expected_label.clone();
+                    let term_value = context.eval(&term)?;
+
+                    context.insert_local(found_label, term_value.clone(), expected_term_ty.clone());
+                    expected_ty = nbe::do_closure_app(&rest, term_value)?;
+                    fields.push((label, term));
+                } else {
+                    return Err(TypeError::TooManyFieldsFound);
+                }
+            }
+
+            if let domain::Value::RecordTypeEmpty = expected_ty.as_ref() {
+                Ok(core::RcTerm::from(core::Term::RecordIntro(fields)))
+            } else {
+                Err(TypeError::NotEnoughFieldsProvided)
+            }
+        },
+
         _ => {
             let (synth, synth_ty) = synth_term(context, concrete_term)?;
             context.expect_subtype(&synth_ty, expected_ty)?;
@@ -447,10 +543,7 @@ pub fn synth_term<'term>(
     log::trace!("synthesizing term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Var(name) => match context.lookup_binder(name.as_str()) {
-            None => Err(TypeError::UnboundVariable(name.clone())),
-            Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
-        },
+        Term::Var(name) => synth_var(context, name),
         Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         Term::Let(def_name, concrete_def, concrete_body) => {
             let (def, def_ty) = synth_term(context, concrete_def)?;
@@ -567,6 +660,48 @@ pub fn synth_term<'term>(
                     found: pair_ty.clone(),
                 }),
             }
+        },
+
+        Term::RecordType(concrete_ty_fields) => {
+            let mut context = context.clone();
+            let mut max_level = UniverseLevel::from(0);
+
+            let ty_fields = concrete_ty_fields
+                .iter()
+                .map(|concrete_ty_field| {
+                    let docs = concat_docs(&concrete_ty_field.docs);
+                    let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
+                    context.insert_binder(&concrete_ty_field.label, context.eval(&ty)?);
+                    max_level = cmp::max(max_level, ty_level);
+                    Ok((docs, Label(concrete_ty_field.label.clone()), ty))
+                })
+                .collect::<Result<_, TypeError>>()?;
+
+            Ok((
+                core::RcTerm::from(core::Term::RecordType(ty_fields)),
+                domain::RcValue::from(domain::Value::Universe(max_level)),
+            ))
+        },
+        Term::RecordIntro(_) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
+        Term::RecordProj(concrete_record, label) => {
+            let (record, mut record_ty) = synth_term(context, concrete_record)?;
+
+            while let domain::Value::RecordTypeExtend(current_label, current_ty, rest) =
+                record_ty.as_ref()
+            {
+                let expr = core::RcTerm::from(core::Term::RecordProj(
+                    record.clone(),
+                    current_label.clone(),
+                ));
+
+                if *label == current_label.0 {
+                    return Ok((expr, current_ty.clone()));
+                } else {
+                    record_ty = nbe::do_closure_app(rest, context.eval(&expr)?)?;
+                }
+            }
+
+            Err(TypeError::NoFieldInType(label.clone()))
         },
 
         Term::Universe(level) => {

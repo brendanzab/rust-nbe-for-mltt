@@ -4,7 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::{normal, DbIndex, Literal, UniverseLevel};
+use crate::syntax::{normal, DbIndex, Label, Literal, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
 
@@ -68,6 +68,13 @@ pub enum Term {
     PairFst(RcTerm),
     /// Project the second element of a pair
     PairSnd(RcTerm),
+
+    /// Dependent record types
+    RecordType(Vec<(String, Label, RcTerm)>),
+    /// Introduce a record
+    RecordIntro(Vec<(Label, RcTerm)>),
+    /// Project on a record
+    RecordProj(RcTerm, Label),
 
     /// Universe of types
     Universe(UniverseLevel),
@@ -157,6 +164,50 @@ impl Term {
                     .append(to_doc_term(snd.as_ref()))
                     .append(Doc::space())
                     .append("}"),
+                Term::RecordType(ty_fields) => Doc::nil()
+                    .append("Record")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::newline())
+                    .append(
+                        Doc::intersperse(
+                            ty_fields.iter().map(|(_, label, ty)| {
+                                Doc::nil()
+                                    .append(&label.0)
+                                    .append(Doc::space())
+                                    .append(":")
+                                    .append(Doc::space())
+                                    .append(to_doc_app(ty.as_ref()))
+                                    .append(";")
+                            }),
+                            Doc::newline(),
+                        )
+                        .nest(4),
+                    )
+                    .append(Doc::newline())
+                    .append("}"),
+                Term::RecordIntro(intro_fields) => Doc::nil()
+                    .append("record")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::newline())
+                    .append(
+                        Doc::intersperse(
+                            intro_fields.iter().map(|(label, term)| {
+                                Doc::nil()
+                                    .append(&label.0)
+                                    .append(Doc::space())
+                                    .append("=")
+                                    .append(Doc::space())
+                                    .append(to_doc_app(term.as_ref()))
+                                    .append(";")
+                            }),
+                            Doc::newline(),
+                        )
+                        .nest(4),
+                    )
+                    .append(Doc::newline())
+                    .append("}"),
                 _ => to_doc_app(term),
             }
         }
@@ -177,6 +228,9 @@ impl Term {
                 Term::Literal(literal) => literal.to_doc(),
                 Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".fst"),
                 Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".snd"),
+                Term::RecordProj(record, label) => {
+                    to_doc_atomic(record.as_ref()).append(".").append(&label.0)
+                },
                 Term::Universe(UniverseLevel(level)) => {
                     Doc::text("Type^").append(Doc::as_string(level))
                 },
@@ -215,6 +269,22 @@ impl From<&'_ normal::Normal> for RcTerm {
             normal::Normal::PairIntro(fst, snd) => {
                 Term::PairIntro(RcTerm::from(fst), RcTerm::from(snd))
             },
+            normal::Normal::RecordType(fields) => {
+                let fields = fields
+                    .iter()
+                    .map(|(label, ty)| (String::new(), label.clone(), RcTerm::from(ty)))
+                    .collect();
+
+                Term::RecordType(fields)
+            },
+            normal::Normal::RecordIntro(fields) => {
+                let fields = fields
+                    .iter()
+                    .map(|(label, term)| (label.clone(), RcTerm::from(term)))
+                    .collect();
+
+                Term::RecordIntro(fields)
+            },
             normal::Normal::Universe(level) => Term::Universe(*level),
         })
     }
@@ -233,6 +303,9 @@ impl From<&'_ normal::Neutral> for RcTerm {
             normal::Neutral::FunApp(fun, arg) => Term::FunApp(RcTerm::from(fun), RcTerm::from(arg)),
             normal::Neutral::PairFst(pair) => Term::PairFst(RcTerm::from(pair)),
             normal::Neutral::PairSnd(pair) => Term::PairSnd(RcTerm::from(pair)),
+            normal::Neutral::RecordProj(record, label) => {
+                Term::RecordProj(RcTerm::from(record), label.clone())
+            },
         })
     }
 }

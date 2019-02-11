@@ -87,6 +87,35 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
                 // TODO: only use `param_name` if it is used in `body_ty`
                 syntax::Term::PairType(Some(param_name), Box::new(fst_ty), Box::new(snd_ty))
             },
+            core::Term::RecordType(ty_fields) => {
+                let ty_fields = ty_fields
+                    .iter()
+                    .map(|(_, label, ty)| syntax::RecordTypeField {
+                        docs: Vec::new(),
+                        label: label.0.clone(),
+                        ann: resugar_term(ty, env),
+                    })
+                    .collect();
+
+                syntax::Term::RecordType(ty_fields)
+            },
+            core::Term::RecordIntro(intro_fields) => {
+                let intro_fields = intro_fields
+                    .iter()
+                    .map(|(label, term)| {
+                        // TODO: Punned fields
+                        // TODO: Function sugar
+                        syntax::RecordIntroField::Explicit {
+                            label: label.0.clone(),
+                            param_names: Vec::new(),
+                            term_ty: None,
+                            term: resugar_term(term, env),
+                        }
+                    })
+                    .collect();
+
+                syntax::Term::RecordIntro(intro_fields)
+            },
             _ => resugar_app(term, env),
         }
     }
@@ -109,6 +138,9 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
             core::Term::Var(index) => syntax::Term::Var(env.lookup_index(*index)),
             core::Term::PairFst(pair) => syntax::Term::PairFst(Box::new(resugar_atomic(pair, env))),
             core::Term::PairSnd(pair) => syntax::Term::PairSnd(Box::new(resugar_atomic(pair, env))),
+            core::Term::RecordProj(record, label) => {
+                syntax::Term::RecordProj(Box::new(resugar_atomic(record, env)), label.0.clone())
+            },
             core::Term::Universe(UniverseLevel(0)) => syntax::Term::Universe(None),
             core::Term::Universe(UniverseLevel(level)) => syntax::Term::Universe(Some(*level)),
             _ => syntax::Term::Parens(Box::new(resugar_term(term, env))),

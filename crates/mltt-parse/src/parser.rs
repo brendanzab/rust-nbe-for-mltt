@@ -24,8 +24,14 @@
 //!           | term term
 //!           | "Pair" "{" (IDENTIFIER ":")? term "," term "}"
 //!           | "pair" "{" term "," term "}"
-//!           | term "." ("fst" | "snd")
+//!           | "Record" "{" (record-type-field ";")* record-type-field? "}"
+//!           | "record" "{" (record-intro-field ";")* record-intro-field? "}"
+//!           | term "." IDENTIFIER
 //!           | "Type" ("^" INT_LITERAL)?
+//!
+//! record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term
+//! record-intro-field  ::= IDENTIFIER
+//!                       | IDENTIFIER IDENTIFIER* (":" term)? "=" term
 //! ```
 //!
 //! Note that there are a number of ambiguities here that we will have to
@@ -36,8 +42,7 @@
 //!
 
 use language_reporting::{Diagnostic, Label};
-use mltt_concrete::syntax::{Item, Term};
-use mltt_concrete::syntax::{Literal, LiteralKind};
+use mltt_concrete::syntax::{Item, Literal, LiteralKind, RecordIntroField, RecordTypeField, Term};
 use mltt_span::FileSpan;
 
 use crate::token::{DelimKind, Token, TokenKind};
@@ -205,7 +210,7 @@ where
             match self.peek() {
                 None => Diagnostic::new_error("unexpected EOF"), // FIXME: Span
                 Some(token) => Diagnostic::new_error("unexpected token")
-                    .with_label(Label::new_primary(token.span).with_message("token forund here")),
+                    .with_label(Label::new_primary(token.span).with_message("token found here")),
             }
         })
     }
@@ -318,6 +323,8 @@ where
     ///     prefix  "fun"               ::= fun-intro
     ///     prefix  "Pair"              ::= pair-type
     ///     prefix  "pair"              ::= pair-intro
+    ///     prefix  "Record"            ::= record-type
+    ///     prefix  "record"            ::= record-intro
     ///     prefix  "Type"              ::= universe
     ///     prefix  IDENTIFIER          ::= fun-app
     ///     nilfix  STRING_LITERAL
@@ -325,7 +332,7 @@ where
     ///     nilfix  INT_LITERAL
     ///     nilfix  FLOAT_LITERAL
     ///
-    ///     infixr  "."             80  ::= pair-proj fun-app
+    ///     infixr  "."             80  ::= record-proj fun-app
     ///     infixr  ":"             20  ::= ann
     ///     infixr  "->"            50  ::= fun-arrow-type
     /// }
@@ -357,6 +364,8 @@ where
             (TokenKind::Keyword, "fun") => self.parse_fun_intro(token),
             (TokenKind::Keyword, "Pair") => self.parse_pair_ty(token),
             (TokenKind::Keyword, "pair") => self.parse_pair_intro(token),
+            (TokenKind::Keyword, "Record") => self.parse_record_ty(token),
+            (TokenKind::Keyword, "record") => self.parse_record_intro(token),
             (TokenKind::Keyword, "let") => self.parse_let(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
@@ -398,7 +407,7 @@ where
     ///     nilfix  INT_LITERAL
     ///     nilfix  FLOAT_LITERAL
     ///
-    ///     infixr  "."             80  ::= pair-proj
+    ///     infixr  "."             80  ::= record-proj
     /// }
     /// ```
     fn parse_arg_term(&mut self, right_prec: Prec) -> Result<Term, Diagnostic<FileSpan>> {
@@ -555,7 +564,7 @@ where
     /// Parse the trailing part of a pair type
     ///
     /// ```text
-    /// pair-intro ::= "{" (IDENTIFIER ":")? term(0) "," term(0) "}"
+    /// pair-type ::= "{" (IDENTIFIER ":")? term(0) "," term(0) "}"
     /// ```
     fn parse_pair_ty(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
@@ -584,6 +593,90 @@ where
         self.expect_match(TokenKind::Close(DelimKind::Brace))?;
 
         Ok(Term::PairIntro(Box::new(fst), Box::new(snd)))
+    }
+
+    /// Parse the trailing part of a record type
+    ///
+    /// ```text
+    /// record-type         ::= "{" (record-type-field ";")* record-type-field? "}"
+    /// record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term(0)
+    /// ```
+    fn parse_record_ty(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        let mut fields = Vec::new();
+
+        self.expect_match(TokenKind::Open(DelimKind::Brace))?;
+
+        loop {
+            let docs = self.expect_doc_comments();
+
+            if let Some(label) = self.try_identifier() {
+                self.expect_match(TokenKind::Colon)?;
+                let ann = self.parse_term(Prec(0))?;
+
+                fields.push(RecordTypeField { docs, label, ann });
+
+                if self.try_match(TokenKind::Semicolon).is_some() {
+                    continue;
+                } else {
+                    self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                    return Ok(Term::RecordType(fields));
+                }
+            } else {
+                break;
+            }
+        }
+
+        self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+
+        Ok(Term::RecordType(fields))
+    }
+
+    /// Parse the trailing part of a record introduction
+    ///
+    /// ```text
+    /// record-intro        ::= "{" (record-intro-field ";")* record-intro-field? "}"
+    /// record-intro-field  ::= IDENTIFIER
+    ///                       | IDENTIFIER IDENTIFIER* (":" term(0))? "=" term(0)
+    /// ```
+    fn parse_record_intro(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        let mut fields = Vec::new();
+
+        self.expect_match(TokenKind::Open(DelimKind::Brace))?;
+
+        while let Some(label) = self.try_identifier() {
+            let mut param_names = Vec::new();
+            while let Some(name) = self.try_identifier() {
+                param_names.push(name);
+            }
+
+            // TODO: implement punned fields
+
+            let term_ty = match self.try_match(TokenKind::Colon) {
+                None => None,
+                Some(_) => Some(self.parse_term(Prec(0))?),
+            };
+
+            self.expect_match(TokenKind::Equals)?;
+            let term = self.parse_term(Prec(0))?;
+
+            fields.push(RecordIntroField::Explicit {
+                label,
+                param_names,
+                term_ty,
+                term,
+            });
+
+            if self.try_match(TokenKind::Semicolon).is_some() {
+                continue;
+            } else {
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                return Ok(Term::RecordIntro(fields));
+            }
+        }
+
+        self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+
+        Ok(Term::RecordIntro(fields))
     }
 
     /// Parse the trailing part of a let expression
@@ -620,21 +713,18 @@ where
     /// Parse the trailing part of a projection
     ///
     /// ```text
-    /// pair-proj ::= ("fst" | "snd")
+    /// record-proj ::= IDENTIFIER
     /// ```
     fn parse_pair_proj(
         &mut self,
         lhs: Term,
-        token: Token<'file>,
+        _token: Token<'file>,
     ) -> Result<Term, Diagnostic<FileSpan>> {
-        if self.try_match(Keyword("fst")).is_some() {
-            Ok(Term::PairFst(Box::new(lhs)))
-        } else if self.try_match(Keyword("snd")).is_some() {
-            Ok(Term::PairSnd(Box::new(lhs)))
-        } else {
-            Err(Diagnostic::new_error("expected projection").with_label(
-                Label::new_primary(token.span).with_message("`fst` or `snd` was expected the `.`"),
-            ))
+        let label = self.expect_identifier()?;
+        match label.as_str() {
+            "fst" => Ok(Term::PairFst(Box::new(lhs))),
+            "snd" => Ok(Term::PairSnd(Box::new(lhs))),
+            _ => Ok(Term::RecordProj(Box::new(lhs), label)),
         }
     }
 
@@ -997,6 +1087,146 @@ mod tests {
                 vec![
                     Term::Var("bar".to_owned()),
                     Term::PairSnd(Box::new(Term::Var("baz".to_owned()))),
+                ],
+            ),
+        );
+    }
+
+    #[test]
+    fn record_type() {
+        test_term!(
+            "Record { x : Type; y : Type }",
+            Term::RecordType(vec![
+                RecordTypeField {
+                    docs: Vec::new(),
+                    label: "x".to_owned(),
+                    ann: Term::Universe(None),
+                },
+                RecordTypeField {
+                    docs: Vec::new(),
+                    label: "y".to_owned(),
+                    ann: Term::Universe(None),
+                },
+            ]),
+        );
+    }
+
+    #[test]
+    fn record_type_trailing_semicolon() {
+        test_term!(
+            "Record { x : Type; y : Type; }",
+            Term::RecordType(vec![
+                RecordTypeField {
+                    docs: Vec::new(),
+                    label: "x".to_owned(),
+                    ann: Term::Universe(None),
+                },
+                RecordTypeField {
+                    docs: Vec::new(),
+                    label: "y".to_owned(),
+                    ann: Term::Universe(None),
+                },
+            ]),
+        );
+    }
+
+    #[test]
+    fn record_intro() {
+        test_term!(
+            "record { x = x; y = y }",
+            Term::RecordIntro(vec![
+                RecordIntroField::Explicit {
+                    label: "x".to_owned(),
+                    param_names: Vec::new(),
+                    term_ty: None,
+                    term: Term::Var("x".to_owned()),
+                },
+                RecordIntroField::Explicit {
+                    label: "y".to_owned(),
+                    param_names: Vec::new(),
+                    term_ty: None,
+                    term: Term::Var("y".to_owned()),
+                },
+            ]),
+        );
+    }
+
+    #[test]
+    fn record_intro_fun_sugar() {
+        test_term!(
+            "record { f x y = x; g x y : Type = x }",
+            Term::RecordIntro(vec![
+                RecordIntroField::Explicit {
+                    label: "f".to_owned(),
+                    param_names: vec!["x".to_owned(), "y".to_owned()],
+                    term_ty: None,
+                    term: Term::Var("x".to_owned()),
+                },
+                RecordIntroField::Explicit {
+                    label: "g".to_owned(),
+                    param_names: vec!["x".to_owned(), "y".to_owned()],
+                    term_ty: Some(Term::Universe(None)),
+                    term: Term::Var("x".to_owned()),
+                },
+            ]),
+        );
+    }
+
+    #[test]
+    fn record_intro_trailing_semicolon() {
+        test_term!(
+            "record { x = x; y : Type = y; }",
+            Term::RecordIntro(vec![
+                RecordIntroField::Explicit {
+                    label: "x".to_owned(),
+                    param_names: Vec::new(),
+                    term_ty: None,
+                    term: Term::Var("x".to_owned()),
+                },
+                RecordIntroField::Explicit {
+                    label: "y".to_owned(),
+                    param_names: Vec::new(),
+                    term_ty: Some(Term::Universe(None)),
+                    term: Term::Var("y".to_owned()),
+                },
+            ]),
+        );
+    }
+
+    #[test]
+    fn record_proj() {
+        test_term!(
+            "foo.bar",
+            Term::RecordProj(Box::new(Term::Var("foo".to_owned())), "bar".to_owned()),
+        );
+    }
+
+    #[test]
+    fn record_proj_proj() {
+        test_term!(
+            "foo.bar.baz",
+            Term::RecordProj(
+                Box::new(Term::RecordProj(
+                    Box::new(Term::Var("foo".to_owned(),)),
+                    "bar".to_owned()
+                )),
+                "baz".to_owned()
+            ),
+        );
+    }
+
+    #[test]
+    fn record_proj_fun_app() {
+        test_term!(
+            "foo.bar baz foo.bar",
+            Term::FunApp(
+                Box::new(Term::RecordProj(
+                    Box::new(Term::Var("foo".to_owned())),
+                    "bar".to_owned()
+                )),
+                vec![
+                    Term::Var("baz".to_owned()),
+                    Term::RecordProj(Box::new(Term::Var("foo".to_owned())), "bar".to_owned()),
                 ],
             ),
         );

@@ -33,7 +33,7 @@ syntax, and DeBruijn levels in the syntax of the semantic domain.
 - [ ] Add a REPL
 - [ ] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
-- [ ] Dependent record types
+- [x] Dependent record types
 - [ ] Add eta rules to normalizer
 - [ ] Metavariable solving
 - [ ] Type checking and normalization tests

@@ -4,4 +4,7 @@ Prod A B = Fun (a : A) -> B a;
 
 ||| Dependent sums (subtypes)
 Sum : Fun (A : Type) (B : A -> Type) -> Type;
-Sum A B = Pair { val : A, B val };
+Sum A B = Record {
+    val : A;
+    proof : B val;
+};

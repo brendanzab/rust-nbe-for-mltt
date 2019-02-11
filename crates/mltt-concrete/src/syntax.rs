@@ -72,6 +72,26 @@ impl Literal {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecordTypeField {
+    pub docs: Vec<String>,
+    pub label: String,
+    pub ann: Term,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RecordIntroField {
+    Punned {
+        label: String,
+    },
+    Explicit {
+        label: String,
+        param_names: Vec<String>,
+        term_ty: Option<Term>,
+        term: Term,
+    },
+}
+
 /// Concrete terms
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
@@ -109,6 +129,13 @@ pub enum Term {
     PairFst(Box<Term>),
     /// Project the second element of a pair
     PairSnd(Box<Term>),
+
+    /// Dependent record type
+    RecordType(Vec<RecordTypeField>),
+    /// Record introduction
+    RecordIntro(Vec<RecordIntroField>),
+    /// Record projection
+    RecordProj(Box<Term>, String),
 
     /// Universe of types
     Universe(Option<u32>),
@@ -209,6 +236,68 @@ impl Term {
                     .append(to_doc_term(snd))
                     .append(Doc::space())
                     .append("}"),
+                Term::RecordType(ty_fields) => Doc::nil()
+                    .append("Record")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::newline())
+                    .append(
+                        Doc::intersperse(
+                            ty_fields.iter().map(|ty_field| {
+                                Doc::nil()
+                                    .append(&ty_field.label)
+                                    .append(Doc::space())
+                                    .append(":")
+                                    .append(Doc::space())
+                                    .append(to_doc_app(&ty_field.ann))
+                                    .append(";")
+                            }),
+                            Doc::newline(),
+                        )
+                        .nest(4),
+                    )
+                    .append(Doc::newline())
+                    .append("}"),
+                Term::RecordIntro(intro_fields) => Doc::nil()
+                    .append("record")
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::newline())
+                    .append(
+                        Doc::intersperse(
+                            intro_fields.iter().map(|intro_field| match intro_field {
+                                RecordIntroField::Punned { label } => Doc::text(label).append(";"),
+                                RecordIntroField::Explicit {
+                                    label,
+                                    param_names,
+                                    term_ty,
+                                    term,
+                                } => Doc::nil()
+                                    .append(label)
+                                    .append(Doc::space())
+                                    .append(Doc::intersperse(
+                                        param_names.iter().map(Doc::text),
+                                        Doc::space(),
+                                    ))
+                                    .append(Doc::space())
+                                    .append(term_ty.as_ref().map_or(Doc::nil(), |term_ty| {
+                                        Doc::nil()
+                                            .append(":")
+                                            .append(Doc::space())
+                                            .append(to_doc_app(term_ty))
+                                            .append(Doc::space())
+                                    }))
+                                    .append("=")
+                                    .append(Doc::space())
+                                    .append(to_doc_app(term))
+                                    .append(";"),
+                            }),
+                            Doc::newline(),
+                        )
+                        .nest(4),
+                    )
+                    .append(Doc::newline())
+                    .append("}"),
                 _ => to_doc_arrow(term),
             }
         }
@@ -245,6 +334,7 @@ impl Term {
                 Term::Parens(term) => Doc::text("(").append(to_doc_term(term)).append(")"),
                 Term::PairFst(pair) => to_doc_atomic(pair).append(".fst"),
                 Term::PairSnd(pair) => to_doc_atomic(pair).append(".snd"),
+                Term::RecordProj(record, label) => to_doc_atomic(record).append(".").append(label),
                 Term::Universe(None) => Doc::text("Type"),
                 Term::Universe(Some(level)) => Doc::text("Type^").append(Doc::as_string(level)),
                 _ => Doc::text("(").append(to_doc_term(term)).append(")"),

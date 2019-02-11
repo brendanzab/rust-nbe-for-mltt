@@ -6,7 +6,7 @@ use crate::token::{DelimKind, Token, TokenKind};
 
 /// The keywords used in the language
 pub const KEYWORDS: [&str; 9] = [
-    "in", "let", "Type", "fst", "snd", "Fun", "fun", "Pair", "pair",
+    "in", "let", "Type", "Fun", "fun", "Pair", "pair", "Record", "record",
 ];
 
 fn is_whitespace(ch: char) -> bool {
@@ -646,9 +646,9 @@ mod tests {
             "                           ~                                   " => (TokenKind::Whitespace, " "),
             "                            ~~~                                " => (TokenKind::Keyword, "let"),
             "                               ~                               " => (TokenKind::Whitespace, " "),
-            "                                ~~~~~~                         " => (TokenKind::Identifier, "record"),
+            "                                ~~~~~~                         " => (TokenKind::Keyword, "record"),
             "                                      ~                        " => (TokenKind::Whitespace, " "),
-            "                                       ~~~~~~                  " => (TokenKind::Identifier, "Record"),
+            "                                       ~~~~~~                  " => (TokenKind::Keyword, "Record"),
             "                                             ~                 " => (TokenKind::Whitespace, " "),
             "                                              ~~~~             " => (TokenKind::Identifier, "then"),
             "                                                  ~            " => (TokenKind::Whitespace, " "),

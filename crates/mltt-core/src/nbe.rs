@@ -10,7 +10,7 @@ use std::fmt;
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
 use crate::syntax::normal::{self, Normal, RcNormal};
-use crate::syntax::{DbIndex, DbLevel};
+use crate::syntax::{DbIndex, DbLevel, Label};
 
 /// An error produced during normalization
 ///
@@ -58,6 +58,27 @@ fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
             Ok(RcValue::from(Value::Neutral(snd)))
         },
         _ => Err(NbeError::new("do_pair_snd: not a pair")),
+    }
+}
+
+/// Return the field in from a record
+fn do_record_proj(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> {
+    match record.as_ref() {
+        Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
+            Some((_, term)) => Ok(term.clone()),
+            None => Err(NbeError::new(format!(
+                "do_record_proj: field `{}` not found in record",
+                label.0,
+            ))),
+        },
+        Value::Neutral(record_ne) => {
+            let proj = domain::RcNeutral::from(domain::Neutral::RecordProj(
+                record_ne.clone(),
+                label.clone(),
+            ));
+            Ok(RcValue::from(Value::Neutral(proj)))
+        },
+        _ => Err(NbeError::new("do_record_proj: not a record")),
     }
 }
 
@@ -125,6 +146,28 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         Term::PairFst(pair) => do_pair_fst(&eval(pair, env)?),
         Term::PairSnd(pair) => do_pair_snd(&eval(pair, env)?),
 
+        // Records
+        Term::RecordType(fields) => match fields.split_first() {
+            None => Ok(RcValue::from(Value::RecordTypeEmpty)),
+            Some(((_, label, ty), rest)) => {
+                let label = label.clone();
+                let ty = eval(ty, env)?;
+                let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
+                let rest = Closure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
+
+                Ok(RcValue::from(Value::RecordTypeExtend(label, ty, rest)))
+            },
+        },
+        Term::RecordIntro(fields) => {
+            let fields = fields
+                .iter()
+                .map(|(label, term)| Ok((label.clone(), eval(term, env)?)))
+                .collect::<Result<_, _>>()?;
+
+            Ok(RcValue::from(Value::RecordIntro(fields)))
+        },
+        Term::RecordProj(record, label) => do_record_proj(&eval(record, env)?, label),
+
         // Universes
         Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
     }
@@ -178,6 +221,41 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
             Ok(RcNormal::from(Normal::PairIntro(fst, snd)))
         },
 
+        // Records
+        Value::RecordTypeExtend(label, term_ty, rest_ty) => {
+            let mut level = level;
+
+            let term = RcValue::var(level);
+            let term_ty = read_back_term(level, term_ty)?;
+
+            let mut rest_ty = do_closure_app(rest_ty, term)?;
+            let mut field_tys = vec![(label.clone(), term_ty)];
+
+            while let Value::RecordTypeExtend(next_label, next_term_ty, next_rest_ty) =
+                rest_ty.as_ref()
+            {
+                level += 1;
+
+                let next_term = RcValue::var(level);
+                let next_term_ty = read_back_term(level, next_term_ty)?;
+                let next_rest_ty = do_closure_app(next_rest_ty, next_term)?;
+
+                field_tys.push((next_label.clone(), next_term_ty));
+                rest_ty = next_rest_ty;
+            }
+
+            Ok(RcNormal::from(Normal::RecordType(field_tys)))
+        },
+        Value::RecordTypeEmpty => Ok(RcNormal::from(Normal::RecordType(Vec::new()))),
+        Value::RecordIntro(fields) => {
+            let fields = fields
+                .iter()
+                .map(|(label, term)| Ok((label.clone(), read_back_term(level, term)?)))
+                .collect::<Result<_, _>>()?;
+
+            Ok(RcNormal::from(Normal::RecordIntro(fields)))
+        },
+
         // Universes
         Value::Universe(level) => Ok(RcNormal::from(Normal::Universe(*level))),
     }
@@ -210,6 +288,14 @@ pub fn read_back_neutral(
 
             Ok(normal::RcNeutral::from(normal::Neutral::PairSnd(pair)))
         },
+        domain::Neutral::RecordProj(record, label) => {
+            let record = read_back_neutral(level, record)?;
+            let label = label.clone();
+
+            Ok(normal::RcNeutral::from(normal::Neutral::RecordProj(
+                record, label,
+            )))
+        },
     }
 }
 
@@ -240,6 +326,22 @@ pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool,
                 check_subtype(level + 1, &snd_ty1, &snd_ty2)?
             })
         },
+        (
+            &Value::RecordTypeExtend(label1, term_ty1, rest_ty1),
+            &Value::RecordTypeExtend(label2, term_ty2, rest_ty2),
+        ) => {
+            let term = RcValue::var(level);
+
+            Ok(
+                // FIXME: Could stack overflow here?
+                label1 == label2 && check_subtype(level, term_ty1, term_ty2)? && {
+                    let rest_ty1 = do_closure_app(rest_ty1, term.clone())?;
+                    let rest_ty2 = do_closure_app(rest_ty2, term)?;
+                    check_subtype(level + 1, &rest_ty1, &rest_ty2)?
+                },
+            )
+        },
+        (&Value::RecordTypeEmpty, &Value::RecordTypeEmpty) => Ok(true),
         (&Value::Universe(level1), &Value::Universe(level2)) => Ok(level1 <= level2),
         _ => Ok(false),
     }
