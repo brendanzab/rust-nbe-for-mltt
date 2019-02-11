@@ -175,8 +175,8 @@ impl Term {
             match term {
                 Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
                 Term::Literal(literal) => literal.to_doc(),
-                Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".1"),
-                Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".2"),
+                Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".fst"),
+                Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".snd"),
                 Term::Universe(UniverseLevel(level)) => {
                     Doc::text("Type^").append(Doc::as_string(level))
                 },
