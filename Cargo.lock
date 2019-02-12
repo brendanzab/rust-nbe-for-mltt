@@ -191,15 +191,8 @@ dependencies = [
 name = "mltt-test"
 version = "0.1.0"
 dependencies = [
- "mltt-test-generate 0.1.0",
- "mltt-test-harness 0.1.0",
-]
-
-[[package]]
-name = "mltt-test-generate"
-version = "0.1.0"
-dependencies = [
  "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mltt-test-harness 0.1.0",
 ]
 
 [[package]]

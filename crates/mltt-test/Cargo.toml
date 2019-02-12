@@ -7,5 +7,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-mltt-test-generate = { path = "../mltt-test-generate" }
 mltt-test-harness = { path = "../mltt-test-harness" }
+
+[build-dependencies]
+heck = "0.3.1"

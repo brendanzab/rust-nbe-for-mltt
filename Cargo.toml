@@ -5,6 +5,5 @@ members = [
     "./crates/mltt-parse",
     "./crates/mltt-span",
     "./crates/mltt-test",
-    "./crates/mltt-test-generate",
     "./crates/mltt-test-harness",
 ]

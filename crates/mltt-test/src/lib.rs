@@ -1,1 +1,1 @@
-mltt_test_generate::generate_tests!();
+include!(concat!(env!("OUT_DIR"), "/tests.rs"));
