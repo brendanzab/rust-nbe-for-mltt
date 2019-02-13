@@ -70,11 +70,6 @@ pub enum Value {
     /// Introduce a function
     FunIntro(Closure),
 
-    /// Dependent pair types
-    PairType(RcType, Closure),
-    /// Introduce a pair
-    PairIntro(RcValue, RcValue),
-
     /// Dependent record type extension
     RecordTypeExtend(Label, RcType, Closure),
     /// Empty record type
@@ -131,11 +126,6 @@ pub enum Neutral {
 
     /// Apply a function to an argument
     FunApp(RcNeutral, RcValue),
-
-    /// Project the first element of a pair
-    PairFst(RcNeutral),
-    /// Project the second element of a pair
-    PairSnd(RcNeutral),
 
     /// Project on a record
     RecordProj(RcNeutral, Label),

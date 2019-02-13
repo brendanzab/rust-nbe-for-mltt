@@ -60,15 +60,6 @@ pub enum Term {
     /// Apply a function to an argument
     FunApp(RcTerm, RcTerm),
 
-    /// Dependent pair types
-    PairType(RcTerm, RcTerm),
-    /// Introduce a pair
-    PairIntro(RcTerm, RcTerm),
-    /// Project the first element of a pair
-    PairFst(RcTerm),
-    /// Project the second element of a pair
-    PairSnd(RcTerm),
-
     /// Dependent record types
     RecordType(Vec<(String, Label, RcTerm)>),
     /// Introduce a record
@@ -138,32 +129,6 @@ impl Term {
                     .append("=>")
                     .append(Doc::space())
                     .append(to_doc_app(body.as_ref())),
-                Term::PairType(fst_ty, snd_ty) => Doc::nil()
-                    .append("Pair")
-                    .append(Doc::space())
-                    .append("{")
-                    .append(Doc::space())
-                    .append("_")
-                    .append(Doc::space())
-                    .append(":")
-                    .append(Doc::space())
-                    .append(to_doc_term(fst_ty.as_ref()))
-                    .append(",")
-                    .append(Doc::space())
-                    .append(to_doc_term(snd_ty.as_ref()))
-                    .append(Doc::space())
-                    .append("}"),
-                Term::PairIntro(fst, snd) => Doc::nil()
-                    .append("pair")
-                    .append(Doc::space())
-                    .append("{")
-                    .append(Doc::space())
-                    .append(to_doc_term(fst.as_ref()))
-                    .append(",")
-                    .append(Doc::space())
-                    .append(to_doc_term(snd.as_ref()))
-                    .append(Doc::space())
-                    .append("}"),
                 Term::RecordType(ty_fields) => Doc::nil()
                     .append("Record")
                     .append(Doc::space())
@@ -226,8 +191,6 @@ impl Term {
             match term {
                 Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
                 Term::Literal(literal) => literal.to_doc(),
-                Term::PairFst(pair) => to_doc_atomic(pair.as_ref()).append(".fst"),
-                Term::PairSnd(pair) => to_doc_atomic(pair.as_ref()).append(".snd"),
                 Term::RecordProj(record, label) => {
                     to_doc_atomic(record.as_ref()).append(".").append(&label.0)
                 },
@@ -263,12 +226,6 @@ impl From<&'_ normal::Normal> for RcTerm {
                 Term::FunType(RcTerm::from(param_ty), RcTerm::from(body_ty))
             },
             normal::Normal::FunIntro(body) => Term::FunIntro(RcTerm::from(body)),
-            normal::Normal::PairType(fst_ty, snd_ty) => {
-                Term::PairType(RcTerm::from(fst_ty), RcTerm::from(snd_ty))
-            },
-            normal::Normal::PairIntro(fst, snd) => {
-                Term::PairIntro(RcTerm::from(fst), RcTerm::from(snd))
-            },
             normal::Normal::RecordType(fields) => {
                 let fields = fields
                     .iter()
@@ -301,8 +258,6 @@ impl From<&'_ normal::Neutral> for RcTerm {
         RcTerm::from(match src {
             normal::Neutral::Var(index) => Term::Var(*index),
             normal::Neutral::FunApp(fun, arg) => Term::FunApp(RcTerm::from(fun), RcTerm::from(arg)),
-            normal::Neutral::PairFst(pair) => Term::PairFst(RcTerm::from(pair)),
-            normal::Neutral::PairSnd(pair) => Term::PairSnd(RcTerm::from(pair)),
             normal::Neutral::RecordProj(record, label) => {
                 Term::RecordProj(RcTerm::from(record), label.clone())
             },

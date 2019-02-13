@@ -187,17 +187,6 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }),
         },
 
-        Term::PairIntro(fst, snd) => match expected_ty.as_ref() {
-            Value::PairType(fst_ty, snd_ty) => {
-                check_term(context, fst, fst_ty)?;
-                let fst_value = context.eval(fst)?;
-                check_term(context, snd, &nbe::do_closure_app(snd_ty, fst_value)?)
-            },
-            _ => Err(TypeError::ExpectedPairType {
-                found: expected_ty.clone(),
-            }),
-        },
-
         Term::RecordIntro(intro_fields) => {
             let mut context = context.clone();
             let mut expected_ty = expected_ty.clone();
@@ -254,7 +243,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             synth_term(&body_context, body)
         },
 
-        Term::FunType(ann_ty, body_ty) | Term::PairType(ann_ty, body_ty) => {
+        Term::FunType(ann_ty, body_ty) => {
             let ann_level = synth_universe(context, ann_ty)?;
             let ann_ty_value = context.eval(ann_ty)?;
 
@@ -267,7 +256,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 ann_level, body_level,
             ))))
         },
-        Term::FunIntro(_) | Term::PairIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::FunIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
 
         Term::FunApp(fun, arg) => {
             let fun_ty = synth_term(context, fun)?;
@@ -279,28 +268,6 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 },
                 _ => Err(TypeError::ExpectedFunType {
                     found: fun_ty.clone(),
-                }),
-            }
-        },
-
-        Term::PairFst(pair) => {
-            let pair_ty = synth_term(context, pair)?;
-            match pair_ty.as_ref() {
-                Value::PairType(fst_ty, _) => Ok(fst_ty.clone()),
-                _ => Err(TypeError::ExpectedPairType {
-                    found: pair_ty.clone(),
-                }),
-            }
-        },
-        Term::PairSnd(pair) => {
-            let pair_ty = synth_term(context, pair)?;
-            match pair_ty.as_ref() {
-                Value::PairType(_, snd_ty) => {
-                    let fst = context.eval(&RcTerm::from(Term::PairFst(pair.clone())))?;
-                    Ok(nbe::do_closure_app(snd_ty, fst)?)
-                },
-                _ => Err(TypeError::ExpectedPairType {
-                    found: pair_ty.clone(),
                 }),
             }
         },

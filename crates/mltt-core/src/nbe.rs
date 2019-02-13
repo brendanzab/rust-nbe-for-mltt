@@ -37,30 +37,6 @@ impl fmt::Display for NbeError {
     }
 }
 
-/// Return the first element of a pair
-fn do_pair_fst(pair: &RcValue) -> Result<RcValue, NbeError> {
-    match pair.as_ref() {
-        Value::PairIntro(fst, _) => Ok(fst.clone()),
-        Value::Neutral(pair) => {
-            let fst = domain::RcNeutral::from(domain::Neutral::PairFst(pair.clone()));
-            Ok(RcValue::from(Value::Neutral(fst)))
-        },
-        _ => Err(NbeError::new("do_pair_fst: not a pair")),
-    }
-}
-
-/// Return the second element of a pair
-fn do_pair_snd(pair: &RcValue) -> Result<RcValue, NbeError> {
-    match pair.as_ref() {
-        Value::PairIntro(_, snd) => Ok(snd.clone()),
-        Value::Neutral(pair_ne) => {
-            let snd = domain::RcNeutral::from(domain::Neutral::PairSnd(pair_ne.clone()));
-            Ok(RcValue::from(Value::Neutral(snd)))
-        },
-        _ => Err(NbeError::new("do_pair_snd: not a pair")),
-    }
-}
-
 /// Return the field in from a record
 fn do_record_proj(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> {
     match record.as_ref() {
@@ -130,22 +106,6 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         },
         Term::FunApp(fun, arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
 
-        // Pairs
-        Term::PairType(fst_ty, snd_ty) => {
-            let fst_ty = eval(fst_ty, env)?;
-            let snd_ty = Closure::new(snd_ty.clone(), env.clone());
-
-            Ok(RcValue::from(Value::PairType(fst_ty, snd_ty)))
-        },
-        Term::PairIntro(fst, snd /* _, _, _ */) => {
-            let fst = eval(fst, env)?;
-            let snd = eval(snd, env)?;
-
-            Ok(RcValue::from(Value::PairIntro(fst, snd)))
-        },
-        Term::PairFst(pair) => do_pair_fst(&eval(pair, env)?),
-        Term::PairSnd(pair) => do_pair_snd(&eval(pair, env)?),
-
         // Records
         Term::RecordType(fields) => match fields.split_first() {
             None => Ok(RcValue::from(Value::RecordTypeEmpty)),
@@ -201,24 +161,6 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
             let body = read_back_term(level + 1, &do_closure_app(body, param.clone())?)?;
 
             Ok(RcNormal::from(Normal::FunIntro(body)))
-        },
-
-        // Pairs
-        Value::PairType(fst_ty, snd_ty) => {
-            let fst = RcValue::var(level);
-            let fst_ty = fst_ty.clone();
-            let snd_ty = do_closure_app(snd_ty, fst)?;
-
-            Ok(RcNormal::from(Normal::PairType(
-                read_back_term(level, &fst_ty)?,
-                read_back_term(level + 1, &snd_ty)?,
-            )))
-        },
-        Value::PairIntro(fst, snd) => {
-            let fst = read_back_term(level, &fst)?;
-            let snd = read_back_term(level, &snd)?;
-
-            Ok(RcNormal::from(Normal::PairIntro(fst, snd)))
         },
 
         // Records
@@ -278,16 +220,6 @@ pub fn read_back_neutral(
 
             Ok(normal::RcNeutral::from(normal::Neutral::FunApp(fun, arg)))
         },
-        domain::Neutral::PairFst(pair) => {
-            let pair = read_back_neutral(level, pair)?;
-
-            Ok(normal::RcNeutral::from(normal::Neutral::PairFst(pair)))
-        },
-        domain::Neutral::PairSnd(pair) => {
-            let pair = read_back_neutral(level, pair)?;
-
-            Ok(normal::RcNeutral::from(normal::Neutral::PairSnd(pair)))
-        },
         domain::Neutral::RecordProj(record, label) => {
             let record = read_back_neutral(level, record)?;
             let label = label.clone();
@@ -315,15 +247,6 @@ pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool,
                 let body_ty1 = do_closure_app(body_ty1, param.clone())?;
                 let body_ty2 = do_closure_app(body_ty2, param)?;
                 check_subtype(level + 1, &body_ty1, &body_ty2)?
-            })
-        },
-        (&Value::PairType(fst_ty1, snd_ty1), &Value::PairType(fst_ty2, snd_ty2)) => {
-            let fst = RcValue::var(level);
-
-            Ok(check_subtype(level, fst_ty1, fst_ty2)? && {
-                let snd_ty1 = do_closure_app(snd_ty1, fst.clone())?;
-                let snd_ty2 = do_closure_app(snd_ty2, fst)?;
-                check_subtype(level + 1, &snd_ty1, &snd_ty2)?
             })
         },
         (

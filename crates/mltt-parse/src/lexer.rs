@@ -5,9 +5,7 @@ use std::str::Chars;
 use crate::token::{DelimKind, Token, TokenKind};
 
 /// The keywords used in the language
-pub const KEYWORDS: [&str; 9] = [
-    "in", "let", "Type", "Fun", "fun", "Pair", "pair", "Record", "record",
-];
+pub const KEYWORDS: [&str; 7] = ["in", "let", "Type", "Fun", "fun", "Record", "record"];
 
 fn is_whitespace(ch: char) -> bool {
     match ch {

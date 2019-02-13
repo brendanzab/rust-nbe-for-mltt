@@ -22,8 +22,6 @@
 //!           | term "->" term
 //!           | "fun" IDENTIFIER+ "=>" term
 //!           | term term
-//!           | "Pair" "{" (IDENTIFIER ":")? term "," term "}"
-//!           | "pair" "{" term "," term "}"
 //!           | "Record" "{" (record-type-field ";")* record-type-field? "}"
 //!           | "record" "{" (record-intro-field ";")* record-intro-field? "}"
 //!           | term "." IDENTIFIER
@@ -321,8 +319,6 @@ where
     ///     prefix  "("                 ::= parens fun-app
     ///     prefix  "Fun"               ::= fun-type
     ///     prefix  "fun"               ::= fun-intro
-    ///     prefix  "Pair"              ::= pair-type
-    ///     prefix  "pair"              ::= pair-intro
     ///     prefix  "Record"            ::= record-type
     ///     prefix  "record"            ::= record-intro
     ///     prefix  "Type"              ::= universe
@@ -362,8 +358,6 @@ where
             },
             (TokenKind::Keyword, "Fun") => self.parse_fun_ty(token),
             (TokenKind::Keyword, "fun") => self.parse_fun_intro(token),
-            (TokenKind::Keyword, "Pair") => self.parse_pair_ty(token),
-            (TokenKind::Keyword, "pair") => self.parse_pair_intro(token),
             (TokenKind::Keyword, "Record") => self.parse_record_ty(token),
             (TokenKind::Keyword, "record") => self.parse_record_intro(token),
             (TokenKind::Keyword, "let") => self.parse_let(token),
@@ -377,7 +371,7 @@ where
             match token.kind {
                 TokenKind::Dot if right_prec < 80 => {
                     let token = self.advance().unwrap();
-                    term = self.parse_pair_proj(term, token)?;
+                    term = self.parse_record_proj(term, token)?;
                     term = self.parse_fun_app(term)?;
                 },
                 TokenKind::Colon if right_prec < 20 => {
@@ -437,7 +431,7 @@ where
             match token.kind {
                 TokenKind::Dot if right_prec < 80 => {
                     let token = self.advance().unwrap();
-                    term = self.parse_pair_proj(term, token)?;
+                    term = self.parse_record_proj(term, token)?;
                 },
                 _ => break,
             }
@@ -561,40 +555,6 @@ where
         Ok(Term::Parens(Box::new(term)))
     }
 
-    /// Parse the trailing part of a pair type
-    ///
-    /// ```text
-    /// pair-type ::= "{" (IDENTIFIER ":")? term(0) "," term(0) "}"
-    /// ```
-    fn parse_pair_ty(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        self.expect_match(TokenKind::Open(DelimKind::Brace))?;
-        let fst_name = self.try_identifier();
-        if fst_name.is_some() {
-            self.expect_match(TokenKind::Colon)?;
-        }
-        let fst = self.parse_term(Prec(0))?;
-        self.expect_match(TokenKind::Comma)?;
-        let snd = self.parse_term(Prec(0))?;
-        self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-
-        Ok(Term::PairType(fst_name, Box::new(fst), Box::new(snd)))
-    }
-
-    /// Parse the trailing part of a pair introduction
-    ///
-    /// ```text
-    /// pair-intro ::= "{" term(0) "," term(0) "}"
-    /// ```
-    fn parse_pair_intro(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        self.expect_match(TokenKind::Open(DelimKind::Brace))?;
-        let fst = self.parse_term(Prec(0))?;
-        self.expect_match(TokenKind::Comma)?;
-        let snd = self.parse_term(Prec(0))?;
-        self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-
-        Ok(Term::PairIntro(Box::new(fst), Box::new(snd)))
-    }
-
     /// Parse the trailing part of a record type
     ///
     /// ```text
@@ -715,17 +675,13 @@ where
     /// ```text
     /// record-proj ::= IDENTIFIER
     /// ```
-    fn parse_pair_proj(
+    fn parse_record_proj(
         &mut self,
         lhs: Term,
         _token: Token<'file>,
     ) -> Result<Term, Diagnostic<FileSpan>> {
         let label = self.expect_identifier()?;
-        match label.as_str() {
-            "fst" => Ok(Term::PairFst(Box::new(lhs))),
-            "snd" => Ok(Term::PairSnd(Box::new(lhs))),
-            _ => Ok(Term::RecordProj(Box::new(lhs), label)),
-        }
+        Ok(Term::RecordProj(Box::new(lhs), label))
     }
 
     /// Parse the trailing part of a type annotation
@@ -983,110 +939,19 @@ mod tests {
     #[test]
     fn fun_app_2b() {
         test_term!(
-            r"foo (arg1) arg2.fst.snd arg3",
+            r"foo (arg1) arg2.foo.bar arg3",
             Term::FunApp(
                 Box::new(Term::Var("foo".to_owned())),
                 vec![
                     Term::Parens(Box::new(Term::Var("arg1".to_owned()))),
-                    Term::PairSnd(Box::new(Term::PairFst(Box::new(Term::Var(
-                        "arg2".to_owned()
-                    ))))),
+                    Term::RecordProj(
+                        Box::new(Term::RecordProj(
+                            Box::new(Term::Var("arg2".to_owned())),
+                            "foo".to_owned()
+                        )),
+                        "bar".to_owned()
+                    ),
                     Term::Var("arg3".to_owned()),
-                ],
-            ),
-        );
-    }
-
-    #[test]
-    fn pair_type() {
-        test_term!(
-            "Pair { Type, Type }",
-            Term::PairType(
-                None,
-                Box::new(Term::Universe(None)),
-                Box::new(Term::Universe(None)),
-            ),
-        );
-    }
-
-    #[test]
-    fn dependent_pair_type() {
-        test_term!(
-            "Pair { x : Type, Type }",
-            Term::PairType(
-                Some("x".to_owned()),
-                Box::new(Term::Universe(None)),
-                Box::new(Term::Universe(None)),
-            ),
-        );
-    }
-
-    #[test]
-    fn pair_intro() {
-        test_term!(
-            "pair { x, y }",
-            Term::PairIntro(
-                Box::new(Term::Var("x".to_owned())),
-                Box::new(Term::Var("y".to_owned())),
-            ),
-        );
-    }
-
-    #[test]
-    fn pair_fst() {
-        test_term!(
-            "foo.fst",
-            Term::PairFst(Box::new(Term::Var("foo".to_owned()))),
-        );
-    }
-
-    #[test]
-    fn pair_fst_fst() {
-        test_term!(
-            "foo.fst.fst",
-            Term::PairFst(Box::new(Term::PairFst(Box::new(Term::Var(
-                "foo".to_owned(),
-            ))))),
-        );
-    }
-
-    #[test]
-    fn pair_snd() {
-        test_term!(
-            "foo.snd",
-            Term::PairSnd(Box::new(Term::Var("foo".to_owned()))),
-        );
-    }
-
-    #[test]
-    fn pair_snd_snd() {
-        test_term!(
-            "foo.snd.snd",
-            Term::PairSnd(Box::new(Term::PairSnd(Box::new(Term::Var(
-                "foo".to_owned(),
-            ))))),
-        );
-    }
-
-    #[test]
-    fn pair_fst_snd() {
-        test_term!(
-            "foo.fst.snd",
-            Term::PairSnd(Box::new(Term::PairFst(Box::new(Term::Var(
-                "foo".to_owned(),
-            ))))),
-        );
-    }
-
-    #[test]
-    fn pair_fst_fun_app() {
-        test_term!(
-            "foo.fst bar baz.snd",
-            Term::FunApp(
-                Box::new(Term::PairFst(Box::new(Term::Var("foo".to_owned())))),
-                vec![
-                    Term::Var("bar".to_owned()),
-                    Term::PairSnd(Box::new(Term::Var("baz".to_owned()))),
                 ],
             ),
         );

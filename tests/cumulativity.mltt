@@ -16,8 +16,8 @@ test-fun-intro-a x = x;
 test-fun-intro : Type^0 -> Type^2;
 test-fun-intro = test-fun-intro-a;
 
-test-pair-intro-a : Pair { Type^1, Type^1 };
-test-pair-intro-a = pair { Type^0, Type^0 };
+test-record-intro-a : Record { x : Type^1; y : Type^1 };
+test-record-intro-a = record { x = Type^0; y = Type^0 };
 
-test-pair-intro : Pair { Type^2, Type^2 };
-test-pair-intro = test-pair-intro-a;
+test-record-intro : Record { x : Type^2; y : Type^2 };
+test-record-intro = test-record-intro-a;

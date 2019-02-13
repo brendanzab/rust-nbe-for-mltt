@@ -119,17 +119,6 @@ pub enum Term {
     /// Apply a function to an argument
     FunApp(Box<Term>, Vec<Term>),
 
-    /// Dependent pair type
-    ///
-    /// Also known as a _sigma type_ or _dependent sum type_
-    PairType(Option<String>, Box<Term>, Box<Term>),
-    /// Introduce a pair
-    PairIntro(Box<Term>, Box<Term>),
-    /// Project the first element of a pair
-    PairFst(Box<Term>),
-    /// Project the second element of a pair
-    PairSnd(Box<Term>),
-
     /// Dependent record type
     RecordType(Vec<RecordTypeField>),
     /// Record introduction
@@ -210,32 +199,6 @@ impl Term {
                     .append("=>")
                     .append(Doc::space())
                     .append(to_doc_app(body)),
-                Term::PairType(fst_name, fst_ty, snd_ty) => Doc::nil()
-                    .append("Pair")
-                    .append(Doc::space())
-                    .append("{")
-                    .append(Doc::space())
-                    .append(fst_name.as_ref().map_or(Doc::nil(), |fst_name| {
-                        Doc::text(fst_name).append(Doc::space()).append(":")
-                    }))
-                    .append(Doc::space())
-                    .append(to_doc_term(fst_ty))
-                    .append(",")
-                    .append(Doc::space())
-                    .append(to_doc_term(snd_ty))
-                    .append(Doc::space())
-                    .append("}"),
-                Term::PairIntro(fst, snd) => Doc::nil()
-                    .append("pair")
-                    .append(Doc::space())
-                    .append("{")
-                    .append(Doc::space())
-                    .append(to_doc_term(fst))
-                    .append(",")
-                    .append(Doc::space())
-                    .append(to_doc_term(snd))
-                    .append(Doc::space())
-                    .append("}"),
                 Term::RecordType(ty_fields) => Doc::nil()
                     .append("Record")
                     .append(Doc::space())
@@ -332,8 +295,6 @@ impl Term {
                 Term::Var(name) => Doc::as_string(name),
                 Term::Literal(literal) => literal.to_doc(),
                 Term::Parens(term) => Doc::text("(").append(to_doc_term(term)).append(")"),
-                Term::PairFst(pair) => to_doc_atomic(pair).append(".fst"),
-                Term::PairSnd(pair) => to_doc_atomic(pair).append(".snd"),
                 Term::RecordProj(record, label) => to_doc_atomic(record).append(".").append(label),
                 Term::Universe(None) => Doc::text("Type"),
                 Term::Universe(Some(level)) => Doc::text("Type^").append(Doc::as_string(level)),

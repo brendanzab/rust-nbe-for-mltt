@@ -478,20 +478,6 @@ pub fn check_term<'term>(
             check_fun_intro(context, param_names, None, concrete_body, expected_ty)
         },
 
-        Term::PairIntro(concrete_fst, concrete_snd) => match expected_ty.as_ref() {
-            domain::Value::PairType(fst_ty, snd_ty) => {
-                let fst = check_term(context, concrete_fst, fst_ty)?;
-                let fst_value = context.eval(&fst)?;
-                let snd_ty_value = nbe::do_closure_app(snd_ty, fst_value)?;
-                let snd = check_term(context, concrete_snd, &snd_ty_value)?;
-
-                Ok(core::RcTerm::from(core::Term::PairIntro(fst, snd)))
-            },
-            _ => Err(TypeError::ExpectedPairType {
-                found: expected_ty.clone(),
-            }),
-        },
-
         Term::RecordIntro(concrete_intro_fields) => {
             let mut context = context.clone();
             let mut fields = Vec::new();
@@ -617,49 +603,6 @@ pub fn synth_term<'term>(
             }
 
             Ok((fun, fun_ty))
-        },
-
-        Term::PairType(fst_name, concrete_fst_ty, concrete_snd_ty) => {
-            let (fst_ty, fst_level) = synth_universe(context, concrete_fst_ty)?;
-            let fst_ty_value = context.eval(&fst_ty)?;
-            let (snd_ty, snd_level) = {
-                let mut context = context.clone();
-                context.insert_binder(fst_name, fst_ty_value);
-                synth_universe(&context, concrete_snd_ty)?
-            };
-
-            Ok((
-                core::RcTerm::from(core::Term::PairType(fst_ty, snd_ty)),
-                domain::RcValue::from(domain::Value::Universe(cmp::max(fst_level, snd_level))),
-            ))
-        },
-        Term::PairIntro(_, _) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
-        Term::PairFst(concrete_pair) => {
-            let (pair, pair_ty) = synth_term(context, concrete_pair)?;
-            match pair_ty.as_ref() {
-                domain::Value::PairType(fst_ty, _) => {
-                    let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
-                    Ok((fst, fst_ty.clone()))
-                },
-                _ => Err(TypeError::ExpectedPairType {
-                    found: pair_ty.clone(),
-                }),
-            }
-        },
-        Term::PairSnd(concrete_pair) => {
-            let (pair, pair_ty) = synth_term(context, concrete_pair)?;
-            match pair_ty.as_ref() {
-                domain::Value::PairType(_, snd_ty) => {
-                    let fst = core::RcTerm::from(core::Term::PairFst(pair.clone()));
-                    let fst_value = context.eval(&fst)?;
-                    let snd = core::RcTerm::from(core::Term::PairSnd(pair));
-
-                    Ok((snd, nbe::do_closure_app(snd_ty, fst_value)?))
-                },
-                _ => Err(TypeError::ExpectedPairType {
-                    found: pair_ty.clone(),
-                }),
-            }
         },
 
         Term::RecordType(concrete_ty_fields) => {

@@ -48,16 +48,6 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
 
     fn resugar_term(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
-            core::Term::PairIntro(fst, snd /* fst_ty, snd_ty */) => syntax::Term::PairIntro(
-                Box::new(resugar_term(fst, env)),
-                Box::new(resugar_term(snd, env)),
-            ),
-            _ => resugar_expr(term, env),
-        }
-    }
-
-    fn resugar_expr(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
-        match term.as_ref() {
             core::Term::Let(def, /* def_ty, */ body) => {
                 let def = resugar_app(def, env);
                 let (def_name, body) = env.with_binding(|env| resugar_term(body, env));
@@ -80,12 +70,6 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
                 // TODO: only use `param_name` if it is used in `body_ty`
                 // TODO: flatten params
                 syntax::Term::FunType(vec![(vec![param_name], param_ty)], Box::new(body_ty))
-            },
-            core::Term::PairType(fst_ty, snd_ty) => {
-                let fst_ty = resugar_term(fst_ty, env);
-                let (param_name, snd_ty) = env.with_binding(|env| resugar_app(snd_ty, env));
-                // TODO: only use `param_name` if it is used in `body_ty`
-                syntax::Term::PairType(Some(param_name), Box::new(fst_ty), Box::new(snd_ty))
             },
             core::Term::RecordType(ty_fields) => {
                 let ty_fields = ty_fields
@@ -136,8 +120,6 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
         match term.as_ref() {
             core::Term::Var(index) => syntax::Term::Var(env.lookup_index(*index)),
-            core::Term::PairFst(pair) => syntax::Term::PairFst(Box::new(resugar_atomic(pair, env))),
-            core::Term::PairSnd(pair) => syntax::Term::PairSnd(Box::new(resugar_atomic(pair, env))),
             core::Term::RecordProj(record, label) => {
                 syntax::Term::RecordProj(Box::new(resugar_atomic(record, env)), label.0.clone())
             },

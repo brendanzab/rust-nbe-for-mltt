@@ -49,11 +49,6 @@ pub enum Normal {
     /// Introduce a function
     FunIntro(RcNormal),
 
-    /// Dependent pair types
-    PairType(RcNormal, RcNormal),
-    /// Introduce a pair
-    PairIntro(RcNormal, RcNormal),
-
     /// Dependent record types
     RecordType(Vec<(Label, RcNormal)>),
     /// Introduce a record
@@ -100,11 +95,6 @@ pub enum Neutral {
 
     /// Apply a function to an argument
     FunApp(RcNeutral, RcNormal),
-
-    /// Project the first element of a pair
-    PairFst(RcNeutral),
-    /// Project the second element of a pair
-    PairSnd(RcNeutral),
 
     /// Project on a record
     RecordProj(RcNeutral, Label),
