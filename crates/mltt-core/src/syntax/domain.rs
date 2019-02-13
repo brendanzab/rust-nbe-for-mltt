@@ -67,7 +67,7 @@ pub enum Value {
     /// Dependent function types
     FunType(RcType, Closure),
     /// Introduce a function
-    FunIntro(Closure),
+    FunIntro(RcType, Closure),
 
     /// Dependent record type extension
     RecordTypeExtend(Label, RcType, Closure),

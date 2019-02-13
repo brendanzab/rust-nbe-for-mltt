@@ -60,11 +60,13 @@ pub struct Definition {
 pub enum Pattern {
     /// Variable patterns
     Var(String),
+    /// Patterns with an explicit type annotation
+    Ann(Box<Pattern>, Box<Term>),
+    /// A parenthesized pattern
+    Parens(Box<Pattern>),
     // TODO:
     // /// Literal patterns
     // Literal(Literal),
-    // /// Patterns with an explicit type annotation
-    // Ann(Box<Pattern>, Box<Term>),
     // /// Pair patterns
     // PairIntro(Box<Pattern>, Box<Pattern>),
 }
@@ -74,6 +76,13 @@ impl Pattern {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Pattern::Var(name) => Doc::as_string(name),
+            Pattern::Ann(pattern, ann) => Doc::nil()
+                .append(pattern.to_doc())
+                .append(Doc::space())
+                .append(":")
+                .append(Doc::space())
+                .append(ann.to_doc()),
+            Pattern::Parens(pattern) => Doc::text("(").append(pattern.to_doc()).append(")"),
         }
     }
 }

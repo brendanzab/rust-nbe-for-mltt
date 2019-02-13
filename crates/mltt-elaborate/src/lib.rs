@@ -12,7 +12,7 @@
 
 use mltt_concrete::{Item, Pattern, RecordIntroField, Term};
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
+use mltt_core::syntax::{core, domain, DbIndex, DbLevel, Label, UniverseLevel};
 
 mod docs;
 mod errors;
@@ -98,12 +98,18 @@ impl Context {
     }
 
     /// Read back a value into normal form
-    pub fn read_back(&self, value: &domain::RcValue) -> Result<normal::RcNormal, NbeError> {
-        nbe::read_back_term(self.level(), value)
+    pub fn read_back(&self, value: &domain::RcValue) -> Result<core::RcTerm, NbeError> {
+        // NOTE: Not sure how expensive this readback is here! We should
+        // definitely investigate fusing the conversion between
+        // `Value -> Normal -> Term`, perhaps by using visitors...
+        let normal = nbe::read_back_term(self.level(), value)?;
+        let term = core::RcTerm::from(&normal);
+        log::trace!("readback: {}", term);
+        Ok(term)
     }
 
     /// Fully normalize a term
-    pub fn normalize(&self, term: &core::RcTerm) -> Result<normal::RcNormal, NbeError> {
+    pub fn normalize(&self, term: &core::RcTerm) -> Result<core::RcTerm, NbeError> {
         let value = self.eval(term)?;
         self.read_back(&value)
     }
@@ -207,11 +213,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     },
                 };
                 let value = context.eval(&term)?;
-                // NOTE: Not sure how expensive this readback is here! We should
-                // definitely investigate fusing the conversion between
-                // `value::Value -> normal::Normal -> core::Term` by way of
-                // visitors...
-                let term_ty = core::RcTerm::from(&context.read_back(&ty)?);
+                let term_ty = context.read_back(&ty)?;
 
                 log::trace!(
                     "elaborated declaration:\t{}\t: {}",
@@ -297,9 +299,9 @@ fn check_clause(
             // INTRO: If it is a variable a pattern, and we're expecting a function
             // type, then we'll elaborate to a function.
             (Pattern::Var(var_name), domain::Value::FunType(param_ty, body_ty)) => {
-                param_tys.push(param_ty.clone());
+                param_tys.push(context.read_back(&param_ty)?);
                 let param = context.insert_binder(var_name.clone(), param_ty.clone());
-                expected_ty = nbe::do_closure_app(&body_ty, param.clone())?;
+                expected_ty = nbe::do_closure_app(&body_ty, param)?;
             },
             _ => {
                 let found = expected_ty.clone();
@@ -310,10 +312,9 @@ fn check_clause(
 
     let body = check_ann(&context, concrete_body, concrete_body_ty, &expected_ty)?;
 
-    Ok(param_tys
-        .iter()
-        .rev()
-        .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))))
+    Ok(param_tys.into_iter().rev().fold(body, |acc, param_ty| {
+        core::RcTerm::from(core::Term::FunIntro(param_ty, acc))
+    }))
 }
 
 /// Synthesize the type of a clause, elaborating it into a case tree.
@@ -323,6 +324,8 @@ fn synth_clause(
     concrete_body_ty: Option<&Term>,
     concrete_body: &Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+    let param_tys = Vec::new();
+
     if !patterns.is_empty() {
         // TODO: We will be able to type this once we have annotated patterns!
         unimplemented!("type annotations needed");
@@ -331,9 +334,9 @@ fn synth_clause(
     let (body, body_ty) = synth_ann(&context, concrete_body, concrete_body_ty)?;
 
     Ok((
-        patterns
-            .iter()
-            .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))),
+        param_tys.into_iter().rev().fold(body, |acc, param_ty| {
+            core::RcTerm::from(core::Term::FunIntro(param_ty, acc))
+        }),
         body_ty,
     ))
 }

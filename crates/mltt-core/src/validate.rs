@@ -8,7 +8,7 @@ use std::fmt;
 
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{self, Item, RcTerm, Term};
-use crate::syntax::domain::{self, RcType, RcValue, Value};
+use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
 use crate::syntax::{DbIndex, DbLevel, Label, UniverseLevel};
 
 /// Local type checking context
@@ -58,12 +58,21 @@ impl Context {
 
     /// Lookup the type annotation of a binder in the context
     pub fn lookup_binder(&self, index: DbIndex) -> Option<&RcType> {
+        log::trace!("lookup binder: @{}", index.0);
         self.binders.get(index.0 as usize)
     }
 
     /// Evaluate a term using the evaluation environment
     pub fn eval(&self, term: &core::RcTerm) -> Result<domain::RcValue, NbeError> {
         nbe::eval(term, self.values())
+    }
+
+    /// Read back a value into normal form
+    pub fn read_back(&self, value: &domain::RcValue) -> Result<RcTerm, NbeError> {
+        let normal = nbe::read_back_term(self.level(), value)?;
+        let term = core::RcTerm::from(&normal);
+        log::trace!("readback: {}", term);
+        Ok(term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
@@ -173,19 +182,6 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             check_term(&body_context, body, expected_ty)
         },
 
-        Term::FunIntro(body) => match expected_ty.as_ref() {
-            Value::FunType(param_ty, body_ty) => {
-                let mut body_context = context.clone();
-                let param = body_context.insert_binder(param_ty.clone());
-                let body_ty = nbe::do_closure_app(body_ty, param)?;
-
-                check_term(&body_context, body, &body_ty)
-            },
-            _ => Err(TypeError::ExpectedFunType {
-                found: expected_ty.clone(),
-            }),
-        },
-
         Term::RecordIntro(intro_fields) => {
             let mut context = context.clone();
             let mut expected_ty = expected_ty.clone();
@@ -255,8 +251,20 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 ann_level, body_level,
             ))))
         },
-        Term::FunIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::FunIntro(param_ty, body) => {
+            synth_universe(context, param_ty)?;
+            let param_ty = context.eval(param_ty)?;
+            let body_ty = {
+                let mut body_context = context.clone();
+                body_context.insert_binder(param_ty.clone());
+                let body_ty = synth_term(&body_context, body)?;
+                let body_ty = body_context.read_back(&body_ty)?; // Blegh :(
 
+                Closure::new(body_ty, body_context.values().clone())
+            };
+
+            Ok(RcValue::from(Value::FunType(param_ty, body_ty)))
+        },
         Term::FunApp(fun, arg) => {
             let fun_ty = synth_term(context, fun)?;
             match fun_ty.as_ref() {

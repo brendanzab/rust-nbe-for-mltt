@@ -62,10 +62,17 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
                 let (def_name, body) = env.with_binding(|env| resugar_term(body, env));
                 Term::Let(def_name, Box::new(def), Box::new(body))
             },
-            core::Term::FunIntro(/* param_ty, */ body) => {
+            core::Term::FunIntro(param_ty, body) => {
+                let param_ty = resugar_term(param_ty, env);
                 let (param_name, body) = env.with_binding(|env| resugar_app(body, env));
                 // TODO: flatten params
-                Term::FunIntro(vec![Pattern::Var(param_name)], Box::new(body))
+                Term::FunIntro(
+                    vec![Pattern::Parens(Box::new(Pattern::Ann(
+                        Box::new(Pattern::Var(param_name)),
+                        Box::new(param_ty),
+                    )))],
+                    Box::new(body),
+                )
             },
             _ => resugar_arrow(term, env),
         }

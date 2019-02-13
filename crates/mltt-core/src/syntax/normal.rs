@@ -47,7 +47,7 @@ pub enum Normal {
     /// Dependent function types
     FunType(RcNormal, RcNormal),
     /// Introduce a function
-    FunIntro(RcNormal),
+    FunIntro(RcNormal, RcNormal),
 
     /// Dependent record types
     RecordType(Vec<(Label, RcNormal)>),
