@@ -8,7 +8,9 @@
 //! module  ::= item* EOF
 //!
 //! item    ::= DOC_COMMENT* IDENTIFIER ":" term ";"
-//!           | DOC_COMMENT* IDENTIFIER IDENTIFIER* (":" term)? "=" term ";"
+//!           | DOC_COMMENT* IDENTIFIER pattern* (":" term)? "=" term ";"
+//!
+//! pattern ::= IDENTIFIER
 //!
 //! term    ::= IDENTIFIER
 //!           | STRING_LITERAL
@@ -20,7 +22,7 @@
 //!           | "(" term ")"
 //!           | "Fun" ("(" IDENTIFIER+ ":" term ")")+ "->" term
 //!           | term "->" term
-//!           | "fun" IDENTIFIER+ "=>" term
+//!           | "fun" pattern+ "=>" term
 //!           | term term
 //!           | "Record" "{" (record-type-field ";")* record-type-field? "}"
 //!           | "record" "{" (record-intro-field ";")* record-intro-field? "}"
@@ -29,7 +31,7 @@
 //!
 //! record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term
 //! record-intro-field  ::= IDENTIFIER
-//!                       | IDENTIFIER IDENTIFIER* (":" term)? "=" term
+//!                       | IDENTIFIER pattern* (":" term)? "=" term
 //! ```
 //!
 //! Note that there are a number of ambiguities here that we will have to
@@ -279,10 +281,7 @@ where
         } else {
             log::trace!("expecting item definition");
 
-            let mut patterns = Vec::new();
-            while let Some(param_name) = self.try_identifier() {
-                patterns.push(Pattern::Var(param_name));
-            }
+            let patterns = self.parse_patterns()?;
 
             let body_ty = if self.try_match(TokenKind::Colon).is_some() {
                 Some(self.parse_term(Prec(0))?)
@@ -313,7 +312,30 @@ where
         }
     }
 
-    /// Expect a term
+    /// Parse zero-or-more patterns
+    ///
+    /// ```text
+    /// patterns ::= pattern*
+    /// ```
+    fn parse_patterns(&mut self) -> Result<Vec<Pattern>, Diagnostic<FileSpan>> {
+        let mut patterns = Vec::new();
+        while self.check_match(ArgTermStart) {
+            patterns.push(self.parse_pattern()?);
+        }
+        Ok(patterns)
+    }
+
+    /// Parse a pattern
+    ///
+    /// ```text
+    /// pattern ::= IDENTIFIER
+    /// ```
+    fn parse_pattern(&mut self) -> Result<Pattern, Diagnostic<FileSpan>> {
+        let token = self.expect_match(TokenKind::Identifier)?;
+        Ok(Pattern::Var(token.slice.to_owned()))
+    }
+
+    /// Parse a term
     ///
     /// ```text
     /// term(prec) ::= operators(prec) {
@@ -391,7 +413,7 @@ where
         Ok(term)
     }
 
-    /// Expect an argument term
+    /// Parse an argument term
     ///
     /// ```text
     /// arg-term(prec) ::= operators(prec) {
@@ -527,10 +549,7 @@ where
     /// fun-intro ::= IDENTIFIER+ "=>" term(0)
     /// ```
     fn parse_fun_intro(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        let mut patterns = Vec::new();
-        while let Some(name) = self.try_identifier() {
-            patterns.push(Pattern::Var(name));
-        }
+        let patterns = self.parse_patterns()?;
         if patterns.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one parameters").with_label(
@@ -606,10 +625,7 @@ where
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
 
         while let Some(label) = self.try_identifier() {
-            let mut patterns = Vec::new();
-            while let Some(name) = self.try_identifier() {
-                patterns.push(Pattern::Var(name));
-            }
+            let patterns = self.parse_patterns()?;
 
             // TODO: implement punned fields
 
