@@ -18,18 +18,18 @@ use crate::syntax::{Item, Pattern, RecordIntroField, Term};
 
 /// Local elaboration context
 #[derive(Debug, Clone, PartialEq)]
-pub struct Context<'term> {
+pub struct Context {
     /// Number of local entries
     level: DbLevel,
     /// Values to be used during evaluation
     values: domain::Env,
     /// The user-defined names and type annotations of the binders we have passed over
-    binders: im::Vector<(Option<&'term String>, domain::RcType)>,
+    binders: im::Vector<(Option<String>, domain::RcType)>,
 }
 
-impl<'term> Context<'term> {
+impl Context {
     /// Create a new, empty context
-    pub fn new() -> Context<'term> {
+    pub fn new() -> Context {
         Context {
             level: DbLevel(0),
             values: domain::Env::new(),
@@ -50,14 +50,14 @@ impl<'term> Context<'term> {
     /// Add a new local entry to the context
     pub fn insert_local(
         &mut self,
-        name: impl Into<Option<&'term String>>,
+        name: impl Into<Option<String>>,
         value: domain::RcValue,
         ty: domain::RcType,
     ) {
         let name = name.into();
-        match name {
-            Some(name) => log::trace!("insert local: {}", name),
+        match &name {
             None => log::trace!("insert fresh local"),
+            Some(name) => log::trace!("insert local: {}", name),
         }
         self.level += 1;
         self.values.push_front(value);
@@ -67,7 +67,7 @@ impl<'term> Context<'term> {
     /// Add a new binder to the context, returning a value that points to the parameter
     pub fn insert_binder(
         &mut self,
-        name: impl Into<Option<&'term String>>,
+        name: impl Into<Option<String>>,
         ty: domain::RcType,
     ) -> domain::RcValue {
         let param = domain::RcValue::var(self.level());
@@ -79,7 +79,7 @@ impl<'term> Context<'term> {
     /// context using a user-defined name
     pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &domain::RcType)> {
         for (i, (n, ty)) in self.binders.iter().enumerate() {
-            if Some(name) == n.map(String::as_str) {
+            if Some(name) == n.as_ref().map(String::as_str) {
                 let level = DbIndex(i as u32);
 
                 log::trace!("lookup binder: {} -> @{}", name, level.0);
@@ -98,6 +98,12 @@ impl<'term> Context<'term> {
     /// Read back a value into normal form
     pub fn read_back(&self, value: &domain::RcValue) -> Result<normal::RcNormal, NbeError> {
         nbe::read_back_term(self.level(), value)
+    }
+
+    /// Fully normalize a term
+    pub fn normalize(&self, term: &core::RcTerm) -> Result<normal::RcNormal, NbeError> {
+        let value = self.eval(term)?;
+        self.read_back(&value)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
@@ -287,7 +293,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                 log::trace!("elaborated declaration:\t{}\t: {}", name, term_ty);
                 log::trace!("elaborated definition:\t{}\t= {}", name, term);
 
-                context.insert_local(name, value, ty);
+                context.insert_local(name.clone(), value, ty);
                 core_items.push(core::Item {
                     doc,
                     name: name.clone(),
@@ -302,10 +308,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
 }
 
 /// Synthesize the type of an annotated term
-fn synth_var<'term>(
-    context: &Context<'term>,
-    name: &'term str,
-) -> Result<(core::RcTerm, domain::RcType), TypeError> {
+fn synth_var(context: &Context, name: &str) -> Result<(core::RcTerm, domain::RcType), TypeError> {
     match context.lookup_binder(name) {
         None => Err(TypeError::UnboundVariable(name.to_owned())),
         Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
@@ -313,10 +316,10 @@ fn synth_var<'term>(
 }
 
 /// Check that an annotated term conforms to an expected type
-fn check_ann<'term>(
-    context: &Context<'term>,
-    concrete_term: &'term Term,
-    concrete_term_ty: Option<&'term Term>,
+fn check_ann(
+    context: &Context,
+    concrete_term: &Term,
+    concrete_term_ty: Option<&Term>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
     match concrete_term_ty {
@@ -332,10 +335,10 @@ fn check_ann<'term>(
 }
 
 /// Synthesize the type of an annotated term
-fn synth_ann<'term>(
-    context: &Context<'term>,
-    concrete_term: &'term Term,
-    concrete_term_ty: Option<&'term Term>,
+fn synth_ann(
+    context: &Context,
+    concrete_term: &Term,
+    concrete_term_ty: Option<&Term>,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
     match concrete_term_ty {
         None => synth_term(context, concrete_term),
@@ -350,11 +353,11 @@ fn synth_ann<'term>(
 
 /// Check that a given pattern clause conforms to an expected type, elaborating
 /// it into a case tree.
-fn check_clause<'term>(
-    context: &Context<'term>,
-    mut patterns: &'term [Pattern],
-    concrete_body_ty: Option<&'term Term>,
-    concrete_body: &'term Term,
+fn check_clause(
+    context: &Context,
+    mut patterns: &[Pattern],
+    concrete_body_ty: Option<&Term>,
+    concrete_body: &Term,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
     let mut context = context.clone();
@@ -368,7 +371,7 @@ fn check_clause<'term>(
             // type, then we'll elaborate to a function.
             (Pattern::Var(var_name), domain::Value::FunType(param_ty, body_ty)) => {
                 param_tys.push(param_ty.clone());
-                let param = context.insert_binder(var_name, param_ty.clone());
+                let param = context.insert_binder(var_name.clone(), param_ty.clone());
                 expected_ty = nbe::do_closure_app(&body_ty, param.clone())?;
             },
             _ => {
@@ -387,11 +390,11 @@ fn check_clause<'term>(
 }
 
 /// Synthesize the type of a clause, elaborating it into a case tree.
-fn synth_clause<'term>(
-    context: &Context<'term>,
-    patterns: &'term [Pattern],
-    concrete_body_ty: Option<&'term Term>,
-    concrete_body: &'term Term,
+fn synth_clause(
+    context: &Context,
+    patterns: &[Pattern],
+    concrete_body_ty: Option<&Term>,
+    concrete_body: &Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
     if !patterns.is_empty() {
         // TODO: We will be able to type this once we have annotated patterns!
@@ -409,18 +412,18 @@ fn synth_clause<'term>(
 }
 
 /// Check that a record field introduction conforms to a given type
-fn check_record_intro_field<'term>(
-    context: &Context<'term>,
-    concrete_intro_field: &'term RecordIntroField,
+fn check_record_intro_field(
+    context: &Context,
+    concrete_intro_field: &RecordIntroField,
     expected_label: &Label,
     expected_term_ty: &domain::RcType,
-) -> Result<(&'term String, core::RcTerm), TypeError> {
+) -> Result<(String, core::RcTerm), TypeError> {
     match concrete_intro_field {
         RecordIntroField::Punned { label } if expected_label.0 == *label => {
             let (term, term_ty) = synth_var(context, label)?;
             context.expect_subtype(&term_ty, expected_term_ty)?;
 
-            Ok((label, term))
+            Ok((label.clone(), term))
         },
 
         RecordIntroField::Explicit {
@@ -431,7 +434,7 @@ fn check_record_intro_field<'term>(
         } if expected_label.0 == *label => {
             let term = check_clause(context, patterns, term_ty.as_ref(), term, expected_term_ty)?;
 
-            Ok((label, term))
+            Ok((label.clone(), term))
         },
         RecordIntroField::Punned { label } | RecordIntroField::Explicit { label, .. } => {
             Err(TypeError::UnexpectedField {
@@ -444,9 +447,9 @@ fn check_record_intro_field<'term>(
 
 /// Ensures that the given term is a universe, returning the level of that
 /// universe and its elaborated form.
-fn synth_universe<'term>(
-    context: &Context<'term>,
-    concrete_term: &'term Term,
+fn synth_universe(
+    context: &Context,
+    concrete_term: &Term,
 ) -> Result<(core::RcTerm, UniverseLevel), TypeError> {
     let (term, ty) = synth_term(context, concrete_term)?;
     match ty.as_ref() {
@@ -456,9 +459,9 @@ fn synth_universe<'term>(
 }
 
 /// Check that a given term conforms to an expected type
-pub fn check_term<'term>(
-    context: &Context<'term>,
-    concrete_term: &'term Term,
+pub fn check_term(
+    context: &Context,
+    concrete_term: &Term,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, TypeError> {
     log::trace!("checking term:\t\t{}", concrete_term);
@@ -470,7 +473,7 @@ pub fn check_term<'term>(
             let def_value = context.eval(&def)?;
             let body = {
                 let mut context = context.clone();
-                context.insert_local(def_name, def_value, def_ty);
+                context.insert_local(def_name.clone(), def_value, def_ty);
                 check_term(&context, concrete_body, expected_ty)?
             };
 
@@ -524,9 +527,9 @@ pub fn check_term<'term>(
 }
 
 /// Synthesize the type of the given term
-pub fn synth_term<'term>(
-    context: &Context<'term>,
-    concrete_term: &'term Term,
+pub fn synth_term(
+    context: &Context,
+    concrete_term: &Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
     use std::cmp;
 
@@ -540,7 +543,7 @@ pub fn synth_term<'term>(
             let def_value = context.eval(&def)?;
             let (body, body_ty) = {
                 let mut context = context.clone();
-                context.insert_local(def_name, def_value, def_ty);
+                context.insert_local(def_name.clone(), def_value, def_ty);
                 synth_term(&context, concrete_body)?
             };
 
@@ -559,7 +562,7 @@ pub fn synth_term<'term>(
             for (param_names, concrete_param_ty) in concrete_params {
                 for param_name in param_names {
                     let (param_ty, param_level) = synth_universe(&context, concrete_param_ty)?;
-                    context.insert_binder(param_name, context.eval(&param_ty)?);
+                    context.insert_binder(param_name.clone(), context.eval(&param_ty)?);
                     param_tys.push(param_ty);
                     max_level = cmp::max(max_level, param_level);
                 }
@@ -618,7 +621,7 @@ pub fn synth_term<'term>(
                 .map(|concrete_ty_field| {
                     let docs = concat_docs(&concrete_ty_field.docs);
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
-                    context.insert_binder(&concrete_ty_field.label, context.eval(&ty)?);
+                    context.insert_binder(concrete_ty_field.label.clone(), context.eval(&ty)?);
                     max_level = cmp::max(max_level, ty_level);
                     Ok((docs, Label(concrete_ty_field.label.clone()), ty))
                 })

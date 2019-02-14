@@ -30,7 +30,7 @@ syntax, and DeBruijn levels in the syntax of the semantic domain.
 - [x] Desugaring of concrete syntax to core syntax
 - [x] Resugaring of core syntax to concrete syntax
 - [x] Pretty printing
-- [ ] Add a REPL
+- [x] Add a REPL
 - [ ] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
 - [x] Dependent record types

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "./crates/mltt-cli",
     "./crates/mltt-concrete",
     "./crates/mltt-core",
     "./crates/mltt-parse",
