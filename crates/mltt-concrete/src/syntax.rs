@@ -34,6 +34,7 @@ pub enum Item {
 }
 
 impl Item {
+    /// Returns `true` if the item is a definition
     pub fn is_definition(&self) -> bool {
         match self {
             Item::Declaration { .. } => false,
