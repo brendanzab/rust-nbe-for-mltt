@@ -43,7 +43,8 @@
 
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::syntax::{
-    Item, Literal, LiteralKind, Pattern, RecordIntroField, RecordTypeField, Term,
+    Declaration, Definition, Item, Literal, LiteralKind, Pattern, RecordIntroField,
+    RecordTypeField, Term,
 };
 use mltt_span::FileSpan;
 
@@ -277,7 +278,9 @@ where
             let ann = self.parse_term(Prec(0))?;
             self.expect_match(TokenKind::Semicolon)?;
 
-            Ok(Item::Declaration { docs, name, ann })
+            let declaration = Declaration { docs, name, ann };
+
+            Ok(Item::Declaration(declaration))
         } else {
             log::trace!("expecting item definition");
 
@@ -293,13 +296,15 @@ where
                 let body = self.parse_term(Prec(0))?;
                 self.expect_match(TokenKind::Semicolon)?;
 
-                Ok(Item::Definition {
+                let definition = Definition {
                     docs,
                     name,
                     patterns,
                     body_ty,
                     body,
-                })
+                };
+
+                Ok(Item::Definition(definition))
             } else if patterns.is_empty() {
                 // TODO: Span
                 Err(Diagnostic::new_error("expected declaration or definition"))

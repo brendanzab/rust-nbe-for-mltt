@@ -18,29 +18,37 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     /// Forward-declarations
-    Declaration {
-        docs: Vec<String>,
-        name: String,
-        ann: Term,
-    },
+    Declaration(Declaration),
     /// Term definitions
-    Definition {
-        docs: Vec<String>,
-        name: String,
-        patterns: Vec<Pattern>,
-        body_ty: Option<Term>,
-        body: Term,
-    },
+    Definition(Definition),
 }
 
 impl Item {
     /// Returns `true` if the item is a definition
     pub fn is_definition(&self) -> bool {
         match self {
-            Item::Declaration { .. } => false,
-            Item::Definition { .. } => true,
+            Item::Declaration(_) => false,
+            Item::Definition(_) => true,
         }
     }
+}
+
+/// Forward-declarations
+#[derive(Debug, Clone, PartialEq)]
+pub struct Declaration {
+    pub docs: Vec<String>,
+    pub name: String,
+    pub ann: Term,
+}
+
+/// Term definitions
+#[derive(Debug, Clone, PartialEq)]
+pub struct Definition {
+    pub docs: Vec<String>,
+    pub name: String,
+    pub patterns: Vec<Pattern>,
+    pub body_ty: Option<Term>,
+    pub body: Term,
 }
 
 /// Concrete patterns
@@ -97,6 +105,7 @@ pub struct Literal {
 }
 
 impl Literal {
+    /// Convert the literal into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::as_string(&self.value)
     }

@@ -222,15 +222,19 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
         use im::hashmap::Entry;
 
         match concrete_item {
-            Item::Declaration { docs, name, ann } => {
-                log::trace!("checking declaration:\t\t{}\t: {}", name, ann);
+            Item::Declaration(declaration) => {
+                log::trace!(
+                    "checking declaration:\t\t{}\t: {}",
+                    declaration.name,
+                    declaration.ann,
+                );
 
-                match forward_declarations.entry(name) {
+                match forward_declarations.entry(&declaration.name) {
                     // No previous declaration for this name was seen, so we can
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
                     Entry::Vacant(entry) => {
-                        let (ty, _) = synth_universe(&context, ann)?;
+                        let (ty, _) = synth_universe(&context, &declaration.ann)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
@@ -238,28 +242,31 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // NOTE: I'm not sure how this reordering affects name
                         // binding - we might need to account for it!
                         let ty = context.eval(&ty)?;
-                        entry.insert(Some((docs, ty)));
+                        entry.insert(Some((&declaration.docs, ty)));
                     },
                     // There's a declaration for this name already pending - we
                     // can't add a new one!
-                    Entry::Occupied(_) => return Err(TypeError::AlreadyDeclared(name.clone())),
+                    Entry::Occupied(_) => {
+                        return Err(TypeError::AlreadyDeclared(declaration.name.clone()));
+                    },
                 }
             },
-            Item::Definition {
-                docs,
-                name,
-                patterns,
-                body_ty,
-                body,
-            } => {
-                log::trace!("checking definition:\t\t{}\t= {}", name, body);
+            Item::Definition(definition) => {
+                log::trace!(
+                    "checking definition:\t\t{}\t= {}",
+                    definition.name,
+                    definition.body,
+                );
 
-                let body_ty = body_ty.as_ref();
-                let (doc, term, ty) = match forward_declarations.entry(name) {
+                let patterns = &definition.patterns;
+                let body_ty = definition.body_ty.as_ref();
+                let body = &definition.body;
+
+                let (doc, term, ty) = match forward_declarations.entry(&definition.name) {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
-                        let docs = concat_docs(docs);
+                        let docs = concat_docs(&definition.docs);
                         let (term, ty) = synth_clause(&context, patterns, body_ty, body)?;
                         entry.insert(None);
                         (docs, term, ty)
@@ -270,7 +277,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
-                            let docs = merge_docs(name, decl_docs, docs)?;
+                            let docs = merge_docs(&definition.name, decl_docs, &definition.docs)?;
                             let term = check_clause(&context, patterns, body_ty, body, &ty)?;
                             (docs, term, ty)
                         },
@@ -280,7 +287,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // NOTE: Some languages (eg. Haskell, Agda, Idris, and
                         // Erlang) turn duplicate definitions into case matches.
                         // Languages like Elm don't. What should we do here?
-                        None => return Err(TypeError::AlreadyDefined(name.clone())),
+                        None => return Err(TypeError::AlreadyDefined(definition.name.clone())),
                     },
                 };
                 let value = context.eval(&term)?;
@@ -290,13 +297,17 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                 // visitors...
                 let term_ty = core::RcTerm::from(&context.read_back(&ty)?);
 
-                log::trace!("elaborated declaration:\t{}\t: {}", name, term_ty);
-                log::trace!("elaborated definition:\t{}\t= {}", name, term);
+                log::trace!(
+                    "elaborated declaration:\t{}\t: {}",
+                    definition.name,
+                    term_ty
+                );
+                log::trace!("elaborated definition:\t{}\t= {}", definition.name, term);
 
-                context.insert_local(name.clone(), value, ty);
+                context.insert_local(definition.name.clone(), value, ty);
                 core_items.push(core::Item {
                     doc,
-                    name: name.clone(),
+                    name: definition.name.clone(),
                     term_ty,
                     term,
                 });
