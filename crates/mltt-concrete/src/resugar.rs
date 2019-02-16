@@ -5,7 +5,7 @@
 
 use mltt_core::syntax::{core, DbIndex, UniverseLevel};
 
-use crate::syntax;
+use crate::{Pattern, RecordIntroField, RecordTypeField, Term};
 
 pub struct Env {
     counter: usize,
@@ -38,50 +38,50 @@ impl Env {
     }
 }
 
-pub fn resugar(term: &core::RcTerm) -> syntax::Term {
+pub fn resugar(term: &core::RcTerm) -> Term {
     resugar_env(term, &mut Env::new())
 }
 
-pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
+pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
     // Using precedence climbing (mirroring the language grammar) in
     // order to cut down on extraneous parentheses.
 
-    fn resugar_term(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
+    fn resugar_term(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
             core::Term::Let(def, /* def_ty, */ body) => {
                 let def = resugar_app(def, env);
                 let (def_name, body) = env.with_binding(|env| resugar_term(body, env));
-                syntax::Term::Let(def_name, Box::new(def), Box::new(body))
+                Term::Let(def_name, Box::new(def), Box::new(body))
             },
             core::Term::FunIntro(/* param_ty, */ body) => {
                 let (param_name, body) = env.with_binding(|env| resugar_app(body, env));
                 // TODO: flatten params
-                syntax::Term::FunIntro(vec![syntax::Pattern::Var(param_name)], Box::new(body))
+                Term::FunIntro(vec![Pattern::Var(param_name)], Box::new(body))
             },
             _ => resugar_arrow(term, env),
         }
     }
 
-    fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
+    fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
             core::Term::FunType(param_ty, body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
                 let (param_name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
                 // TODO: only use `param_name` if it is used in `body_ty`
                 // TODO: flatten params
-                syntax::Term::FunType(vec![(vec![param_name], param_ty)], Box::new(body_ty))
+                Term::FunType(vec![(vec![param_name], param_ty)], Box::new(body_ty))
             },
             core::Term::RecordType(ty_fields) => {
                 let ty_fields = ty_fields
                     .iter()
-                    .map(|(_, label, ty)| syntax::RecordTypeField {
+                    .map(|(_, label, ty)| RecordTypeField {
                         docs: Vec::new(),
                         label: label.0.clone(),
                         ann: resugar_term(ty, env),
                     })
                     .collect();
 
-                syntax::Term::RecordType(ty_fields)
+                Term::RecordType(ty_fields)
             },
             core::Term::RecordIntro(intro_fields) => {
                 let intro_fields = intro_fields
@@ -89,7 +89,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
                     .map(|(label, term)| {
                         // TODO: Punned fields
                         // TODO: Function sugar
-                        syntax::RecordIntroField::Explicit {
+                        RecordIntroField::Explicit {
                             label: label.0.clone(),
                             patterns: Vec::new(),
                             term_ty: None,
@@ -98,34 +98,34 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
                     })
                     .collect();
 
-                syntax::Term::RecordIntro(intro_fields)
+                Term::RecordIntro(intro_fields)
             },
             _ => resugar_app(term, env),
         }
     }
 
-    fn resugar_app(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
+    fn resugar_app(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
             core::Term::FunApp(fun, arg) => match resugar_term(fun, env) {
-                syntax::Term::FunApp(fun, mut args) => {
+                Term::FunApp(fun, mut args) => {
                     args.push(resugar_atomic(arg, env));
-                    syntax::Term::FunApp(fun, args)
+                    Term::FunApp(fun, args)
                 },
-                fun => syntax::Term::FunApp(Box::new(fun), vec![resugar_atomic(arg, env)]),
+                fun => Term::FunApp(Box::new(fun), vec![resugar_atomic(arg, env)]),
             },
             _ => resugar_atomic(term, env),
         }
     }
 
-    fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> syntax::Term {
+    fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
-            core::Term::Var(index) => syntax::Term::Var(env.lookup_index(*index)),
+            core::Term::Var(index) => Term::Var(env.lookup_index(*index)),
             core::Term::RecordProj(record, label) => {
-                syntax::Term::RecordProj(Box::new(resugar_atomic(record, env)), label.0.clone())
+                Term::RecordProj(Box::new(resugar_atomic(record, env)), label.0.clone())
             },
-            core::Term::Universe(UniverseLevel(0)) => syntax::Term::Universe(None),
-            core::Term::Universe(UniverseLevel(level)) => syntax::Term::Universe(Some(*level)),
-            _ => syntax::Term::Parens(Box::new(resugar_term(term, env))),
+            core::Term::Universe(UniverseLevel(0)) => Term::Universe(None),
+            core::Term::Universe(UniverseLevel(level)) => Term::Universe(Some(*level)),
+            _ => Term::Parens(Box::new(resugar_term(term, env))),
         }
     }
 

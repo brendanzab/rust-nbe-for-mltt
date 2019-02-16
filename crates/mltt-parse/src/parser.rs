@@ -42,7 +42,7 @@
 //!
 
 use language_reporting::{Diagnostic, Label};
-use mltt_concrete::syntax::{
+use mltt_concrete::{
     Declaration, Definition, Item, Literal, LiteralKind, Pattern, RecordIntroField,
     RecordTypeField, Term,
 };

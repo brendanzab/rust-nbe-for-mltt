@@ -8,7 +8,7 @@
 //! - bidirectional type checking
 //! - elaboration of holes (TODO)
 
-use mltt_concrete::syntax::{Item, Pattern, RecordIntroField, Term};
+use mltt_concrete::{Item, Pattern, RecordIntroField, Term};
 use mltt_core::nbe::{self, NbeError};
 use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
 use std::error::Error;
