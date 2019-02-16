@@ -8,13 +8,11 @@
 //! - bidirectional type checking
 //! - elaboration of holes (TODO)
 
-use im;
+use mltt_concrete::syntax::{Item, Pattern, RecordIntroField, Term};
 use mltt_core::nbe::{self, NbeError};
 use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
 use std::error::Error;
 use std::fmt;
-
-use crate::syntax::{Item, Pattern, RecordIntroField, Term};
 
 /// Local elaboration context
 #[derive(Debug, Clone, PartialEq)]

@@ -1,5 +1,4 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
-use mltt_concrete::elaborate;
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
 use mltt_span::Files;
@@ -18,7 +17,7 @@ pub fn run(Options {}: Options) {
     };
 
     let mut files = Files::new();
-    let context = elaborate::Context::new();
+    let context = mltt_elaborate::Context::new();
 
     let writer = StandardStream::stdout(ColorChoice::Always);
 
@@ -46,7 +45,7 @@ pub fn run(Options {}: Options) {
                     },
                 };
 
-                let (core_term, ty) = match elaborate::synth_term(&context, &term) {
+                let (core_term, ty) = match mltt_elaborate::synth_term(&context, &term) {
                     Ok((core_term, ty)) => (core_term, ty),
                     Err(error) => {
                         println!("{}", error);

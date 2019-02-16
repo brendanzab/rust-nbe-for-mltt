@@ -1,6 +1,5 @@
 //! The semantic domain
 
-use im;
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;

@@ -1,5 +1,5 @@
 [package]
-name = "mltt-test-harness"
+name = "mltt-elaborate"
 version = "0.1.0"
 authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
 license = "MIT"
@@ -7,10 +7,10 @@ edition = "2018"
 publish = false
 
 [dependencies]
+im = "12.2.0"
 language-reporting = { git = "https://github.com/nikomatsakis/language-reporting", branch = "remove-codespan-dep" }
-mltt-concrete = { path = "../mltt-concrete"}
-mltt-core = { path = "../mltt-core"}
-mltt-elaborate = { path = "../mltt-elaborate"}
-mltt-parse = { path = "../mltt-parse"}
-mltt-span = { path = "../mltt-span"}
-pretty_env_logger = "0.3"
+log = "0.4"
+mltt-core = { path = "../mltt-core" }
+mltt-concrete = { path = "../mltt-concrete" }
+mltt-span = { path = "../mltt-span" }
+pretty = "0.5.2"

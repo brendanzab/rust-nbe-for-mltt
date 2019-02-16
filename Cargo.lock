@@ -269,6 +269,7 @@ dependencies = [
  "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
  "mltt-concrete 0.1.0",
  "mltt-core 0.1.0",
+ "mltt-elaborate 0.1.0",
  "mltt-parse 0.1.0",
  "mltt-span 0.1.0",
  "pretty_env_logger 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -294,6 +295,19 @@ version = "0.1.0"
 dependencies = [
  "im 12.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pretty 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "mltt-elaborate"
+version = "0.1.0"
+dependencies = [
+ "im 12.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mltt-concrete 0.1.0",
+ "mltt-core 0.1.0",
+ "mltt-span 0.1.0",
  "pretty 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -333,6 +347,7 @@ dependencies = [
  "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
  "mltt-concrete 0.1.0",
  "mltt-core 0.1.0",
+ "mltt-elaborate 0.1.0",
  "mltt-parse 0.1.0",
  "mltt-span 0.1.0",
  "pretty_env_logger 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",

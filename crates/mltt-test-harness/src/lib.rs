@@ -1,7 +1,6 @@
 #![warn(rust_2018_idioms)]
 
 use language_reporting::termcolor::{ColorChoice, StandardStream};
-use mltt_concrete::elaborate;
 use mltt_core::validate;
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
@@ -35,6 +34,6 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
         },
     };
 
-    let core_module = elaborate::check_module(&module).unwrap();
+    let core_module = mltt_elaborate::check_module(&module).unwrap();
     validate::check_module(&core_module).unwrap();
 }

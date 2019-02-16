@@ -3,7 +3,6 @@
 //! This is used to verify that the core syntax is correctly formed, for
 //! debugging purposes.
 
-use im;
 use std::error::Error;
 use std::fmt;
 
