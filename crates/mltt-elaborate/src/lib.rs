@@ -81,16 +81,15 @@ impl Context {
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
     pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &domain::RcType)> {
-        for (i, (n, ty)) in self.binders.iter().enumerate() {
-            if Some(name) == n.as_ref().map(String::as_str) {
-                let level = DbIndex(i as u32);
-
-                log::trace!("lookup binder: {} -> @{}", name, level.0);
-
-                return Some((level, ty));
+        Iterator::zip(0.., self.binders.iter()).find_map(|(index, (current_name, ty))| {
+            match current_name {
+                Some(current_name) if current_name == name => {
+                    log::trace!("lookup binder: {} -> @{}", name, index);
+                    Some((DbIndex(index), ty))
+                },
+                Some(_) | None => None,
             }
-        }
-        None
+        })
     }
 
     /// Evaluate a term using the evaluation environment
