@@ -1,3 +1,13 @@
+||| The unit type
+|||
+||| This is named 'unit' because it only has one possible inhabitant, `unit`.
+Unit : Type;
+Unit = Record {};
+
+||| Construct a value of the unit type.
+unit : Unit;
+unit = record {};
+
 ||| The polymorphic identity function
 id : Fun (A : Type) -> A -> A;
 id A a = a;
@@ -10,6 +20,9 @@ id A a = a;
 const : Fun (A B : Type) -> A -> B -> A;
 const A B a =
     fun b => a;
+
+test-const : Unit;
+test-const = const Unit (Unit -> Unit) unit (id Unit);
 
 ||| Dependent substitution.
 |||
@@ -43,3 +56,6 @@ compose A B C f g =
 flip : Fun (A B C : Type) -> (A -> B -> C) -> (B -> A -> C);
 flip A B C f =
     fun a b => f b a;
+
+test-flip : (Unit -> Unit) -> Unit -> Unit;
+test-flip = flip Unit (Unit -> Unit) Unit (const Unit (Unit -> Unit));
