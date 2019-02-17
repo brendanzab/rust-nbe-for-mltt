@@ -11,8 +11,11 @@
 use mltt_concrete::{Item, Pattern, RecordIntroField, Term};
 use mltt_core::nbe::{self, NbeError};
 use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
-use std::error::Error;
-use std::fmt;
+
+mod docs;
+mod errors;
+
+pub use self::errors::TypeError;
 
 /// Local elaboration context
 #[derive(Debug, Clone, PartialEq)]
@@ -118,92 +121,6 @@ impl Context {
     }
 }
 
-/// An error produced during type checking
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypeError {
-    AlreadyDeclared(String),
-    AlreadyDefined(String),
-    AlreadyDocumented(String),
-    ExpectedFunType { found: domain::RcType },
-    ExpectedPairType { found: domain::RcType },
-    ExpectedUniverse { found: domain::RcType },
-    ExpectedSubtype(domain::RcType, domain::RcType),
-    AmbiguousTerm(Term),
-    UnboundVariable(String),
-    NoFieldInType(String),
-    UnexpectedField { found: String, expected: String },
-    TooManyFieldsFound,
-    NotEnoughFieldsProvided,
-    Nbe(NbeError),
-}
-
-impl From<NbeError> for TypeError {
-    fn from(src: NbeError) -> TypeError {
-        TypeError::Nbe(src)
-    }
-}
-
-impl Error for TypeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            TypeError::Nbe(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for TypeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TypeError::AlreadyDeclared(name) => write!(f, "already declared: `{}`", name),
-            TypeError::AlreadyDefined(name) => write!(f, "already defined: `{}`", name),
-            TypeError::AlreadyDocumented(name) => write!(f, "already documented: `{}`", name),
-            TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
-            TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
-            TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
-            TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
-            TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
-            TypeError::UnboundVariable(name) => write!(f, "unbound variable `{}`", name),
-            TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
-            TypeError::UnexpectedField { found, expected } => write!(
-                f,
-                "unexpected field, found `{}`, but expected `{}`",
-                found, expected
-            ),
-            TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
-            TypeError::NotEnoughFieldsProvided => write!(f, "not enough fields provided"),
-            TypeError::Nbe(err) => err.fmt(f),
-        }
-    }
-}
-
-/// Concatenate a bunch of lines of documentation into a single string, removing
-/// comment prefixes if they are found.
-fn concat_docs(doc_lines: &[String]) -> String {
-    let mut doc = String::new();
-    for doc_line in doc_lines {
-        // Strip the `||| ` or `|||` prefix left over from tokenization
-        // We assume that each line of documentation has a trailing new line
-        doc.push_str(match doc_line {
-            doc_line if doc_line.starts_with("||| ") => &doc_line["||| ".len()..],
-            doc_line if doc_line.starts_with("|||") => &doc_line["|||".len()..],
-            doc_line => doc_line,
-        });
-    }
-    doc
-}
-
-/// Select the documentation from either the declaration or the definition,
-/// returning an error if both are present.
-fn merge_docs(name: &str, decl_docs: &[String], defn_docs: &[String]) -> Result<String, TypeError> {
-    match (decl_docs, defn_docs) {
-        ([], []) => Ok("".to_owned()),
-        (docs, []) => Ok(concat_docs(docs)),
-        ([], docs) => Ok(concat_docs(docs)),
-        (_, _) => Err(TypeError::AlreadyDocumented(name.to_owned())),
-    }
-}
-
 /// Check that this is a valid module
 pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeError> {
     // Declarations that may be waiting to be defined
@@ -264,7 +181,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
-                        let docs = concat_docs(&definition.docs);
+                        let docs = docs::concat(&definition.docs);
                         let (term, ty) = synth_clause(&context, patterns, body_ty, body)?;
                         entry.insert(None);
                         (docs, term, ty)
@@ -275,7 +192,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
-                            let docs = merge_docs(&definition.name, decl_docs, &definition.docs)?;
+                            let docs = docs::merge(&definition.name, decl_docs, &definition.docs)?;
                             let term = check_clause(&context, patterns, body_ty, body, &ty)?;
                             (docs, term, ty)
                         },
@@ -632,7 +549,7 @@ pub fn synth_term(
             let ty_fields = concrete_ty_fields
                 .iter()
                 .map(|concrete_ty_field| {
-                    let docs = concat_docs(&concrete_ty_field.docs);
+                    let docs = docs::concat(&concrete_ty_field.docs);
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
                     context.insert_binder(concrete_ty_field.label.clone(), context.eval(&ty)?);
                     max_level = cmp::max(max_level, ty_level);
