@@ -337,40 +337,6 @@ fn synth_clause(
     ))
 }
 
-/// Check that a record field introduction conforms to a given type
-fn check_record_intro_field(
-    context: &Context,
-    concrete_intro_field: &RecordIntroField,
-    expected_label: &Label,
-    expected_term_ty: &domain::RcType,
-) -> Result<(String, core::RcTerm), TypeError> {
-    match concrete_intro_field {
-        RecordIntroField::Punned { label } if expected_label.0 == *label => {
-            let (term, term_ty) = synth_var(context, label)?;
-            context.expect_subtype(&term_ty, expected_term_ty)?;
-
-            Ok((label.clone(), term))
-        },
-
-        RecordIntroField::Explicit {
-            label,
-            patterns,
-            term_ty,
-            term,
-        } if expected_label.0 == *label => {
-            let term = check_clause(context, patterns, term_ty.as_ref(), term, expected_term_ty)?;
-
-            Ok((label.clone(), term))
-        },
-        RecordIntroField::Punned { label } | RecordIntroField::Explicit { label, .. } => {
-            Err(TypeError::UnexpectedField {
-                found: label.clone(),
-                expected: expected_label.0.clone(),
-            })
-        },
-    }
-}
-
 /// Ensures that the given term is a universe, returning the level of that
 /// universe and its elaborated form.
 fn synth_universe(
@@ -420,20 +386,43 @@ pub fn check_term(
                 if let domain::Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
                     expected_ty.as_ref()
                 {
-                    let (found_label, term) = check_record_intro_field(
-                        &context,
-                        concrete_intro_field,
-                        expected_label,
-                        expected_term_ty,
-                    )?;
+                    let (found_label, term) = match concrete_intro_field {
+                        RecordIntroField::Punned { label } if expected_label.0 == *label => {
+                            let (term, term_ty) = synth_var(&context, label)?;
+                            context.expect_subtype(&term_ty, expected_term_ty)?;
+
+                            (label.clone(), term)
+                        },
+
+                        RecordIntroField::Explicit {
+                            label,
+                            patterns,
+                            term_ty,
+                            term,
+                        } if expected_label.0 == *label => {
+                            let term = check_clause(
+                                &context,
+                                patterns,
+                                term_ty.as_ref(),
+                                term,
+                                expected_term_ty,
+                            )?;
+
+                            (label.clone(), term)
+                        },
+                        RecordIntroField::Punned { label }
+                        | RecordIntroField::Explicit { label, .. } => {
+                            return Err(TypeError::UnexpectedField {
+                                found: label.clone(),
+                                expected: expected_label.0.clone(),
+                            });
+                        },
+                    };
                     let label = expected_label.clone();
                     let term_value = context.eval(&term)?;
+                    let term_ty = expected_term_ty.clone();
 
-                    context.insert_definition(
-                        found_label,
-                        term_value.clone(),
-                        expected_term_ty.clone(),
-                    );
+                    context.insert_definition(found_label, term_value.clone(), term_ty);
                     expected_ty = nbe::do_closure_app(&rest, term_value)?;
                     fields.push((label, term));
                 } else {
