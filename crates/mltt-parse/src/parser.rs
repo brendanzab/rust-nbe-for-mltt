@@ -106,6 +106,7 @@ impl Matcher<Token<'_>> for ArgTermStart {
             | TokenKind::IntLiteral
             | TokenKind::FloatLiteral
             | TokenKind::Open(DelimKind::Paren) => true,
+            TokenKind::Keyword if given.slice == "Type" => true,
             _ => false,
         }
     }
