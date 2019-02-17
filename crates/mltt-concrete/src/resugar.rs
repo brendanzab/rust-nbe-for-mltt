@@ -28,9 +28,9 @@ impl Env {
     }
 
     pub fn with_binding<T>(&mut self, f: impl Fn(&mut Env) -> T) -> (String, T) {
-        self.counter += 1;
         // TODO: use name hint to improve variable names
         let name = format!("x{}", self.counter);
+        self.counter += 1;
         self.names.push(name.clone());
         let result = f(self);
         self.names.pop();
