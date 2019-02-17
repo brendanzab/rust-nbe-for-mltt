@@ -148,17 +148,14 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
         // Functions
         Value::FunType(param_ty, body_ty) => {
             let param = RcValue::var(level);
-            let param_ty = param_ty.clone();
-            let body_ty = do_closure_app(body_ty, param)?;
+            let param_ty = read_back_term(level, param_ty)?;
+            let body_ty = read_back_term(level + 1, &do_closure_app(body_ty, param)?)?;
 
-            Ok(RcNormal::from(Normal::FunType(
-                read_back_term(level, &param_ty)?,
-                read_back_term(level + 1, &body_ty)?,
-            )))
+            Ok(RcNormal::from(Normal::FunType(param_ty, body_ty)))
         },
         Value::FunIntro(body) => {
             let param = RcValue::var(level);
-            let body = read_back_term(level + 1, &do_closure_app(body, param.clone())?)?;
+            let body = read_back_term(level + 1, &do_closure_app(body, param)?)?;
 
             Ok(RcNormal::from(Normal::FunIntro(body)))
         },
@@ -177,13 +174,10 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
                 rest_ty.as_ref()
             {
                 level += 1;
-
                 let next_term = RcValue::var(level);
-                let next_term_ty = read_back_term(level, next_term_ty)?;
-                let next_rest_ty = do_closure_app(next_rest_ty, next_term)?;
 
-                field_tys.push((next_label.clone(), next_term_ty));
-                rest_ty = next_rest_ty;
+                field_tys.push((next_label.clone(), read_back_term(level, next_term_ty)?));
+                rest_ty = do_closure_app(next_rest_ty, next_term)?;
             }
 
             Ok(RcNormal::from(Normal::RecordType(field_tys)))
