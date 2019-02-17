@@ -268,9 +268,9 @@ where
         log::trace!("expecting item");
 
         let docs = self.expect_doc_comments();
-        let name = self.expect_identifier()?;
+        let label = self.expect_identifier()?;
 
-        log::trace!("item name: {:?}", name);
+        log::trace!("item label: {:?}", label);
 
         if self.try_match(TokenKind::Colon).is_some() {
             log::trace!("expecting item declaration");
@@ -278,7 +278,7 @@ where
             let ann = self.parse_term(Prec(0))?;
             self.expect_match(TokenKind::Semicolon)?;
 
-            let declaration = Declaration { docs, name, ann };
+            let declaration = Declaration { docs, label, ann };
 
             Ok(Item::Declaration(declaration))
         } else {
@@ -298,7 +298,7 @@ where
 
                 let definition = Definition {
                     docs,
-                    name,
+                    label,
                     patterns,
                     body_ty,
                     body,
@@ -634,19 +634,19 @@ where
 
             // TODO: implement punned fields
 
-            let term_ty = match self.try_match(TokenKind::Colon) {
+            let body_ty = match self.try_match(TokenKind::Colon) {
                 None => None,
                 Some(_) => Some(self.parse_term(Prec(0))?),
             };
 
             self.expect_match(TokenKind::Equals)?;
-            let term = self.parse_term(Prec(0))?;
+            let body = self.parse_term(Prec(0))?;
 
             fields.push(RecordIntroField::Explicit {
                 label,
                 patterns,
-                term_ty,
-                term,
+                body_ty,
+                body,
             });
 
             if self.try_match(TokenKind::Semicolon).is_some() {
@@ -1033,14 +1033,14 @@ mod tests {
                 RecordIntroField::Explicit {
                     label: "x".to_owned(),
                     patterns: Vec::new(),
-                    term_ty: None,
-                    term: Term::Var("x".to_owned()),
+                    body_ty: None,
+                    body: Term::Var("x".to_owned()),
                 },
                 RecordIntroField::Explicit {
                     label: "y".to_owned(),
                     patterns: Vec::new(),
-                    term_ty: None,
-                    term: Term::Var("y".to_owned()),
+                    body_ty: None,
+                    body: Term::Var("y".to_owned()),
                 },
             ]),
         );
@@ -1054,14 +1054,14 @@ mod tests {
                 RecordIntroField::Explicit {
                     label: "f".to_owned(),
                     patterns: vec![Pattern::Var("x".to_owned()), Pattern::Var("y".to_owned())],
-                    term_ty: None,
-                    term: Term::Var("x".to_owned()),
+                    body_ty: None,
+                    body: Term::Var("x".to_owned()),
                 },
                 RecordIntroField::Explicit {
                     label: "g".to_owned(),
                     patterns: vec![Pattern::Var("x".to_owned()), Pattern::Var("y".to_owned())],
-                    term_ty: Some(Term::Universe(None)),
-                    term: Term::Var("x".to_owned()),
+                    body_ty: Some(Term::Universe(None)),
+                    body: Term::Var("x".to_owned()),
                 },
             ]),
         );
@@ -1075,14 +1075,14 @@ mod tests {
                 RecordIntroField::Explicit {
                     label: "x".to_owned(),
                     patterns: Vec::new(),
-                    term_ty: None,
-                    term: Term::Var("x".to_owned()),
+                    body_ty: None,
+                    body: Term::Var("x".to_owned()),
                 },
                 RecordIntroField::Explicit {
                     label: "y".to_owned(),
                     patterns: Vec::new(),
-                    term_ty: Some(Term::Universe(None)),
-                    term: Term::Var("y".to_owned()),
+                    body_ty: Some(Term::Universe(None)),
+                    body: Term::Var("y".to_owned()),
                 },
             ]),
         );

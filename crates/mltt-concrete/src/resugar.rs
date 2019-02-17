@@ -86,14 +86,14 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
             core::Term::RecordIntro(intro_fields) => {
                 let intro_fields = intro_fields
                     .iter()
-                    .map(|(label, term)| {
+                    .map(|(label, body)| {
                         // TODO: Punned fields
                         // TODO: Function sugar
                         RecordIntroField::Explicit {
                             label: label.0.clone(),
                             patterns: Vec::new(),
-                            term_ty: None,
-                            term: resugar_term(term, env),
+                            body_ty: None,
+                            body: resugar_term(body, env),
                         }
                     })
                     .collect();

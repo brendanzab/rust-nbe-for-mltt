@@ -140,11 +140,11 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
             Item::Declaration(declaration) => {
                 log::trace!(
                     "checking declaration:\t\t{}\t: {}",
-                    declaration.name,
+                    declaration.label,
                     declaration.ann,
                 );
 
-                match forward_declarations.entry(&declaration.name) {
+                match forward_declarations.entry(&declaration.label) {
                     // No previous declaration for this name was seen, so we can
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
@@ -162,14 +162,14 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     // There's a declaration for this name already pending - we
                     // can't add a new one!
                     Entry::Occupied(_) => {
-                        return Err(TypeError::AlreadyDeclared(declaration.name.clone()));
+                        return Err(TypeError::AlreadyDeclared(declaration.label.clone()));
                     },
                 }
             },
             Item::Definition(definition) => {
                 log::trace!(
                     "checking definition:\t\t{}\t= {}",
-                    definition.name,
+                    definition.label,
                     definition.body,
                 );
 
@@ -177,7 +177,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                 let body_ty = definition.body_ty.as_ref();
                 let body = &definition.body;
 
-                let (doc, term, ty) = match forward_declarations.entry(&definition.name) {
+                let (doc, term, ty) = match forward_declarations.entry(&definition.label) {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
@@ -192,7 +192,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
-                            let docs = docs::merge(&definition.name, decl_docs, &definition.docs)?;
+                            let docs = docs::merge(&definition.label, decl_docs, &definition.docs)?;
                             let term = check_clause(&context, patterns, body_ty, body, &ty)?;
                             (docs, term, ty)
                         },
@@ -202,7 +202,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // NOTE: Some languages (eg. Haskell, Agda, Idris, and
                         // Erlang) turn duplicate definitions into case matches.
                         // Languages like Elm don't. What should we do here?
-                        None => return Err(TypeError::AlreadyDefined(definition.name.clone())),
+                        None => return Err(TypeError::AlreadyDefined(definition.label.clone())),
                     },
                 };
                 let value = context.eval(&term)?;
@@ -214,15 +214,15 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
 
                 log::trace!(
                     "elaborated declaration:\t{}\t: {}",
-                    definition.name,
+                    definition.label,
                     term_ty
                 );
-                log::trace!("elaborated definition:\t{}\t= {}", definition.name, term);
+                log::trace!("elaborated definition:\t{}\t= {}", definition.label, term);
 
-                context.insert_definition(definition.name.clone(), value, ty);
+                context.insert_definition(definition.label.clone(), value, ty);
                 core_items.push(core::Item {
                     doc,
-                    name: definition.name.clone(),
+                    label: definition.label.clone(),
                     term_ty,
                     term,
                 });
@@ -397,14 +397,14 @@ pub fn check_term(
                         RecordIntroField::Explicit {
                             label,
                             patterns,
-                            term_ty,
-                            term,
+                            body_ty,
+                            body,
                         } if expected_label.0 == *label => {
                             let term = check_clause(
                                 &context,
                                 patterns,
-                                term_ty.as_ref(),
-                                term,
+                                body_ty.as_ref(),
+                                body,
                                 expected_term_ty,
                             )?;
 

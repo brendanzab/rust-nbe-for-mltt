@@ -41,7 +41,7 @@ impl Item {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
     pub docs: Vec<String>,
-    pub name: String,
+    pub label: String,
     pub ann: Term,
 }
 
@@ -49,7 +49,7 @@ pub struct Declaration {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
     pub docs: Vec<String>,
-    pub name: String,
+    pub label: String,
     pub patterns: Vec<Pattern>,
     pub body_ty: Option<Term>,
     pub body: Term,
@@ -143,8 +143,8 @@ pub enum RecordIntroField {
     Explicit {
         label: String,
         patterns: Vec<Pattern>,
-        term_ty: Option<Term>,
-        term: Term,
+        body_ty: Option<Term>,
+        body: Term,
     },
 }
 
@@ -156,15 +156,15 @@ impl RecordIntroField {
             RecordIntroField::Explicit {
                 label,
                 patterns,
-                term_ty,
-                term,
+                body_ty,
+                body,
             } => {
                 let patterns = Doc::intersperse(patterns.iter().map(Pattern::to_doc), Doc::space());
-                let term_ty = term_ty.as_ref().map_or(Doc::nil(), |term_ty| {
+                let body_ty = body_ty.as_ref().map_or(Doc::nil(), |body_ty| {
                     Doc::nil()
                         .append(":")
                         .append(Doc::space())
-                        .append(term_ty.to_doc())
+                        .append(body_ty.to_doc())
                         .append(Doc::space())
                 });
 
@@ -173,10 +173,10 @@ impl RecordIntroField {
                     .append(Doc::space())
                     .append(patterns)
                     .append(Doc::space())
-                    .append(term_ty)
+                    .append(body_ty)
                     .append("=")
                     .append(Doc::space())
-                    .append(term.to_doc())
+                    .append(body.to_doc())
                     .append(";")
             },
         }

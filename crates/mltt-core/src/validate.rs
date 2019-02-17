@@ -134,7 +134,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
     let mut context = Context::new();
 
     for item in items {
-        log::trace!("checking item:\t{}", item.name);
+        log::trace!("checking item:\t{}", item.label);
 
         log::trace!("checking declaration:\t{}", item.term_ty);
         synth_universe(&context, &item.term_ty)?;
@@ -144,7 +144,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
         check_term(&context, &item.term, &term_ty)?;
         let value = context.eval(&item.term)?;
 
-        log::trace!("validated item:\t{}", item.name);
+        log::trace!("validated item:\t{}", item.label);
         context.insert_local(value, term_ty);
     }
 
