@@ -4,17 +4,31 @@ use mltt_parse::parser;
 use mltt_span::Files;
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
-
-static PROMPT: &'static str = "> ";
+use std::path::PathBuf;
 
 #[derive(structopt::StructOpt)]
-pub struct Options {}
+pub struct Options {
+    /// The file to save the command history to
+    #[structopt(long = "history-file", default_value = "repl-history")]
+    pub history_file: PathBuf,
+    /// The prompt to display before expressions
+    #[structopt(long = "prompt", default_value = "> ")]
+    pub prompt: String,
+}
 
-pub fn run(Options {}: Options) {
+pub fn run(options: Options) {
     let mut editor = {
-        let config = Config::builder().history_ignore_space(true).build();
+        let config = Config::builder()
+            .history_ignore_space(true)
+            .history_ignore_dups(true)
+            .build();
+
         Editor::<()>::with_config(config)
     };
+
+    if editor.load_history(&options.history_file).is_err() {
+        // No previous REPL history!
+    }
 
     let mut files = Files::new();
     let context = mltt_elaborate::Context::new();
@@ -22,13 +36,15 @@ pub fn run(Options {}: Options) {
     let writer = StandardStream::stdout(ColorChoice::Always);
 
     loop {
-        let line = editor.readline(PROMPT);
+        let line = editor.readline(&options.prompt);
         match line {
             Ok(line) => {
                 use mltt_concrete::resugar;
                 use mltt_core::syntax::core;
 
                 let file_id = files.add("repl", line);
+
+                editor.add_history_entry(files[file_id].contents());
 
                 let lexer = Lexer::new(&files[file_id]);
                 let term = match parser::parse_term(lexer) {
@@ -60,8 +76,6 @@ pub fn run(Options {}: Options) {
                 let ty = resugar::resugar(&core::RcTerm::from(&ty_nf));
 
                 println!("{} : {}", term, ty);
-
-                editor.add_history_entry(files[file_id].contents());
             },
             Err(error) => {
                 match error {
@@ -73,4 +87,6 @@ pub fn run(Options {}: Options) {
             },
         }
     }
+
+    editor.save_history(&options.history_file).unwrap();
 }
