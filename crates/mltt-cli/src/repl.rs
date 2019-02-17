@@ -4,6 +4,7 @@ use mltt_parse::parser;
 use mltt_span::Files;
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
+use std::error::Error;
 use std::path::PathBuf;
 
 #[derive(structopt::StructOpt)]
@@ -16,7 +17,7 @@ pub struct Options {
     pub prompt: String,
 }
 
-pub fn run(options: Options) {
+pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     let mut editor = {
         let config = Config::builder()
             .history_ignore_space(true)
@@ -50,13 +51,8 @@ pub fn run(options: Options) {
                 let term = match parser::parse_term(lexer) {
                     Ok(term) => term,
                     Err(diagnostic) => {
-                        language_reporting::emit(
-                            &mut writer.lock(),
-                            &files,
-                            &diagnostic,
-                            &language_reporting::DefaultConfig,
-                        )
-                        .unwrap();
+                        let config = language_reporting::DefaultConfig;
+                        language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
                         continue;
                     },
                 };
@@ -77,16 +73,15 @@ pub fn run(options: Options) {
 
                 println!("{} : {}", term, ty);
             },
-            Err(error) => {
-                match error {
-                    ReadlineError::Interrupted => println!("CTRL-C"),
-                    ReadlineError::Eof => println!("CTRL-D"),
-                    err => println!("Error: {:?}", err),
-                }
-                break;
-            },
+            Err(ReadlineError::Interrupted) => println!("Interrupted!"),
+            Err(ReadlineError::Eof) => break,
+            Err(error) => return Err(error.into()),
         }
     }
 
-    editor.save_history(&options.history_file).unwrap();
+    editor.save_history(&options.history_file)?;
+
+    println!("Bye bye");
+
+    Ok(())
 }
