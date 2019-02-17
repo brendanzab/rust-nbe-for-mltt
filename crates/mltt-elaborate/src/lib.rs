@@ -167,7 +167,7 @@ impl fmt::Display for TypeError {
             TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
             TypeError::UnexpectedField { found, expected } => write!(
                 f,
-                "enexpected field, found `{}`, but expected `{}`",
+                "unexpected field, found `{}`, but expected `{}`",
                 found, expected
             ),
             TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
