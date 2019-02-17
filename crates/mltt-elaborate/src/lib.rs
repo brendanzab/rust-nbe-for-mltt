@@ -45,8 +45,8 @@ impl Context {
         &self.values
     }
 
-    /// Add a new local entry to the context
-    pub fn insert_local(
+    /// Add a new local definition to the context
+    pub fn insert_definition(
         &mut self,
         name: impl Into<Option<String>>,
         value: domain::RcValue,
@@ -69,7 +69,7 @@ impl Context {
         ty: domain::RcType,
     ) -> domain::RcValue {
         let param = domain::RcValue::var(self.level());
-        self.insert_local(name, param.clone(), ty);
+        self.insert_definition(name, param.clone(), ty);
         param
     }
 
@@ -302,7 +302,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                 );
                 log::trace!("elaborated definition:\t{}\t= {}", definition.name, term);
 
-                context.insert_local(definition.name.clone(), value, ty);
+                context.insert_definition(definition.name.clone(), value, ty);
                 core_items.push(core::Item {
                     doc,
                     name: definition.name.clone(),
@@ -482,7 +482,7 @@ pub fn check_term(
             let def_value = context.eval(&def)?;
             let body = {
                 let mut context = context.clone();
-                context.insert_local(def_name.clone(), def_value, def_ty);
+                context.insert_definition(def_name.clone(), def_value, def_ty);
                 check_term(&context, concrete_body, expected_ty)?
             };
 
@@ -512,7 +512,11 @@ pub fn check_term(
                     let label = expected_label.clone();
                     let term_value = context.eval(&term)?;
 
-                    context.insert_local(found_label, term_value.clone(), expected_term_ty.clone());
+                    context.insert_definition(
+                        found_label,
+                        term_value.clone(),
+                        expected_term_ty.clone(),
+                    );
                     expected_ty = nbe::do_closure_app(&rest, term_value)?;
                     fields.push((label, term));
                 } else {
@@ -552,7 +556,7 @@ pub fn synth_term(
             let def_value = context.eval(&def)?;
             let (body, body_ty) = {
                 let mut context = context.clone();
-                context.insert_local(def_name.clone(), def_value, def_ty);
+                context.insert_definition(def_name.clone(), def_value, def_ty);
                 synth_term(&context, concrete_body)?
             };
 
