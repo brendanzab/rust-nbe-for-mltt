@@ -8,6 +8,8 @@
 //! - bidirectional type checking
 //! - elaboration of holes (TODO)
 
+#![warn(rust_2018_idioms)]
+
 use mltt_concrete::{Item, Pattern, RecordIntroField, Term};
 use mltt_core::nbe::{self, NbeError};
 use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
