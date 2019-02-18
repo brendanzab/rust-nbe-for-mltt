@@ -35,5 +35,8 @@ pub fn run(_test_name: &str, test_path: impl AsRef<Path>) {
     };
 
     let core_module = mltt_elaborate::check_module(&module).unwrap();
-    validate::check_module(&core_module).unwrap();
+    match validate::check_module(&core_module) {
+        Ok(()) => {},
+        Err(error) => panic!("failed validation: {}\n\n{:#?}", error, error),
+    }
 }
