@@ -273,7 +273,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
         Term::RecordType(ty_fields) => {
             let mut context = context.clone();
-            let mut max_level = UniverseLevel::from(0);
+            let mut max_level = UniverseLevel(0);
 
             for (_, _, ty) in ty_fields {
                 let ty_level = synth_universe(&context, &ty)?;
@@ -317,20 +317,20 @@ mod test {
     fn insert_binders() {
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
         let param1 = context.insert_binder(ty1.clone());
         let param2 = context.insert_binder(ty2.clone());
         let param3 = context.insert_binder(ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
 
-        assert_eq!(context.lookup_binder(DbIndex::from(2)).unwrap(), &ty1);
-        assert_eq!(context.lookup_binder(DbIndex::from(1)).unwrap(), &ty2);
-        assert_eq!(context.lookup_binder(DbIndex::from(0)).unwrap(), &ty3);
+        assert_eq!(context.lookup_binder(DbIndex(2)).unwrap(), &ty1);
+        assert_eq!(context.lookup_binder(DbIndex(1)).unwrap(), &ty2);
+        assert_eq!(context.lookup_binder(DbIndex(0)).unwrap(), &ty3);
     }
 }

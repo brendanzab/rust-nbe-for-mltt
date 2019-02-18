@@ -477,7 +477,7 @@ pub fn synth_term(
         Term::FunType(concrete_params, concrete_body_ty) => {
             let mut context = context.clone();
             let mut param_tys = Vec::new();
-            let mut max_level = UniverseLevel::from(0);
+            let mut max_level = UniverseLevel(0);
 
             for (param_names, concrete_param_ty) in concrete_params {
                 for param_name in param_names {
@@ -534,7 +534,7 @@ pub fn synth_term(
 
         Term::RecordType(concrete_ty_fields) => {
             let mut context = context.clone();
-            let mut max_level = UniverseLevel::from(0);
+            let mut max_level = UniverseLevel(0);
 
             let ty_fields = concrete_ty_fields
                 .iter()
@@ -575,7 +575,7 @@ pub fn synth_term(
         },
 
         Term::Universe(level) => {
-            let level = UniverseLevel::from(level.unwrap_or(0));
+            let level = UniverseLevel(level.unwrap_or(0));
             Ok((
                 core::RcTerm::from(core::Term::Universe(level)),
                 domain::RcValue::from(domain::Value::Universe(level + 1)),
@@ -594,17 +594,17 @@ mod test {
 
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
         let param1 = context.insert_binder("x".to_owned(), ty1.clone());
         let param2 = context.insert_binder("y".to_owned(), ty2.clone());
         let param3 = context.insert_binder("z".to_owned(), ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
         assert_eq!(context.lookup_binder("y").unwrap().1, &ty2);
@@ -617,17 +617,17 @@ mod test {
 
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
         let param1 = context.insert_binder("x".to_owned(), ty1.clone());
         let param2 = context.insert_binder("x".to_owned(), ty2.clone());
         let param3 = context.insert_binder("x".to_owned(), ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty3);
     }
@@ -638,17 +638,17 @@ mod test {
 
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
         let param1 = context.insert_binder("x".to_owned(), ty1.clone());
         let param2 = context.insert_binder(None, ty2.clone());
         let param3 = context.insert_binder(None, ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
     }
