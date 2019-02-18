@@ -129,6 +129,7 @@ impl Term {
                     .append("=>")
                     .append(Doc::space())
                     .append(to_doc_app(body.as_ref())),
+                Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
                 Term::RecordType(ty_fields) => Doc::nil()
                     .append("Record")
                     .append(Doc::space())
@@ -151,6 +152,9 @@ impl Term {
                     )
                     .append(Doc::newline())
                     .append("}"),
+                Term::RecordIntro(intro_fields) if intro_fields.is_empty() => {
+                    Doc::text("record {}")
+                },
                 Term::RecordIntro(intro_fields) => Doc::nil()
                     .append("record")
                     .append(Doc::space())
