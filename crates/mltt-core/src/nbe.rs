@@ -77,7 +77,8 @@ pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
     }
 }
 
-/// Evaluate a syntactic term into a semantic value
+/// Evaluate a term in the environment that corresponds to the context in which
+/// the term was typed.
 pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
     match term.as_ref() {
         Term::Var(DbIndex(index)) => match env.get(*index as usize) {
