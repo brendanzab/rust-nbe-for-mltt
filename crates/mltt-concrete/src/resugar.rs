@@ -21,7 +21,7 @@ impl Env {
     }
 
     pub fn lookup_index(&self, index: DbIndex) -> String {
-        match self.names.get(index.0 as usize) {
+        match self.names.get(self.names.len() - (index.0 + 1) as usize) {
             Some(name) => name.clone(),
             None => format!("free{}", index.0),
         }
