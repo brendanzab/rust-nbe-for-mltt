@@ -134,7 +134,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
     let mut context = Context::new();
 
     for item in items {
-        log::trace!("checking item:\t{}", item.label);
+        log::trace!("checking item:\t\t{}", item.label);
 
         log::trace!("checking declaration:\t{}", item.term_ty);
         synth_universe(&context, &item.term_ty)?;
@@ -144,7 +144,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
         check_term(&context, &item.term, &term_ty)?;
         let value = context.eval(&item.term)?;
 
-        log::trace!("validated item:\t{}", item.label);
+        log::trace!("validated item:\t\t{}", item.label);
         context.insert_local(value, term_ty);
     }
 
@@ -162,7 +162,7 @@ fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, Typ
 
 /// Check that a term conforms to a given type
 pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
-    log::trace!("checking term:\t{}", term);
+    log::trace!("checking term:\t\t{}", term);
 
     match term.as_ref() {
         Term::Literal(literal) => unimplemented!("literals {:?}", literal),
@@ -226,7 +226,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
     use std::cmp;
 
-    log::trace!("synthesizing term:\t{}", term);
+    log::trace!("synthesizing term:\t\t{}", term);
 
     match term.as_ref() {
         Term::Var(index) => match context.lookup_binder(*index) {
