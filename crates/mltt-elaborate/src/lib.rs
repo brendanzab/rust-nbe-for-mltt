@@ -583,3 +583,73 @@ pub fn synth_term(
         },
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn insert_binders() {
+        use mltt_core::syntax::domain::{RcValue, Value};
+
+        let mut context = Context::new();
+
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+
+        let param1 = context.insert_binder("x".to_owned(), ty1.clone());
+        let param2 = context.insert_binder("y".to_owned(), ty2.clone());
+        let param3 = context.insert_binder("z".to_owned(), ty3.clone());
+
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+
+        assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
+        assert_eq!(context.lookup_binder("y").unwrap().1, &ty2);
+        assert_eq!(context.lookup_binder("z").unwrap().1, &ty3);
+    }
+
+    #[test]
+    fn insert_binders_shadow() {
+        use mltt_core::syntax::domain::{RcValue, Value};
+
+        let mut context = Context::new();
+
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+
+        let param1 = context.insert_binder("x".to_owned(), ty1.clone());
+        let param2 = context.insert_binder("x".to_owned(), ty2.clone());
+        let param3 = context.insert_binder("x".to_owned(), ty3.clone());
+
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+
+        assert_eq!(context.lookup_binder("x").unwrap().1, &ty3);
+    }
+
+    #[test]
+    fn insert_binders_fresh() {
+        use mltt_core::syntax::domain::{RcValue, Value};
+
+        let mut context = Context::new();
+
+        let ty1 = RcValue::from(Value::Universe(UniverseLevel::from(0)));
+        let ty2 = RcValue::from(Value::Universe(UniverseLevel::from(1)));
+        let ty3 = RcValue::from(Value::Universe(UniverseLevel::from(2)));
+
+        let param1 = context.insert_binder("x".to_owned(), ty1.clone());
+        let param2 = context.insert_binder(None, ty2.clone());
+        let param3 = context.insert_binder(None, ty3.clone());
+
+        assert_eq!(param1, RcValue::from(Value::var(DbLevel::from(0))));
+        assert_eq!(param2, RcValue::from(Value::var(DbLevel::from(1))));
+        assert_eq!(param3, RcValue::from(Value::var(DbLevel::from(2))));
+
+        assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
+    }
+}
