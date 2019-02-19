@@ -273,48 +273,41 @@ where
 
         log::trace!("item label: {:?}", label);
 
-        if self.try_match(TokenKind::Colon).is_some() {
-            log::trace!("expecting item declaration");
+        let patterns = self.parse_patterns()?;
 
+        let body_ty = if self.try_match(TokenKind::Colon).is_some() {
             let ann = self.parse_term(Prec(0))?;
+
+            if patterns.is_empty() && self.try_match(TokenKind::Semicolon).is_some() {
+                return Ok(Item::Declaration(Declaration { docs, label, ann }));
+            } else {
+                Some(ann)
+            }
+        } else {
+            None
+        };
+
+        if self.try_match(TokenKind::Equals).is_some() {
+            let body = self.parse_term(Prec(0))?;
             self.expect_match(TokenKind::Semicolon)?;
 
-            let declaration = Declaration { docs, label, ann };
-
-            Ok(Item::Declaration(declaration))
-        } else {
-            log::trace!("expecting item definition");
-
-            let patterns = self.parse_patterns()?;
-
-            let body_ty = if self.try_match(TokenKind::Colon).is_some() {
-                Some(self.parse_term(Prec(0))?)
-            } else {
-                None
+            let definition = Definition {
+                docs,
+                label,
+                patterns,
+                body_ty,
+                body,
             };
 
-            if self.try_match(TokenKind::Equals).is_some() {
-                let body = self.parse_term(Prec(0))?;
-                self.expect_match(TokenKind::Semicolon)?;
-
-                let definition = Definition {
-                    docs,
-                    label,
-                    patterns,
-                    body_ty,
-                    body,
-                };
-
-                Ok(Item::Definition(definition))
-            } else if patterns.is_empty() {
-                // TODO: Span
-                Err(Diagnostic::new_error("expected declaration or definition"))
-            } else {
-                // TODO: Span
-                Err(Diagnostic::new_error(
-                    "expected equals after definition parameters",
-                ))
-            }
+            Ok(Item::Definition(definition))
+        } else if patterns.is_empty() {
+            // TODO: Span
+            Err(Diagnostic::new_error("expected declaration or definition"))
+        } else {
+            // TODO: Span
+            Err(Diagnostic::new_error(
+                "expected equals after definition parameters",
+            ))
         }
     }
 
