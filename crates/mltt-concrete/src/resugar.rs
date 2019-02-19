@@ -27,13 +27,22 @@ impl Env {
         }
     }
 
-    pub fn with_binding<T>(&mut self, f: impl Fn(&mut Env) -> T) -> (String, T) {
+    fn push_name(&mut self) -> String {
         // TODO: use name hint to improve variable names
         let name = format!("x{}", self.counter);
         self.counter += 1;
         self.names.push(name.clone());
-        let result = f(self);
+        name
+    }
+
+    fn pop_name(&mut self) {
         self.names.pop();
+    }
+
+    pub fn with_binding<T>(&mut self, f: impl Fn(&mut Env) -> T) -> (String, T) {
+        let name = self.push_name();
+        let result = f(self);
+        self.pop_name();
         (name, result)
     }
 }
@@ -74,12 +83,21 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
             core::Term::RecordType(ty_fields) => {
                 let ty_fields = ty_fields
                     .iter()
-                    .map(|(_, label, ty)| RecordTypeField {
-                        docs: Vec::new(),
-                        label: label.0.clone(),
-                        ann: resugar_term(ty, env),
+                    .map(|(_, label, ty)| {
+                        let field = RecordTypeField {
+                            docs: Vec::new(),
+                            label: label.0.clone(),
+                            ann: resugar_term(ty, env),
+                        };
+                        // FIXME: use `label` as name
+                        env.push_name();
+                        field
                     })
                     .collect();
+
+                for _ in &ty_fields {
+                    env.pop_name();
+                }
 
                 Term::RecordType(ty_fields)
             },
