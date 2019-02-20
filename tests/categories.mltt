@@ -1,0 +1,58 @@
+||| A category is a very general structure that provides a common way of composing
+||| units of functionality
+|||
+||| The most common category programmers would be familiar with would be `Type`s
+||| are the objects, and the functions between those types are the arrows. Many
+||| other categories exist though, for example:
+|||
+||| - nodes in a directed graph, and the edges between those nodes.
+||| - etc.
+Category = Record {
+    ||| An object in the category
+    Object : Type;
+    ||| Arrows between the objects in the category
+    Arrow : Object -> Object -> Type;
+    ||| The identity arrow
+    id : Fun (A : Object) -> Arrow A A;
+    ||| The sequencing of two arrows
+    seq : Fun (A B C : Object) -> Arrow A B -> Arrow B C -> Arrow A C;
+};
+
+||| The identity arrow
+id : Fun (cat : Category) (A : cat.Object) -> cat.Arrow A A;
+id cat = cat.id;
+
+||| The sequencing of two arrows
+seq : Fun (cat : Category) (A B C : cat.Object) -> cat.Arrow A B -> cat.Arrow B C -> cat.Arrow A C;
+seq cat = cat.seq;
+
+||| The composition of two arrows
+compose : Fun (cat : Category) (A B C : cat.Object) -> cat.Arrow B C -> cat.Arrow A B -> cat.Arrow A C;
+compose cat A B C f g = seq cat A B C g f;
+
+||| Provides a mapping from objects-to-objects and arrows-to-arrows for two
+||| categories, `Source` and `Target`
+|||
+||| Mappings can be anything from applying a function to each element of a
+||| collection, to compiling a source language to a target language.
+|||
+||| Haskell programmers might find this definition a little foreign - this
+||| is because we use general categories in the definition, rather than
+||| specializing it into the category of Pikelet functions
+Functor = Record {
+    ||| The source category
+    Source : Category;
+    ||| The target category
+    Target : Category;
+    ||| Maps an object in `Source` to an object in `Target`
+    Map : Source.Object -> Target.Object;
+    ||| Maps an arrow in `Source` into an arrow in `Target`
+    map : Fun (A B : Source.Object) -> Source.Arrow A B -> Target.Arrow (Map A) (Map B);
+};
+
+||| Maps an arrow in `F.Source` into an arrow in `F.Target`
+map :
+    Fun (functor : Functor) (A B : functor.Source.Object) ->
+        functor.Source.Arrow A B ->
+        functor.Target.Arrow (functor.Map A) (functor.Map B);
+map functor = functor.map;
