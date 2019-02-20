@@ -4,7 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::{normal, DbIndex, Label, Literal, UniverseLevel};
+use crate::syntax::{normal, AppMode, DbIndex, Label, Literal, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
 
@@ -51,14 +51,14 @@ pub enum Term {
     /// Literals
     Literal(Literal),
     /// Let bindings
-    Let(RcTerm, /* RcTerm, */ RcTerm),
+    Let(RcTerm, RcTerm),
 
     /// Dependent function types
-    FunType(RcTerm, RcTerm),
+    FunType(AppMode, RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(/* RcTerm, */ RcTerm),
+    FunIntro(AppMode, RcTerm),
     /// Apply a function to an argument
-    FunApp(RcTerm, RcTerm),
+    FunApp(RcTerm, AppMode, RcTerm),
 
     /// Dependent record types
     RecordType(Vec<(String, Label, RcTerm)>),
@@ -104,11 +104,9 @@ impl Term {
                     .append("in")
                     .append(Doc::space())
                     .append(to_doc_term(body.as_ref())),
-                Term::FunType(param_ty, body_ty) => Doc::nil()
-                    .append(Doc::group(
-                        Doc::nil()
-                            .append("Fun")
-                            .append(Doc::space())
+                Term::FunType(app_mode, param_ty, body_ty) => {
+                    let param = match app_mode {
+                        AppMode::Explicit => Doc::nil()
                             .append("(")
                             .append("_")
                             .append(Doc::space())
@@ -116,19 +114,47 @@ impl Term {
                             .append(Doc::space())
                             .append(to_doc_term(param_ty.as_ref()))
                             .append(")"),
-                    ))
-                    .append(Doc::space())
-                    .append("->")
-                    .append(Doc::space())
-                    .append(to_doc_app(body_ty.as_ref())),
-                Term::FunIntro(body) => Doc::nil()
-                    .append("fun")
-                    .append(Doc::space())
-                    .append("_")
-                    .append(Doc::space())
-                    .append("=>")
-                    .append(Doc::space())
-                    .append(to_doc_app(body.as_ref())),
+                        AppMode::Implicit(label) => Doc::nil()
+                            .append("{")
+                            .append(&label.0)
+                            .append(Doc::space())
+                            .append(":")
+                            .append(Doc::space())
+                            .append(to_doc_term(param_ty.as_ref()))
+                            .append("}"),
+                    };
+
+                    Doc::nil()
+                        .append(Doc::group(
+                            Doc::text("Fun").append(Doc::space()).append(param),
+                        ))
+                        .append(Doc::space())
+                        .append("->")
+                        .append(Doc::space())
+                        .append(to_doc_app(body_ty.as_ref()))
+                },
+                Term::FunIntro(app_mode, body) => {
+                    let param = match app_mode {
+                        AppMode::Explicit => Doc::text("_"),
+                        AppMode::Implicit(label) => Doc::nil()
+                            .append("{")
+                            .append(&label.0)
+                            .append(Doc::space())
+                            .append("=")
+                            .append(Doc::space())
+                            .append("_")
+                            .append("}"),
+                    };
+
+                    Doc::nil()
+                        .append("fun")
+                        .append(Doc::space())
+                        .append(param)
+                        .append(Doc::space())
+                        .append("=>")
+                        .append(Doc::space())
+                        .append(to_doc_app(body.as_ref()))
+                },
                 Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
                 Term::RecordType(ty_fields) => Doc::nil()
                     .append("Record")
@@ -183,10 +209,24 @@ impl Term {
 
         fn to_doc_app(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
-                Term::FunApp(fun, arg) => Doc::nil()
-                    .append(to_doc_term(fun.as_ref()))
-                    .append(Doc::space())
-                    .append(to_doc_atomic(arg.as_ref())),
+                Term::FunApp(fun, app_mode, arg) => {
+                    let arg = match app_mode {
+                        AppMode::Explicit => to_doc_atomic(arg.as_ref()),
+                        AppMode::Implicit(label) => Doc::nil()
+                            .append("{")
+                            .append(&label.0)
+                            .append(Doc::space())
+                            .append("=")
+                            .append(Doc::space())
+                            .append(to_doc_term(arg.as_ref()))
+                            .append("}"),
+                    };
+
+                    Doc::nil()
+                        .append(to_doc_term(fun.as_ref()))
+                        .append(Doc::space())
+                        .append(arg)
+                },
                 _ => to_doc_atomic(term),
             }
         }
@@ -226,10 +266,14 @@ impl From<&'_ normal::Normal> for RcTerm {
         RcTerm::from(match src {
             normal::Normal::Neutral(neutral) => return RcTerm::from(neutral),
             normal::Normal::Literal(literal) => Term::Literal(literal.clone()),
-            normal::Normal::FunType(param_ty, body_ty) => {
-                Term::FunType(RcTerm::from(param_ty), RcTerm::from(body_ty))
+            normal::Normal::FunType(app_mode, param_ty, body_ty) => Term::FunType(
+                app_mode.clone(),
+                RcTerm::from(param_ty),
+                RcTerm::from(body_ty),
+            ),
+            normal::Normal::FunIntro(app_mode, body) => {
+                Term::FunIntro(app_mode.clone(), RcTerm::from(body))
             },
-            normal::Normal::FunIntro(body) => Term::FunIntro(RcTerm::from(body)),
             normal::Normal::RecordType(fields) => {
                 let fields = fields
                     .iter()
@@ -261,7 +305,9 @@ impl From<&'_ normal::Neutral> for RcTerm {
     fn from(src: &normal::Neutral) -> RcTerm {
         RcTerm::from(match src {
             normal::Neutral::Var(index) => Term::Var(*index),
-            normal::Neutral::FunApp(fun, arg) => Term::FunApp(RcTerm::from(fun), RcTerm::from(arg)),
+            normal::Neutral::FunApp(fun, app_mode, arg) => {
+                Term::FunApp(RcTerm::from(fun), app_mode.clone(), RcTerm::from(arg))
+            },
             normal::Neutral::RecordProj(record, label) => {
                 Term::RecordProj(RcTerm::from(record), label.clone())
             },

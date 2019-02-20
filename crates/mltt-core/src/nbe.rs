@@ -10,7 +10,7 @@ use std::fmt;
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
 use crate::syntax::normal::{self, Normal, RcNormal};
-use crate::syntax::{DbIndex, DbLevel, Label};
+use crate::syntax::{AppMode, DbIndex, DbLevel, Label};
 
 /// An error produced during normalization
 ///
@@ -66,11 +66,20 @@ pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeErr
 }
 
 /// Apply a function to an argument
-pub fn do_fun_app(fun: &RcValue, arg: RcValue) -> Result<RcValue, NbeError> {
+pub fn do_fun_app(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcValue, NbeError> {
     match fun.as_ref() {
-        Value::FunIntro(body) => do_closure_app(body, arg),
+        Value::FunIntro(fun_app_mode, body) => {
+            if *fun_app_mode == app_mode {
+                do_closure_app(body, arg)
+            } else {
+                Err(NbeError::new(format!(
+                    "do_ap: unexpected application mode - {:?} != {:?}",
+                    fun_app_mode, app_mode,
+                )))
+            }
+        },
         Value::Neutral(fun) => {
-            let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), arg.clone()));
+            let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), app_mode, arg));
             Ok(RcValue::from(Value::Neutral(body)))
         },
         _ => Err(NbeError::new("do_ap: not a function")),
@@ -86,7 +95,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
             None => Err(NbeError::new("eval: variable not found")),
         },
         Term::Literal(literal) => Ok(RcValue::from(Value::Literal(literal.clone()))),
-        Term::Let(def, /* _, */ body) => {
+        Term::Let(def, body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
             env.push_front(def);
@@ -94,18 +103,26 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         },
 
         // Functions
-        Term::FunType(param_ty, body_ty) => {
+        Term::FunType(app_mode, param_ty, body_ty) => {
+            let app_mode = app_mode.clone();
             let param_ty = eval(param_ty, env)?;
             let body_ty = Closure::new(body_ty.clone(), env.clone());
 
-            Ok(RcValue::from(Value::FunType(param_ty, body_ty)))
+            Ok(RcValue::from(Value::FunType(app_mode, param_ty, body_ty)))
         },
-        Term::FunIntro(/*  _, */ body) => {
+        Term::FunIntro(app_mode, body) => {
+            let app_mode = app_mode.clone();
             let body = Closure::new(body.clone(), env.clone());
 
-            Ok(RcValue::from(Value::FunIntro(body)))
+            Ok(RcValue::from(Value::FunIntro(app_mode, body)))
         },
-        Term::FunApp(fun, arg) => do_fun_app(&eval(fun, env)?, eval(arg, env)?),
+        Term::FunApp(fun, app_mode, arg) => {
+            let fun = eval(fun, env)?;
+            let app_mode = app_mode.clone();
+            let arg = eval(arg, env)?;
+
+            do_fun_app(&fun, app_mode, arg)
+        },
 
         // Records
         Term::RecordType(fields) => match fields.split_first() {
@@ -147,18 +164,20 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
         Value::Literal(literal) => Ok(RcNormal::from(Normal::Literal(literal.clone()))),
 
         // Functions
-        Value::FunType(param_ty, body_ty) => {
+        Value::FunType(app_mode, param_ty, body_ty) => {
+            let app_mode = app_mode.clone();
             let param = RcValue::var(level);
             let param_ty = read_back_term(level, param_ty)?;
             let body_ty = read_back_term(level + 1, &do_closure_app(body_ty, param)?)?;
 
-            Ok(RcNormal::from(Normal::FunType(param_ty, body_ty)))
+            Ok(RcNormal::from(Normal::FunType(app_mode, param_ty, body_ty)))
         },
-        Value::FunIntro(body) => {
+        Value::FunIntro(app_mode, body) => {
+            let app_mode = app_mode.clone();
             let param = RcValue::var(level);
             let body = read_back_term(level + 1, &do_closure_app(body, param)?)?;
 
-            Ok(RcNormal::from(Normal::FunIntro(body)))
+            Ok(RcNormal::from(Normal::FunIntro(app_mode, body)))
         },
 
         // Records
@@ -209,11 +228,14 @@ pub fn read_back_neutral(
 
             Ok(normal::RcNeutral::from(normal::Neutral::Var(index)))
         },
-        domain::Neutral::FunApp(fun, arg) => {
+        domain::Neutral::FunApp(fun, app_mode, arg) => {
             let fun = read_back_neutral(level, fun)?;
+            let app_mode = app_mode.clone();
             let arg = read_back_term(level, arg)?;
 
-            Ok(normal::RcNeutral::from(normal::Neutral::FunApp(fun, arg)))
+            Ok(normal::RcNeutral::from(normal::Neutral::FunApp(
+                fun, app_mode, arg,
+            )))
         },
         domain::Neutral::RecordProj(record, label) => {
             let record = read_back_neutral(level, record)?;
@@ -235,7 +257,10 @@ pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool,
 
             Ok(term1 == term2)
         },
-        (&Value::FunType(param_ty1, body_ty1), &Value::FunType(param_ty2, body_ty2)) => {
+        (
+            &Value::FunType(app_mode1, param_ty1, body_ty1),
+            &Value::FunType(app_mode2, param_ty2, body_ty2),
+        ) if app_mode1 == app_mode2 => {
             let param = RcValue::var(level);
 
             Ok(check_subtype(level, param_ty2, param_ty1)? && {

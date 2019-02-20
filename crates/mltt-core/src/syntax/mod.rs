@@ -129,3 +129,12 @@ impl Literal {
 /// A label
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);
+
+/// The application mode of a function
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AppMode {
+    /// Explicit application mode
+    Explicit,
+    /// Implicit application mode
+    Implicit(Label),
+}

@@ -1,6 +1,6 @@
 use mltt_concrete::Term;
 use mltt_core::nbe::NbeError;
-use mltt_core::syntax::domain;
+use mltt_core::syntax::{domain, AppMode};
 use std::error::Error;
 use std::fmt;
 
@@ -18,6 +18,7 @@ pub enum TypeError {
     UnboundVariable(String),
     NoFieldInType(String),
     UnexpectedField { found: String, expected: String },
+    UnexpectedAppMode { found: AppMode, expected: AppMode },
     TooManyFieldsFound,
     NotEnoughFieldsProvided,
     Nbe(NbeError),
@@ -54,7 +55,12 @@ impl fmt::Display for TypeError {
             TypeError::UnexpectedField { found, expected } => write!(
                 f,
                 "unexpected field, found `{}`, but expected `{}`",
-                found, expected
+                found, expected,
+            ),
+            TypeError::UnexpectedAppMode { found, expected } => write!(
+                f,
+                "unexpected application mode, found `{:?}`, but expected `{:?}`",
+                found, expected,
             ),
             TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
             TypeError::NotEnoughFieldsProvided => write!(f, "not enough fields provided"),

@@ -3,7 +3,7 @@
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{DbLevel, Label, Literal, UniverseLevel};
+use crate::syntax::{AppMode, DbLevel, Label, Literal, UniverseLevel};
 
 /// An environment of values
 pub type Env = im::Vector<RcValue>;
@@ -65,9 +65,9 @@ pub enum Value {
     Literal(Literal),
 
     /// Dependent function types
-    FunType(RcType, Closure),
+    FunType(AppMode, RcType, Closure),
     /// Introduce a function
-    FunIntro(Closure),
+    FunIntro(AppMode, Closure),
 
     /// Dependent record type extension
     RecordTypeExtend(Label, RcType, Closure),
@@ -124,7 +124,7 @@ pub enum Neutral {
     Var(DbLevel),
 
     /// Apply a function to an argument
-    FunApp(RcNeutral, RcValue),
+    FunApp(RcNeutral, AppMode, RcValue),
 
     /// Project on a record
     RecordProj(RcNeutral, Label),

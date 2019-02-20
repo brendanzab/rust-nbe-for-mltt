@@ -10,9 +10,9 @@
 
 #![warn(rust_2018_idioms)]
 
-use mltt_concrete::{Item, Pattern, RecordIntroField, Term};
+use mltt_concrete::{Arg, IntroParam, Item, Pattern, RecordIntroField, Term, TypeParam};
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, normal, DbIndex, DbLevel, Label, UniverseLevel};
+use mltt_core::syntax::{core, domain, normal, AppMode, DbIndex, DbLevel, Label, UniverseLevel};
 
 mod docs;
 mod errors;
@@ -174,7 +174,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     definition.body,
                 );
 
-                let patterns = &definition.patterns;
+                let params = &definition.params;
                 let body_ty = definition.body_ty.as_ref();
                 let body = &definition.body;
 
@@ -183,7 +183,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     // its type instead
                     Entry::Vacant(entry) => {
                         let docs = docs::concat(&definition.docs);
-                        let (term, ty) = synth_clause(&context, patterns, body_ty, body)?;
+                        let (term, ty) = synth_clause(&context, params, body_ty, body)?;
                         entry.insert(None);
                         (docs, term, ty)
                     },
@@ -194,7 +194,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
                             let docs = docs::merge(&definition.label, decl_docs, &definition.docs)?;
-                            let term = check_clause(&context, patterns, body_ty, body, &ty)?;
+                            let term = check_clause(&context, params, body_ty, body, &ty)?;
                             (docs, term, ty)
                         },
                         // This declaration was already given a definition, so
@@ -278,11 +278,11 @@ fn synth_ann(
     }
 }
 
-/// Check that a given pattern clause conforms to an expected type, elaborating
+/// Check that a given clause conforms to an expected type, and elaborates
 /// it into a case tree.
 fn check_clause(
     context: &Context,
-    mut patterns: &[Pattern],
+    mut params: &[IntroParam],
     concrete_body_ty: Option<&Term>,
     concrete_body: &Term,
     expected_ty: &domain::RcType,
@@ -291,51 +291,75 @@ fn check_clause(
     let mut param_tys = Vec::new();
     let mut expected_ty = expected_ty.clone();
 
-    while let Some((head_pattern, rest_patterns)) = patterns.split_first() {
-        patterns = rest_patterns;
-        match (head_pattern, expected_ty.as_ref()) {
-            // INTRO: If it is a variable a pattern, and we're expecting a function
-            // type, then we'll elaborate to a function.
-            (Pattern::Var(var_name), domain::Value::FunType(param_ty, body_ty)) => {
-                param_tys.push(param_ty.clone());
-                let param = context.insert_binder(var_name.clone(), param_ty.clone());
-                expected_ty = nbe::do_closure_app(&body_ty, param.clone())?;
+    while let Some((head_param, rest_params)) = params.split_first() {
+        params = rest_params;
+
+        let (app_mode, var_name, param_ty, body_ty) = match (head_param, expected_ty.as_ref()) {
+            // INTRO: If it is a variable a pattern, and we're expecting a
+            // function type, then we'll elaborate to a function.
+            (
+                IntroParam::Explicit(pattern),
+                domain::Value::FunType(app_mode, param_ty, body_ty),
+            ) => match app_mode {
+                AppMode::Explicit => match pattern {
+                    Pattern::Var(var_name) => (app_mode.clone(), var_name, param_ty, body_ty),
+                },
+                app_mode => {
+                    return Err(TypeError::UnexpectedAppMode {
+                        found: AppMode::Explicit,
+                        expected: app_mode.clone(),
+                    });
+                },
+            },
+            (
+                IntroParam::Implicit(intro_label, pattern),
+                domain::Value::FunType(app_mode, param_ty, body_ty),
+            ) => match app_mode {
+                AppMode::Implicit(ty_label) if *intro_label == ty_label.0 => match pattern {
+                    None => (app_mode.clone(), intro_label, param_ty, body_ty),
+                    Some(Pattern::Var(var_name)) => (app_mode.clone(), var_name, param_ty, body_ty),
+                },
+                app_mode => {
+                    return Err(TypeError::UnexpectedAppMode {
+                        found: AppMode::Implicit(Label(intro_label.clone())),
+                        expected: app_mode.clone(),
+                    });
+                },
             },
             _ => {
                 let found = expected_ty.clone();
                 return Err(TypeError::ExpectedFunType { found });
             },
-        }
+        };
+
+        param_tys.push((app_mode, param_ty.clone()));
+        let param = context.insert_binder(var_name.clone(), param_ty.clone());
+        expected_ty = nbe::do_closure_app(&body_ty, param.clone())?;
     }
 
     let body = check_ann(&context, concrete_body, concrete_body_ty, &expected_ty)?;
 
     Ok(param_tys
-        .iter()
+        .into_iter()
         .rev()
-        .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))))
+        .fold(body, |acc, (app_mode, _)| {
+            core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
+        }))
 }
 
 /// Synthesize the type of a clause, elaborating it into a case tree.
 fn synth_clause(
     context: &Context,
-    patterns: &[Pattern],
+    params: &[IntroParam],
     concrete_body_ty: Option<&Term>,
     concrete_body: &Term,
 ) -> Result<(core::RcTerm, domain::RcType), TypeError> {
-    if !patterns.is_empty() {
+    if !params.is_empty() {
         // TODO: We will be able to type this once we have annotated patterns!
         unimplemented!("type annotations needed");
     }
 
-    let (body, body_ty) = synth_ann(&context, concrete_body, concrete_body_ty)?;
-
-    Ok((
-        patterns
-            .iter()
-            .fold(body, |acc, _| core::RcTerm::from(core::Term::FunIntro(acc))),
-        body_ty,
-    ))
+    synth_ann(&context, concrete_body, concrete_body_ty)
 }
 
 /// Ensures that the given term is a universe, returning the level of that
@@ -374,8 +398,8 @@ pub fn check_term(
         },
         Term::Parens(concrete_term) => check_term(context, concrete_term, expected_ty),
 
-        Term::FunIntro(patterns, concrete_body) => {
-            check_clause(context, patterns, None, concrete_body, expected_ty)
+        Term::FunIntro(params, concrete_body) => {
+            check_clause(context, params, None, concrete_body, expected_ty)
         },
 
         Term::RecordIntro(concrete_intro_fields) => {
@@ -397,13 +421,13 @@ pub fn check_term(
 
                         RecordIntroField::Explicit {
                             label,
-                            patterns,
+                            params,
                             body_ty,
                             body,
                         } if expected_label.0 == *label => {
                             let term = check_clause(
                                 &context,
-                                patterns,
+                                params,
                                 body_ty.as_ref(),
                                 body,
                                 expected_term_ty,
@@ -479,12 +503,29 @@ pub fn synth_term(
             let mut param_tys = Vec::new();
             let mut max_level = UniverseLevel(0);
 
-            for (param_names, concrete_param_ty) in concrete_params {
-                for param_name in param_names {
-                    let (param_ty, param_level) = synth_universe(&context, concrete_param_ty)?;
-                    context.insert_binder(param_name.clone(), context.eval(&param_ty)?);
-                    param_tys.push(param_ty);
-                    max_level = cmp::max(max_level, param_level);
+            for param in concrete_params {
+                match param {
+                    TypeParam::Explicit(param_names, concrete_param_ty) => {
+                        for param_name in param_names {
+                            let app_mode = AppMode::Explicit;
+                            let (param_ty, param_level) =
+                                synth_universe(&context, concrete_param_ty)?;
+                            context.insert_binder(param_name.clone(), context.eval(&param_ty)?);
+                            param_tys.push((app_mode, param_ty));
+                            max_level = cmp::max(max_level, param_level);
+                        }
+                    },
+                    TypeParam::Implicit(param_labels, Some(concrete_param_ty)) => {
+                        for param_label in param_labels {
+                            let app_mode = AppMode::Implicit(Label(param_label.clone()));
+                            let (param_ty, param_level) =
+                                synth_universe(&context, concrete_param_ty)?;
+                            context.insert_binder(param_label.clone(), context.eval(&param_ty)?);
+                            param_tys.push((app_mode, param_ty));
+                            max_level = cmp::max(max_level, param_level);
+                        }
+                    },
+                    TypeParam::Implicit(_, None) => unimplemented!("missing implicit annotation"),
                 }
             }
 
@@ -492,9 +533,12 @@ pub fn synth_term(
             max_level = cmp::max(max_level, body_level);
 
             Ok((
-                param_tys.into_iter().rev().fold(body_ty, |acc, param_ty| {
-                    core::RcTerm::from(core::Term::FunType(param_ty, acc))
-                }),
+                param_tys
+                    .into_iter()
+                    .rev()
+                    .fold(body_ty, |acc, (app_mode, param_ty)| {
+                        core::RcTerm::from(core::Term::FunType(app_mode, param_ty, acc))
+                    }),
                 domain::RcValue::from(domain::Value::Universe(max_level)),
             ))
         },
@@ -508,21 +552,41 @@ pub fn synth_term(
             };
 
             Ok((
-                core::RcTerm::from(core::Term::FunType(param_ty, body_ty)),
+                core::RcTerm::from(core::Term::FunType(AppMode::Explicit, param_ty, body_ty)),
                 domain::RcValue::from(domain::Value::Universe(cmp::max(param_level, body_level))),
             ))
         },
         Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
         Term::FunApp(concrete_fun, concrete_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
-
             for concrete_arg in concrete_args {
-                if let domain::Value::FunType(param_ty, body_ty) = fun_ty.as_ref() {
-                    let arg = check_term(context, concrete_arg, param_ty)?;
-                    let arg_value = context.eval(&arg)?;
+                if let domain::Value::FunType(ty_app_mode, param_ty, body_ty) = fun_ty.as_ref() {
+                    let (arg_app_mode, arg) = match concrete_arg {
+                        Arg::Explicit(concrete_arg) => (
+                            AppMode::Explicit,
+                            check_term(context, concrete_arg, param_ty)?,
+                        ),
+                        Arg::Implicit(label, Some(concrete_arg)) => (
+                            AppMode::Implicit(Label(label.clone())),
+                            check_term(context, concrete_arg, param_ty)?,
+                        ),
+                        Arg::Implicit(label, None) => (
+                            AppMode::Implicit(Label(label.clone())),
+                            check_term(context, &Term::Var(label.clone()), param_ty)?,
+                        ),
+                    };
 
-                    fun = core::RcTerm::from(core::Term::FunApp(fun, arg));
-                    fun_ty = nbe::do_closure_app(body_ty, arg_value)?;
+                    if arg_app_mode == *ty_app_mode {
+                        let arg_value = context.eval(&arg)?;
+
+                        fun = core::RcTerm::from(core::Term::FunApp(fun, arg_app_mode, arg));
+                        fun_ty = nbe::do_closure_app(body_ty, arg_value)?;
+                    } else {
+                        return Err(TypeError::UnexpectedAppMode {
+                            found: arg_app_mode,
+                            expected: ty_app_mode.clone(),
+                        });
+                    }
                 } else {
                     let found = fun_ty.clone();
                     return Err(TypeError::ExpectedFunType { found });

@@ -3,9 +3,9 @@
 //! We add back in syntactic sugar that was lost during elaboration, and also
 //! the necessary parentheses needed to appropriately group expressions.
 
-use mltt_core::syntax::{core, DbIndex, UniverseLevel};
+use mltt_core::syntax::{core, AppMode, DbIndex, UniverseLevel};
 
-use crate::{Pattern, RecordIntroField, RecordTypeField, Term};
+use crate::{Arg, IntroParam, Pattern, RecordIntroField, RecordTypeField, Term, TypeParam};
 
 pub struct Env {
     counter: usize,
@@ -57,15 +57,22 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
 
     fn resugar_term(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
-            core::Term::Let(def, /* def_ty, */ body) => {
+            core::Term::Let(def, body) => {
                 let def = resugar_app(def, env);
                 let (def_name, body) = env.with_binding(|env| resugar_term(body, env));
                 Term::Let(def_name, Box::new(def), Box::new(body))
             },
-            core::Term::FunIntro(/* param_ty, */ body) => {
+            core::Term::FunIntro(app_mode, body) => {
                 let (param_name, body) = env.with_binding(|env| resugar_app(body, env));
                 // TODO: flatten params
-                Term::FunIntro(vec![Pattern::Var(param_name)], Box::new(body))
+                let params = match app_mode {
+                    AppMode::Explicit => vec![IntroParam::Explicit(Pattern::Var(param_name))],
+                    AppMode::Implicit(label) => vec![IntroParam::Implicit(
+                        label.0.clone(),
+                        Some(Pattern::Var(param_name)),
+                    )],
+                };
+                Term::FunIntro(params, Box::new(body))
             },
             _ => resugar_arrow(term, env),
         }
@@ -73,12 +80,16 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
 
     fn resugar_arrow(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
-            core::Term::FunType(param_ty, body_ty) => {
+            core::Term::FunType(app_mode, param_ty, body_ty) => {
                 let param_ty = resugar_term(param_ty, env);
                 let (param_name, body_ty) = env.with_binding(|env| resugar_app(body_ty, env));
                 // TODO: only use `param_name` if it is used in `body_ty`
                 // TODO: flatten params
-                Term::FunType(vec![(vec![param_name], param_ty)], Box::new(body_ty))
+                let params = match app_mode {
+                    AppMode::Explicit => vec![TypeParam::Explicit(vec![param_name], param_ty)],
+                    AppMode::Implicit(_label) => unimplemented!(),
+                };
+                Term::FunType(params, Box::new(body_ty))
             },
             core::Term::RecordType(ty_fields) => {
                 let ty_fields = ty_fields
@@ -109,7 +120,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
                         // TODO: Function sugar
                         RecordIntroField::Explicit {
                             label: label.0.clone(),
-                            patterns: Vec::new(),
+                            params: Vec::new(),
                             body_ty: None,
                             body: resugar_term(body, env),
                         }
@@ -124,12 +135,21 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
 
     fn resugar_app(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
-            core::Term::FunApp(fun, arg) => match resugar_term(fun, env) {
-                Term::FunApp(fun, mut args) => {
-                    args.push(resugar_atomic(arg, env));
-                    Term::FunApp(fun, args)
-                },
-                fun => Term::FunApp(Box::new(fun), vec![resugar_atomic(arg, env)]),
+            core::Term::FunApp(fun, app_mode, arg) => {
+                let arg = match app_mode {
+                    AppMode::Explicit => Arg::Explicit(resugar_atomic(arg, env)),
+                    AppMode::Implicit(label) => {
+                        Arg::Implicit(label.0.clone(), Some(resugar_atomic(arg, env)))
+                    },
+                };
+
+                match resugar_term(fun, env) {
+                    Term::FunApp(fun, mut args) => {
+                        args.push(arg);
+                        Term::FunApp(fun, args)
+                    },
+                    fun => Term::FunApp(Box::new(fun), vec![arg]),
+                }
             },
             _ => resugar_atomic(term, env),
         }

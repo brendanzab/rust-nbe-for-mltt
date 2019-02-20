@@ -50,7 +50,7 @@ pub struct Declaration {
 pub struct Definition {
     pub docs: Vec<String>,
     pub label: String,
-    pub patterns: Vec<Pattern>,
+    pub params: Vec<IntroParam>,
     pub body_ty: Option<Term>,
     pub body: Term,
 }
@@ -115,6 +115,102 @@ impl Literal {
     }
 }
 
+/// A group of parameters to be used in a function type
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeParam {
+    Explicit(Vec<String>, Term),
+    Implicit(Vec<String>, Option<Term>),
+}
+
+impl TypeParam {
+    /// Convert the parameter into a pretty-printable document
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            TypeParam::Explicit(param_names, param_ty) => Doc::nil()
+                .append("(")
+                .append(Doc::intersperse(
+                    param_names.iter().map(Doc::text),
+                    Doc::space(),
+                ))
+                .append(Doc::space())
+                .append(":")
+                .append(Doc::space())
+                .append(param_ty.to_doc())
+                .append(")"),
+            TypeParam::Implicit(param_labels, None) => Doc::nil()
+                .append("{")
+                .append(Doc::intersperse(
+                    param_labels.iter().map(Doc::text),
+                    Doc::space(),
+                ))
+                .append(")"),
+            TypeParam::Implicit(param_labels, Some(term)) => Doc::nil()
+                .append("{")
+                .append(Doc::intersperse(
+                    param_labels.iter().map(Doc::text),
+                    Doc::space(),
+                ))
+                .append(Doc::space())
+                .append(":")
+                .append(Doc::space())
+                .append(term.to_doc())
+                .append("}"),
+        }
+    }
+}
+
+/// A parameter pattern to be used in a function introduction
+#[derive(Debug, Clone, PartialEq)]
+pub enum IntroParam {
+    Explicit(Pattern),
+    Implicit(String, Option<Pattern>),
+}
+
+impl IntroParam {
+    /// Convert the parameter into a pretty-printable document
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            IntroParam::Explicit(pattern) => pattern.to_doc(),
+            IntroParam::Implicit(param_label, None) => {
+                Doc::nil().append("{").append(param_label).append(")")
+            },
+            IntroParam::Implicit(param_label, Some(pattern)) => Doc::nil()
+                .append("{")
+                .append(param_label)
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(pattern.to_doc())
+                .append("}"),
+        }
+    }
+}
+
+/// An argument passed to a function
+#[derive(Debug, Clone, PartialEq)]
+pub enum Arg {
+    Explicit(Term),
+    Implicit(String, Option<Term>),
+}
+
+impl Arg {
+    /// Convert the argument into a pretty-printable document
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            Arg::Explicit(term) => term.to_doc(),
+            Arg::Implicit(param_label, None) => Doc::text("{").append(param_label).append(")"),
+            Arg::Implicit(param_label, Some(term)) => Doc::nil()
+                .append("{")
+                .append(param_label)
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(term.to_doc())
+                .append("}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordTypeField {
     pub docs: Vec<String>,
@@ -142,7 +238,7 @@ pub enum RecordIntroField {
     },
     Explicit {
         label: String,
-        patterns: Vec<Pattern>,
+        params: Vec<IntroParam>,
         body_ty: Option<Term>,
         body: Term,
     },
@@ -155,11 +251,11 @@ impl RecordIntroField {
             RecordIntroField::Punned { label } => Doc::text(label).append(";"),
             RecordIntroField::Explicit {
                 label,
-                patterns,
+                params,
                 body_ty,
                 body,
             } => {
-                let patterns = Doc::intersperse(patterns.iter().map(Pattern::to_doc), Doc::space());
+                let params = Doc::intersperse(params.iter().map(IntroParam::to_doc), Doc::space());
                 let body_ty = body_ty.as_ref().map_or(Doc::nil(), |body_ty| {
                     Doc::nil()
                         .append(":")
@@ -171,7 +267,7 @@ impl RecordIntroField {
                 Doc::nil()
                     .append(label)
                     .append(Doc::space())
-                    .append(patterns)
+                    .append(params)
                     .append(Doc::space())
                     .append(body_ty)
                     .append("=")
@@ -200,15 +296,15 @@ pub enum Term {
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(Vec<(Vec<String>, Term)>, Box<Term>),
+    FunType(Vec<TypeParam>, Box<Term>),
     /// Non-dependent function types
     FunArrowType(Box<Term>, Box<Term>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
-    FunIntro(Vec<Pattern>, Box<Term>),
+    FunIntro(Vec<IntroParam>, Box<Term>),
     /// Apply a function to an argument
-    FunApp(Box<Term>, Vec<Term>),
+    FunApp(Box<Term>, Vec<Arg>),
 
     /// Dependent record type
     RecordType(Vec<RecordTypeField>),
@@ -243,36 +339,22 @@ impl Term {
                 .append("in")
                 .append(Doc::space())
                 .append(body.to_doc()),
-            Term::FunType(params, body_ty) => {
-                let params = Doc::intersperse(
-                    params.iter().map(|(param_names, param_ty)| {
-                        Doc::nil()
-                            .append("(")
-                            .append(Doc::intersperse(
-                                param_names.iter().map(Doc::text),
-                                Doc::space(),
-                            ))
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(param_ty.to_doc())
-                            .append(")")
-                    }),
+            Term::FunType(params, body_ty) => Doc::nil()
+                .append("Fun")
+                .append(Doc::space())
+                .append(Doc::intersperse(
+                    params.iter().map(TypeParam::to_doc),
                     Doc::space(),
-                );
-
-                Doc::nil()
-                    .append(Doc::text("Fun").append(Doc::space()).append(params))
-                    .append(Doc::space())
-                    .append("->")
-                    .append(Doc::space())
-                    .append(body_ty.to_doc())
-            },
+                ))
+                .append(Doc::space())
+                .append("->")
+                .append(Doc::space())
+                .append(body_ty.to_doc()),
             Term::FunIntro(param_names, body) => Doc::nil()
                 .append("fun")
                 .append(Doc::space())
                 .append(Doc::intersperse(
-                    param_names.iter().map(Pattern::to_doc),
+                    param_names.iter().map(IntroParam::to_doc),
                     Doc::space(),
                 ))
                 .append(Doc::space())
@@ -318,7 +400,7 @@ impl Term {
                 .append(Doc::space())
                 .append(body_ty.to_doc()),
             Term::FunApp(fun, args) => {
-                let args = Doc::intersperse(args.iter().map(Term::to_doc), Doc::space());
+                let args = Doc::intersperse(args.iter().map(Arg::to_doc), Doc::space());
 
                 Doc::nil()
                     .append(fun.to_doc())

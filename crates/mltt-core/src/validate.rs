@@ -9,7 +9,7 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{self, Item, RcTerm, Term};
 use crate::syntax::domain::{self, RcType, RcValue, Value};
-use crate::syntax::{DbIndex, DbLevel, Label, UniverseLevel};
+use crate::syntax::{AppMode, DbIndex, DbLevel, Label, UniverseLevel};
 
 /// Local type checking context
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +87,7 @@ pub enum TypeError {
     UnboundVariable,
     NoFieldInType(Label),
     UnexpectedField { found: Label, expected: Label },
+    UnexpectedAppMode { found: AppMode, expected: AppMode },
     TooManyFieldsFound,
     NotEnoughFieldsProvided,
     Nbe(NbeError),
@@ -119,8 +120,13 @@ impl fmt::Display for TypeError {
             TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label.0),
             TypeError::UnexpectedField { found, expected } => write!(
                 f,
-                "enexpected field, found `{}`, but expected `{}`",
+                "unexpected field, found `{}`, but expected `{}`",
                 found.0, expected.0,
+            ),
+            TypeError::UnexpectedAppMode { found, expected } => write!(
+                f,
+                "unexpected application mode, found `{:?}`, but expected `{:?}`",
+                found, expected,
             ),
             TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
             TypeError::NotEnoughFieldsProvided => write!(f, "not enough fields provided"),
@@ -173,14 +179,18 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             check_term(&body_context, body, expected_ty)
         },
 
-        Term::FunIntro(body) => match expected_ty.as_ref() {
-            Value::FunType(param_ty, body_ty) => {
+        Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
+            Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
                 let param = body_context.insert_binder(param_ty.clone());
                 let body_ty = nbe::do_closure_app(body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
             },
+            Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
+                found: intro_app_mode.clone(),
+                expected: ty_app_mode.clone(),
+            }),
             _ => Err(TypeError::ExpectedFunType {
                 found: expected_ty.clone(),
             }),
@@ -242,29 +252,34 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             synth_term(&body_context, body)
         },
 
-        Term::FunType(ann_ty, body_ty) => {
-            let ann_level = synth_universe(context, ann_ty)?;
-            let ann_ty_value = context.eval(ann_ty)?;
+        Term::FunType(_app_mode, param_ty, body_ty) => {
+            let param_level = synth_universe(context, param_ty)?;
+            let param_ty_value = context.eval(param_ty)?;
 
             let mut body_ty_context = context.clone();
-            body_ty_context.insert_binder(ann_ty_value);
+            body_ty_context.insert_binder(param_ty_value);
 
             let body_level = synth_universe(&body_ty_context, body_ty)?;
 
             Ok(RcValue::from(Value::Universe(cmp::max(
-                ann_level, body_level,
+                param_level,
+                body_level,
             ))))
         },
-        Term::FunIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
-        Term::FunApp(fun, arg) => {
+        Term::FunApp(fun, arg_app_mode, arg) => {
             let fun_ty = synth_term(context, fun)?;
             match fun_ty.as_ref() {
-                Value::FunType(arg_ty, body_ty) => {
+                Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
                     check_term(context, arg, arg_ty)?;
                     let arg_value = context.eval(arg)?;
                     Ok(nbe::do_closure_app(body_ty, arg_value)?)
                 },
+                Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
+                    found: arg_app_mode.clone(),
+                    expected: ty_app_mode.clone(),
+                }),
                 _ => Err(TypeError::ExpectedFunType {
                     found: fun_ty.clone(),
                 }),

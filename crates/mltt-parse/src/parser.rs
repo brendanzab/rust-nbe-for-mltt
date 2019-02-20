@@ -8,7 +8,7 @@
 //! module  ::= item* EOF
 //!
 //! item    ::= DOC_COMMENT* IDENTIFIER ":" term ";"
-//!           | DOC_COMMENT* IDENTIFIER pattern* (":" term)? "=" term ";"
+//!           | DOC_COMMENT* IDENTIFIER intro-param* (":" term)? "=" term ";"
 //!
 //! pattern ::= IDENTIFIER
 //!
@@ -20,18 +20,28 @@
 //!           | "let" IDENTIFIER "=" term "in" term
 //!           | term ":" term
 //!           | "(" term ")"
-//!           | "Fun" ("(" IDENTIFIER+ ":" term ")")+ "->" term
+//!           | "Fun" type-param+ "->" term
 //!           | term "->" term
-//!           | "fun" pattern+ "=>" term
-//!           | term term
+//!           | "fun" intro-param+ "=>" term
+//!           | term arg
 //!           | "Record" "{" (record-type-field ";")* record-type-field? "}"
 //!           | "record" "{" (record-intro-field ";")* record-intro-field? "}"
 //!           | term "." IDENTIFIER
 //!           | "Type" ("^" INT_LITERAL)?
 //!
+//! type-param  ::= "(" IDENTIFIER+ ":" term(0) ")"
+//!               | "{" IDENTIFIER+ "}"
+//!               | "{" IDENTIFIER+ ":" term(0) "}"
+//! intro-param ::= pattern
+//!               | "{" IDENTIFIER "}"
+//!               | "{" IDENTIFIER "=" pattern "}"
+//! arg         ::= term
+//!               | "{" IDENTIFIER "}"
+//!               | "{" IDENTIFIER "=" term "}"
+//!
 //! record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term
 //! record-intro-field  ::= IDENTIFIER
-//!                       | IDENTIFIER pattern* (":" term)? "=" term
+//!                       | IDENTIFIER intro-param* (":" term)? "=" term
 //! ```
 //!
 //! Note that there are a number of ambiguities here that we will have to
@@ -43,8 +53,8 @@
 
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::{
-    Declaration, Definition, Item, Literal, LiteralKind, Pattern, RecordIntroField,
-    RecordTypeField, Term,
+    Arg, Declaration, Definition, IntroParam, Item, Literal, LiteralKind, Pattern,
+    RecordIntroField, RecordTypeField, Term, TypeParam,
 };
 use mltt_span::FileSpan;
 
@@ -95,9 +105,9 @@ impl Matcher<Token<'_>> for Keyword<'_> {
     }
 }
 
-struct ArgTermStart;
+struct ArgParamStart;
 
-impl Matcher<Token<'_>> for ArgTermStart {
+impl Matcher<Token<'_>> for ArgParamStart {
     fn is_match(&self, given: &Token<'_>) -> bool {
         match given.kind {
             TokenKind::Identifier
@@ -105,7 +115,8 @@ impl Matcher<Token<'_>> for ArgTermStart {
             | TokenKind::CharLiteral
             | TokenKind::IntLiteral
             | TokenKind::FloatLiteral
-            | TokenKind::Open(DelimKind::Paren) => true,
+            | TokenKind::Open(DelimKind::Paren)
+            | TokenKind::Open(DelimKind::Brace) => true,
             TokenKind::Keyword if given.slice == "Type" => true,
             _ => false,
         }
@@ -263,7 +274,7 @@ where
     ///
     /// ```text
     /// item ::= DOC_COMMENT* IDENTIFIER ":" term(0) ";"
-    ///        | DOC_COMMENT* IDENTIFIER IDENTIFIER* (":" term(0))? "=" term(0) ";"
+    ///        | DOC_COMMENT* IDENTIFIER intro-param* (":" term(0))? "=" term(0) ";"
     /// ```
     fn parse_item(&mut self) -> Result<Item, Diagnostic<FileSpan>> {
         log::trace!("expecting item");
@@ -273,12 +284,12 @@ where
 
         log::trace!("item label: {:?}", label);
 
-        let patterns = self.parse_patterns()?;
+        let params = self.parse_intro_params()?;
 
         let body_ty = if self.try_match(TokenKind::Colon).is_some() {
             let ann = self.parse_term(Prec(0))?;
 
-            if patterns.is_empty() && self.try_match(TokenKind::Semicolon).is_some() {
+            if params.is_empty() && self.try_match(TokenKind::Semicolon).is_some() {
                 return Ok(Item::Declaration(Declaration { docs, label, ann }));
             } else {
                 Some(ann)
@@ -294,13 +305,13 @@ where
             let definition = Definition {
                 docs,
                 label,
-                patterns,
+                params,
                 body_ty,
                 body,
             };
 
             Ok(Item::Definition(definition))
-        } else if patterns.is_empty() {
+        } else if params.is_empty() {
             // TODO: Span
             Err(Diagnostic::new_error("expected declaration or definition"))
         } else {
@@ -311,17 +322,40 @@ where
         }
     }
 
-    /// Parse zero-or-more patterns
+    /// Parse zero-or-more function introduction parameters
     ///
     /// ```text
-    /// patterns ::= pattern*
+    /// intro-params ::= intro-param*
     /// ```
-    fn parse_patterns(&mut self) -> Result<Vec<Pattern>, Diagnostic<FileSpan>> {
-        let mut patterns = Vec::new();
-        while self.check_match(ArgTermStart) {
-            patterns.push(self.parse_pattern()?);
+    fn parse_intro_params(&mut self) -> Result<Vec<IntroParam>, Diagnostic<FileSpan>> {
+        let mut params = Vec::new();
+        while self.check_match(ArgParamStart) {
+            params.push(self.parse_intro_param()?);
         }
-        Ok(patterns)
+        Ok(params)
+    }
+
+    /// Parse a function introduction parameter
+    ///
+    /// ```text
+    /// intro-param ::= pattern
+    ///               | "{" IDENTIFIER "}"
+    ///               | "{" IDENTIFIER "=" pattern "}"
+    /// ```
+    fn parse_intro_param(&mut self) -> Result<IntroParam, Diagnostic<FileSpan>> {
+        if self.try_match(TokenKind::Open(DelimKind::Brace)).is_some() {
+            let label = self.expect_identifier()?;
+            let term = if self.try_match(TokenKind::Equals).is_some() {
+                Some(self.parse_pattern()?)
+            } else {
+                None
+            };
+            self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+
+            Ok(IntroParam::Implicit(label, term))
+        } else {
+            Ok(IntroParam::Explicit(self.parse_pattern()?))
+        }
     }
 
     /// Parse a pattern
@@ -503,28 +537,58 @@ where
     /// Parse the trailing part of a function introduction
     ///
     /// ```text
-    /// fun-ty ::= ("("IDENTIFIER+ ":" term(0) ")")+ "->" term(50 - 1)
+    /// fun-ty  ::= type-param+ "->" term(50 - 1)
+    ///
+    /// type-param  ::= "(" IDENTIFIER+ ":" term(0) ")"
+    ///               | "{" IDENTIFIER+ "}"
+    ///               | "{" IDENTIFIER+ ":" term(0) "}"
     /// ```
     fn parse_fun_ty(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let mut params = Vec::new();
 
-        while let Some(paren_token) = self.try_match(TokenKind::Open(DelimKind::Paren)) {
-            let mut param_names = Vec::new();
-            while let Some(param_name) = self.try_identifier() {
-                param_names.push(param_name);
-            }
-            if param_names.is_empty() {
-                return Err(Diagnostic::new_error("expected at least one parameter")
-                    .with_label(Label::new_primary(paren_token.span).with_message(
-                        "at least one parameter was expected after this parenthesis",
-                    )));
-            }
+        loop {
+            if let Some(paren_token) = self.try_match(TokenKind::Open(DelimKind::Paren)) {
+                let mut param_names = Vec::new();
+                while let Some(param_name) = self.try_identifier() {
+                    param_names.push(param_name);
+                }
+                if param_names.is_empty() {
+                    return Err(Diagnostic::new_error("expected at least one parameter")
+                        .with_label(Label::new_primary(paren_token.span).with_message(
+                            "at least one parameter was expected after this parenthesis",
+                        )));
+                }
 
-            self.expect_match(TokenKind::Colon)?;
-            let param_ty = self.parse_term(Prec(0))?;
-            params.push((param_names, param_ty));
+                self.expect_match(TokenKind::Colon)?;
+                let param_ty = self.parse_term(Prec(0))?;
+                params.push(TypeParam::Explicit(param_names, param_ty));
 
-            self.expect_match(TokenKind::Close(DelimKind::Paren))?;
+                self.expect_match(TokenKind::Close(DelimKind::Paren))?;
+            } else if let Some(brace_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
+                let mut param_names = Vec::new();
+                while let Some(param_name) = self.try_identifier() {
+                    param_names.push(param_name);
+                }
+                if param_names.is_empty() {
+                    return Err(Diagnostic::new_error("expected at least one parameter")
+                        .with_label(
+                            Label::new_primary(brace_token.span).with_message(
+                                "at least one parameter was expected after this brace",
+                            ),
+                        ));
+                }
+
+                let param_ty = if self.try_match(TokenKind::Colon).is_some() {
+                    Some(self.parse_term(Prec(0))?)
+                } else {
+                    None
+                };
+                params.push(TypeParam::Implicit(param_names, param_ty));
+
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+            } else {
+                break;
+            }
         }
 
         if params.is_empty() {
@@ -545,11 +609,11 @@ where
     /// Parse the trailing part of a function introduction
     ///
     /// ```text
-    /// fun-intro ::= IDENTIFIER+ "=>" term(0)
+    /// fun-intro ::= intro-param+ "=>" term(0)
     /// ```
     fn parse_fun_intro(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        let patterns = self.parse_patterns()?;
-        if patterns.is_empty() {
+        let params = self.parse_intro_params()?;
+        if params.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one parameters").with_label(
                     Label::new_primary(token.span)
@@ -560,7 +624,7 @@ where
         self.expect_match(TokenKind::RFatArrow)?;
         let body = self.parse_term(Prec(0))?;
 
-        Ok(Term::FunIntro(patterns, Box::new(body)))
+        Ok(Term::FunIntro(params, Box::new(body)))
     }
 
     /// Parse the trailing part of a parenthesis grouping
@@ -616,7 +680,7 @@ where
     /// ```text
     /// record-intro        ::= "{" (record-intro-field ";")* record-intro-field? "}"
     /// record-intro-field  ::= IDENTIFIER
-    ///                       | IDENTIFIER IDENTIFIER* (":" term(0))? "=" term(0)
+    ///                       | IDENTIFIER intro-param* (":" term(0))? "=" term(0)
     /// ```
     fn parse_record_intro(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let mut fields = Vec::new();
@@ -624,7 +688,7 @@ where
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
 
         while let Some(label) = self.try_identifier() {
-            let patterns = self.parse_patterns()?;
+            let params = self.parse_intro_params()?;
 
             // TODO: implement punned fields
 
@@ -638,7 +702,7 @@ where
 
             fields.push(RecordIntroField::Explicit {
                 label,
-                patterns,
+                params,
                 body_ty,
                 body,
             });
@@ -730,13 +794,28 @@ where
     /// Parse the trailing part of a function application
     ///
     /// ```text
-    /// fun-app ::= arg-term(0)*
+    /// fun-app ::= arg*
+    /// arg     ::= arg-term(0)
+    ///           | "{" IDENTIFIER "}"
+    ///           | "{" IDENTIFIER "=" term(0) "}"
     /// ```
     fn parse_fun_app(&mut self, lhs: Term) -> Result<Term, Diagnostic<FileSpan>> {
         let mut args = Vec::new();
 
-        while self.check_match(ArgTermStart) {
-            args.push(self.parse_arg_term(Prec(0))?);
+        while self.check_match(ArgParamStart) {
+            if self.try_match(TokenKind::Open(DelimKind::Brace)).is_some() {
+                let label = self.expect_identifier()?;
+                let term = if self.try_match(TokenKind::Equals).is_some() {
+                    Some(self.parse_term(Prec(0))?)
+                } else {
+                    None
+                };
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+
+                args.push(Arg::Implicit(label, term));
+            } else {
+                args.push(Arg::Explicit(self.parse_arg_term(Prec(0))?));
+            }
         }
 
         if args.is_empty() {
@@ -856,8 +935,25 @@ mod tests {
             r"Fun (x y : Type) (z : Type) -> x",
             Term::FunType(
                 vec![
-                    (vec!["x".to_owned(), "y".to_owned()], Term::Universe(None)),
-                    (vec!["z".to_owned()], Term::Universe(None)),
+                    TypeParam::Explicit(vec!["x".to_owned(), "y".to_owned()], Term::Universe(None)),
+                    TypeParam::Explicit(vec!["z".to_owned()], Term::Universe(None)),
+                ],
+                Box::new(Term::Var("x".to_owned())),
+            ),
+        );
+    }
+
+    #[test]
+    fn fun_ty_implict() {
+        test_term!(
+            r"Fun {x y : Type} {z} -> x",
+            Term::FunType(
+                vec![
+                    TypeParam::Implicit(
+                        vec!["x".to_owned(), "y".to_owned()],
+                        Some(Term::Universe(None))
+                    ),
+                    TypeParam::Implicit(vec!["z".to_owned()], None),
                 ],
                 Box::new(Term::Var("x".to_owned())),
             ),
@@ -896,16 +992,16 @@ mod tests {
             Term::FunArrowType(
                 Box::new(Term::FunApp(
                     Box::new(Term::Var("Option".to_owned())),
-                    vec![Term::Var("A".to_owned())]
+                    vec![Arg::Explicit(Term::Var("A".to_owned()))]
                 )),
                 Box::new(Term::FunArrowType(
                     Box::new(Term::FunApp(
                         Box::new(Term::Var("Option".to_owned())),
-                        vec![Term::Var("B".to_owned())]
+                        vec![Arg::Explicit(Term::Var("B".to_owned()))]
                     )),
                     Box::new(Term::FunApp(
                         Box::new(Term::Var("Option".to_owned())),
-                        vec![Term::Var("C".to_owned())]
+                        vec![Arg::Explicit(Term::Var("C".to_owned()))]
                     )),
                 ),)
             ),
@@ -917,7 +1013,7 @@ mod tests {
         test_term!(
             r"fun x => x",
             Term::FunIntro(
-                vec![Pattern::Var("x".to_owned())],
+                vec![IntroParam::Explicit(Pattern::Var("x".to_owned()))],
                 Box::new(Term::Var("x".to_owned())),
             ),
         );
@@ -929,9 +1025,24 @@ mod tests {
             r"fun x y z => x",
             Term::FunIntro(
                 vec![
-                    Pattern::Var("x".to_owned()),
-                    Pattern::Var("y".to_owned()),
-                    Pattern::Var("z".to_owned()),
+                    IntroParam::Explicit(Pattern::Var("x".to_owned())),
+                    IntroParam::Explicit(Pattern::Var("y".to_owned())),
+                    IntroParam::Explicit(Pattern::Var("z".to_owned())),
+                ],
+                Box::new(Term::Var("x".to_owned())),
+            ),
+        );
+    }
+
+    #[test]
+    fn fun_intro_multi_params_implicit() {
+        test_term!(
+            r"fun x {y} {z = zz} => x",
+            Term::FunIntro(
+                vec![
+                    IntroParam::Explicit(Pattern::Var("x".to_owned())),
+                    IntroParam::Implicit("y".to_owned(), None),
+                    IntroParam::Implicit("z".to_owned(), Some(Pattern::Var("zz".to_owned()))),
                 ],
                 Box::new(Term::Var("x".to_owned())),
             ),
@@ -944,7 +1055,7 @@ mod tests {
             r"foo arg",
             Term::FunApp(
                 Box::new(Term::Var("foo".to_owned())),
-                vec![Term::Var("arg".to_owned())],
+                vec![Arg::Explicit(Term::Var("arg".to_owned()))],
             ),
         );
     }
@@ -955,7 +1066,10 @@ mod tests {
             r"foo arg1 arg2",
             Term::FunApp(
                 Box::new(Term::Var("foo".to_owned())),
-                vec![Term::Var("arg1".to_owned()), Term::Var("arg2".to_owned())],
+                vec![
+                    Arg::Explicit(Term::Var("arg1".to_owned())),
+                    Arg::Explicit(Term::Var("arg2".to_owned())),
+                ],
             ),
         );
     }
@@ -967,15 +1081,29 @@ mod tests {
             Term::FunApp(
                 Box::new(Term::Var("foo".to_owned())),
                 vec![
-                    Term::Parens(Box::new(Term::Var("arg1".to_owned()))),
-                    Term::RecordProj(
+                    Arg::Explicit(Term::Parens(Box::new(Term::Var("arg1".to_owned())))),
+                    Arg::Explicit(Term::RecordProj(
                         Box::new(Term::RecordProj(
                             Box::new(Term::Var("arg2".to_owned())),
                             "foo".to_owned()
                         )),
                         "bar".to_owned()
-                    ),
-                    Term::Var("arg3".to_owned()),
+                    )),
+                    Arg::Explicit(Term::Var("arg3".to_owned())),
+                ],
+            ),
+        );
+    }
+
+    #[test]
+    fn fun_app_implicit() {
+        test_term!(
+            r"foo {arg1} {arg2 = arg2}",
+            Term::FunApp(
+                Box::new(Term::Var("foo".to_owned())),
+                vec![
+                    Arg::Implicit("arg1".to_owned(), None),
+                    Arg::Implicit("arg2".to_owned(), Some(Term::Var("arg2".to_owned()))),
                 ],
             ),
         );
@@ -1026,13 +1154,13 @@ mod tests {
             Term::RecordIntro(vec![
                 RecordIntroField::Explicit {
                     label: "x".to_owned(),
-                    patterns: Vec::new(),
+                    params: Vec::new(),
                     body_ty: None,
                     body: Term::Var("x".to_owned()),
                 },
                 RecordIntroField::Explicit {
                     label: "y".to_owned(),
-                    patterns: Vec::new(),
+                    params: Vec::new(),
                     body_ty: None,
                     body: Term::Var("y".to_owned()),
                 },
@@ -1047,13 +1175,19 @@ mod tests {
             Term::RecordIntro(vec![
                 RecordIntroField::Explicit {
                     label: "f".to_owned(),
-                    patterns: vec![Pattern::Var("x".to_owned()), Pattern::Var("y".to_owned())],
+                    params: vec![
+                        IntroParam::Explicit(Pattern::Var("x".to_owned())),
+                        IntroParam::Explicit(Pattern::Var("y".to_owned()))
+                    ],
                     body_ty: None,
                     body: Term::Var("x".to_owned()),
                 },
                 RecordIntroField::Explicit {
                     label: "g".to_owned(),
-                    patterns: vec![Pattern::Var("x".to_owned()), Pattern::Var("y".to_owned())],
+                    params: vec![
+                        IntroParam::Explicit(Pattern::Var("x".to_owned())),
+                        IntroParam::Explicit(Pattern::Var("y".to_owned()))
+                    ],
                     body_ty: Some(Term::Universe(None)),
                     body: Term::Var("x".to_owned()),
                 },
@@ -1068,13 +1202,13 @@ mod tests {
             Term::RecordIntro(vec![
                 RecordIntroField::Explicit {
                     label: "x".to_owned(),
-                    patterns: Vec::new(),
+                    params: Vec::new(),
                     body_ty: None,
                     body: Term::Var("x".to_owned()),
                 },
                 RecordIntroField::Explicit {
                     label: "y".to_owned(),
-                    patterns: Vec::new(),
+                    params: Vec::new(),
                     body_ty: Some(Term::Universe(None)),
                     body: Term::Var("y".to_owned()),
                 },
@@ -1114,8 +1248,11 @@ mod tests {
                     "bar".to_owned()
                 )),
                 vec![
-                    Term::Var("baz".to_owned()),
-                    Term::RecordProj(Box::new(Term::Var("foo".to_owned())), "bar".to_owned()),
+                    Arg::Explicit(Term::Var("baz".to_owned())),
+                    Arg::Explicit(Term::RecordProj(
+                        Box::new(Term::Var("foo".to_owned())),
+                        "bar".to_owned()
+                    )),
                 ],
             ),
         );

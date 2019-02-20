@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::syntax::{DbIndex, Label, Literal, UniverseLevel};
+use crate::syntax::{AppMode, DbIndex, Label, Literal, UniverseLevel};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcNormal {
@@ -45,9 +45,9 @@ pub enum Normal {
     Literal(Literal),
 
     /// Dependent function types
-    FunType(RcNormal, RcNormal),
+    FunType(AppMode, RcNormal, RcNormal),
     /// Introduce a function
-    FunIntro(RcNormal),
+    FunIntro(AppMode, RcNormal),
 
     /// Dependent record types
     RecordType(Vec<(Label, RcNormal)>),
@@ -94,7 +94,7 @@ pub enum Neutral {
     Var(DbIndex),
 
     /// Apply a function to an argument
-    FunApp(RcNeutral, RcNormal),
+    FunApp(RcNeutral, AppMode, RcNormal),
 
     /// Project on a record
     RecordProj(RcNeutral, Label),
