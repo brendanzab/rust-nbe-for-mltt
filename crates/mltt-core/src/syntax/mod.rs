@@ -53,7 +53,13 @@ pub struct VarIndex(pub u32);
 
 impl VarIndex {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(format!("@{}", self.0))
+        Doc::as_string(format!("{}", self))
+    }
+}
+
+impl fmt::Display for VarIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "@{}", self.0)
     }
 }
 

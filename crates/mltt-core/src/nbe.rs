@@ -89,7 +89,10 @@ pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcV
 pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
     match term.as_ref() {
         Term::Var(index) => match env.lookup_entry(*index) {
-            Some(value) => Ok(value.clone()),
+            Some(value) => {
+                log::trace!("lookup value: {} -> {:?}", index, value);
+                Ok(value.clone())
+            },
             None => Err(NbeError::new("eval: variable not found")),
         },
         Term::LiteralType(literal_ty) => Ok(RcValue::from(Value::LiteralType(literal_ty.clone()))),
