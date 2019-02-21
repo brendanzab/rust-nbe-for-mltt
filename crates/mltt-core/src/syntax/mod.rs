@@ -90,6 +90,8 @@ impl ops::Add<u32> for VarIndex {
 /// multiple closures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Env<T: Clone> {
+    /// How much to shift the values in the environment by
+    shift: UniverseShift,
     /// The entries in the environment
     entries: im::Vector<T>,
 }
@@ -98,8 +100,19 @@ impl<T: Clone> Env<T> {
     /// Create a new, empty environment.
     pub fn new() -> Env<T> {
         Env {
+            shift: UniverseShift(0),
             entries: im::Vector::new(),
         }
+    }
+
+    /// Return the shift of the environment
+    pub fn shift(&self) -> UniverseShift {
+        self.shift
+    }
+
+    /// Lift the environment by the given amount
+    pub fn lift(&mut self, shift: UniverseShift) {
+        self.shift += shift;
     }
 
     /// Lookup an entry in the environment.
@@ -110,6 +123,37 @@ impl<T: Clone> Env<T> {
     /// Add a new entry to the environment.
     pub fn add_entry(&mut self, value: T) {
         self.entries.push_front(value)
+    }
+}
+
+/// The level of a universe
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UniverseShift(pub u32);
+
+impl UniverseShift {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(&self.0)
+    }
+}
+
+impl From<u32> for UniverseShift {
+    fn from(src: u32) -> UniverseShift {
+        UniverseShift(src)
+    }
+}
+
+impl ops::AddAssign<UniverseShift> for UniverseShift {
+    fn add_assign(&mut self, other: UniverseShift) {
+        self.0 += other.0;
+    }
+}
+
+impl ops::Add<UniverseShift> for UniverseShift {
+    type Output = UniverseShift;
+
+    fn add(mut self, other: UniverseShift) -> UniverseShift {
+        self += other;
+        self
     }
 }
 
@@ -131,14 +175,28 @@ impl From<u32> for UniverseLevel {
 
 impl ops::AddAssign<u32> for UniverseLevel {
     fn add_assign(&mut self, other: u32) {
-        self.0 += other;
+        *self += UniverseShift(other);
     }
 }
 
 impl ops::Add<u32> for UniverseLevel {
     type Output = UniverseLevel;
 
-    fn add(mut self, other: u32) -> UniverseLevel {
+    fn add(self, other: u32) -> UniverseLevel {
+        self + UniverseShift(other)
+    }
+}
+
+impl ops::AddAssign<UniverseShift> for UniverseLevel {
+    fn add_assign(&mut self, other: UniverseShift) {
+        self.0 += other.0;
+    }
+}
+
+impl ops::Add<UniverseShift> for UniverseLevel {
+    type Output = UniverseLevel;
+
+    fn add(mut self, other: UniverseShift) -> UniverseLevel {
         self += other;
         self
     }

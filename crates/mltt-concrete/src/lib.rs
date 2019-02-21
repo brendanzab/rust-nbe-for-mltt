@@ -461,6 +461,8 @@ pub enum Term<'file> {
     Ann(Box<Term<'file>>, Box<Term<'file>>),
     /// Let bindings
     Let(FileSpan, Vec<Item<'file>>, Box<Term<'file>>),
+    /// Universe lift
+    Lift(Box<Term<'file>>, FileSpan, u32),
 
     /// Literals
     Literal(Literal<'file>),
@@ -486,7 +488,7 @@ pub enum Term<'file> {
     RecordElim(Box<Term<'file>>, SpannedString<'file>),
 
     /// Universe of types
-    Universe(FileSpan, Option<(FileSpan, u32)>),
+    Universe(FileSpan),
 }
 
 impl<'file> Term<'file> {
@@ -497,6 +499,7 @@ impl<'file> Term<'file> {
             Term::Parens(span, _) => *span,
             Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
             Term::Let(span, _, _) => *span,
+            Term::Lift(term, span, _) => FileSpan::merge(term.span(), *span),
             Term::Literal(literal) => literal.span(),
             Term::FunType(span, _, _) => *span,
             Term::FunArrowType(param_ty, body_ty) => {
@@ -513,7 +516,7 @@ impl<'file> Term<'file> {
             Term::RecordType(span, _) => *span,
             Term::RecordIntro(span, _) => *span,
             Term::RecordElim(record, label) => FileSpan::merge(record.span(), label.span()),
-            Term::Universe(span, _) => *span,
+            Term::Universe(span) => *span,
         }
     }
 
@@ -543,6 +546,7 @@ impl<'file> Term<'file> {
                     .append(Doc::space())
                     .append(body.to_doc())
             },
+            Term::Lift(term, _, shift) => term.to_doc().append("^").append(Doc::as_string(shift)),
             Term::Literal(literal) => literal.to_doc(),
             Term::FunType(_, params, body_ty) => Doc::nil()
                 .append("Fun")
@@ -613,8 +617,7 @@ impl<'file> Term<'file> {
                     .append("}")
             },
             Term::RecordElim(record, label) => record.to_doc().append(".").append(label.to_doc()),
-            Term::Universe(_, None) => Doc::text("Type"),
-            Term::Universe(_, Some((_, level))) => Doc::text("Type^").append(Doc::as_string(level)),
+            Term::Universe(_) => Doc::text("Type"),
         }
     }
 }

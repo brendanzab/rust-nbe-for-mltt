@@ -91,6 +91,9 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
         Term::Var(index) => match env.lookup_entry(*index) {
             Some(value) => {
                 log::trace!("lookup value: {} -> {:?}", index, value);
+
+                let mut value = value.clone();
+                value.lift(env.shift());
                 Ok(value.clone())
             },
             None => Err(NbeError::new("eval: variable not found")),
@@ -104,6 +107,11 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             let mut env = env.clone();
             env.add_entry(def);
             eval(body, &env)
+        },
+        Term::Lift(term, shift) => {
+            let mut env = env.clone();
+            env.lift(*shift);
+            eval(term, &env)
         },
 
         // Functions
@@ -134,8 +142,9 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             Some(((_, label, ty), rest)) => {
                 let label = label.clone();
                 let ty = eval(ty, env)?;
-                let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
-                let rest = Closure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
+                // FIXME: Seems expensive?
+                let rest_fields = RcTerm::from(Term::RecordType(rest.iter().cloned().collect()));
+                let rest = Closure::new(rest_fields, env.clone());
 
                 Ok(RcValue::from(Value::RecordTypeExtend(label, ty, rest)))
             },
@@ -151,7 +160,7 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
         Term::RecordElim(record, label) => do_record_elim(&eval(record, env)?, label),
 
         // Universes
-        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
+        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + env.shift()))),
     }
 }
 

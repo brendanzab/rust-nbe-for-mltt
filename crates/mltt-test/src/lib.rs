@@ -52,3 +52,4 @@ run_test!(empty, "tests/empty.mltt");
 run_test!(forward_declarations, "tests/forward-declarations.mltt");
 run_test!(literals, "tests/literals.mltt");
 run_test!(records, "tests/records.mltt");
+run_test!(universe_lifting, "tests/universe-lifting.mltt");

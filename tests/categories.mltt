@@ -30,6 +30,15 @@ seq cat = cat.seq;
 compose : Fun (cat : Category) {A B C : cat.Object} -> cat.Arrow B C -> cat.Arrow A B -> cat.Arrow A C;
 compose cat {A} {B} {C} f g = seq cat {A} {B} {C} g f;
 
+
+Category-Function : Category^1 = record {
+    Object = Type;
+    Arrow A B = A -> B;
+    id {A} a = a;
+    seq {A} {B} {C} f g a = g (f a);
+};
+
+
 ||| Provides a mapping from objects-to-objects and arrows-to-arrows for two
 ||| categories, `Source` and `Target`
 |||
@@ -56,3 +65,11 @@ map :
         functor.Source.Arrow A B ->
         functor.Target.Arrow (functor.Map A) (functor.Map B);
 map functor = functor.map;
+
+
+Endofunctor-Function : Functor^1 = record {
+    Source = Category-Function;
+    Target = Category-Function;
+    Map A = A;
+    map {A} {B} f a = f a;
+};

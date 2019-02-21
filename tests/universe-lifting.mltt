@@ -1,0 +1,18 @@
+test-record-lift : Record { x : Type }^1;
+test-record-lift = record { x = Type };
+
+
+id : Fun (A : Type) -> A -> A;
+id A a = a;
+
+test-id1 : Fun (A : Type^1) -> A -> A;
+test-id1 = id^1;
+
+test-id2 : Fun (A : Type^2) -> A -> A;
+test-id2 = id^2;
+
+test-id1-app : Type^1;
+test-id1-app = id^1 Type (Record {});
+
+test-id2-app : Type^1;
+test-id2-app = id^2 Type^1 Type;

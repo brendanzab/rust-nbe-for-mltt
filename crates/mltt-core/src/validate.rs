@@ -9,7 +9,9 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{Item, RcTerm, Term};
 use crate::syntax::domain::{RcType, RcValue, Value};
-use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
+use crate::syntax::{
+    AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, UniverseShift, VarLevel,
+};
 
 /// Local type checking context.
 #[derive(Debug, Clone, PartialEq)]
@@ -40,6 +42,12 @@ impl Context {
     /// Values to be used during evaluation
     pub fn values(&self) -> &Env<RcValue> {
         &self.values
+    }
+
+    /// Lift the evaluation environment by the given universe shift
+    pub fn lift(&mut self, shift: UniverseShift) {
+        self.values.lift(shift);
+        self.tys.lift(shift);
     }
 
     /// Types of the entries in the context
@@ -264,7 +272,11 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
     match term.as_ref() {
         Term::Var(index) => match context.tys().lookup_entry(*index) {
             None => Err(TypeError::UnboundVariable),
-            Some(ann) => Ok(ann.clone()),
+            Some(ann) => {
+                let mut ann = ann.clone();
+                ann.lift(context.tys.shift());
+                Ok(ann)
+            },
         },
         Term::LiteralType(_) => Ok(RcValue::from(Value::Universe(UniverseLevel(0)))),
         Term::LiteralIntro(literal_intro) => {
@@ -289,6 +301,11 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             body_context.local_define(context.eval(def)?, def_ty);
 
             synth_term(&body_context, body)
+        },
+        Term::Lift(term, shift) => {
+            let mut context = context.clone();
+            context.lift(*shift);
+            synth_term(&context, term)
         },
 
         Term::FunType(_app_mode, param_ty, body_ty) => {
@@ -355,7 +372,10 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             Err(TypeError::NoFieldInType(label.clone()))
         },
 
-        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + 1))),
+        Term::Universe(level) => {
+            let level = *level + context.values.shift() + 1;
+            Ok(RcValue::from(Value::Universe(level)))
+        },
     }
 }
 

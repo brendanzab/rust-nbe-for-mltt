@@ -3,8 +3,10 @@
 use std::ops;
 use std::rc::Rc;
 
-use crate::syntax::core::RcTerm;
-use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
+use crate::syntax::core::{RcTerm, Term};
+use crate::syntax::{
+    AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, UniverseShift, VarLevel,
+};
 
 /// A closure that binds a single variable.
 ///
@@ -27,6 +29,11 @@ pub struct Closure {
 impl Closure {
     pub fn new(term: RcTerm, env: Env<RcValue>) -> Closure {
         Closure { term, env }
+    }
+
+    pub fn lift(&mut self, shift: UniverseShift) {
+        self.term = RcTerm::from(Term::Lift(self.term.clone(), shift));
+        self.env.lift(shift);
     }
 }
 
@@ -61,6 +68,10 @@ impl RcValue {
     /// Construct a variable
     pub fn var(level: impl Into<VarLevel>) -> RcValue {
         RcValue::from(Value::var(level))
+    }
+
+    pub fn lift(&mut self, shift: UniverseShift) {
+        Rc::make_mut(&mut self.inner).lift(shift);
     }
 }
 
@@ -104,6 +115,34 @@ impl Value {
     pub fn var(level: impl Into<VarLevel>) -> Value {
         Value::Neutral(Head::Var(level.into()), Vec::new())
     }
+
+    pub fn lift(&mut self, shift: UniverseShift) {
+        match self {
+            Value::Neutral(_, spine) => {
+                for elim in spine {
+                    elim.lift(shift);
+                }
+            },
+            Value::LiteralIntro(_) => {},
+            Value::LiteralType(_) => {},
+            Value::FunType(_, param_ty, body_ty) => {
+                param_ty.lift(shift);
+                body_ty.lift(shift);
+            },
+            Value::FunIntro(_, body) => body.lift(shift),
+            Value::RecordTypeExtend(_, ty, rest) => {
+                ty.lift(shift);
+                rest.lift(shift);
+            },
+            Value::RecordTypeEmpty => {},
+            Value::RecordIntro(fields) => {
+                for (_, term) in fields {
+                    term.lift(shift);
+                }
+            },
+            Value::Universe(ref mut level) => *level += shift,
+        }
+    }
 }
 
 /// Alias for types - we are using describing a dependently typed language
@@ -131,4 +170,13 @@ pub enum Elim {
     Fun(AppMode, RcValue),
     /// Record elimination (projection)
     Record(Label),
+}
+
+impl Elim {
+    pub fn lift(&mut self, shift: UniverseShift) {
+        match self {
+            Elim::Fun(_, arg) => arg.lift(shift),
+            Elim::Record(_) => {},
+        }
+    }
 }

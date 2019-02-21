@@ -17,6 +17,7 @@
 //!           | "(" term ")"
 //!           | term ":" term
 //!           | "let" item+ "in" term
+//!           | term "^" INT_LITERAL
 //!           | STRING_LITERAL
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
@@ -410,15 +411,16 @@ where
     ///     prefix  "fun"               ::= fun-intro
     ///     prefix  "Record"            ::= record-type
     ///     prefix  "record"            ::= record-intro
-    ///     prefix  "Type"              ::= universe
+    ///     nilfix  "Type"
     ///     prefix  IDENTIFIER          ::= fun-elim
     ///     nilfix  "?"                 ::= hole fun-elim
     ///     nilfix  STRING_LITERAL
     ///     nilfix  CHAR_LITERAL
-    ///     nilfix  INT_LITERAL
     ///     nilfix  FLOAT_LITERAL
+    ///     nilfix  INT_LITERAL
     ///
     ///     infixr  "."             80  ::= record-elim fun-elim
+    ///     infixr  "^"             80  ::= lift fun-elim
     ///     infixr  ":"             20  ::= ann
     ///     infixr  "->"            50  ::= fun-arrow-type
     /// }
@@ -468,6 +470,11 @@ where
                     term = self.parse_record_elim(term, token)?;
                     term = self.parse_fun_elim(term)?;
                 },
+                TokenKind::Caret if right_prec < 80 => {
+                    let token = self.advance().unwrap();
+                    term = self.parse_lift(term, token)?;
+                    term = self.parse_fun_elim(term)?;
+                },
                 TokenKind::Colon if right_prec < 20 => {
                     let token = self.advance().unwrap();
                     term = self.parse_ann(term, token)?;
@@ -488,7 +495,7 @@ where
     /// ```text
     /// arg-term(prec) ::= operators(prec) {
     ///     prefix  "("                 ::= parens
-    ///     prefix  "Type"              ::= universe
+    ///     nilfix  "Type"
     ///     nilfix  IDENTIFIER
     ///     nilfix  "?"
     ///     nilfix  STRING_LITERAL
@@ -497,6 +504,7 @@ where
     ///     nilfix  FLOAT_LITERAL
     ///
     ///     infixr  "."             80  ::= record-elim
+    ///     infixr  "^"             80  ::= lift
     /// }
     /// ```
     fn parse_arg_term(&mut self, right_prec: Prec) -> Result<Term<'file>, Diagnostic<FileSpan>> {
@@ -529,6 +537,10 @@ where
                     let token = self.advance().unwrap();
                     term = self.parse_record_elim(term, token)?;
                 },
+                TokenKind::Caret if right_prec < 80 => {
+                    let token = self.advance().unwrap();
+                    term = self.parse_lift(term, token)?;
+                },
                 _ => break,
             }
         }
@@ -548,6 +560,11 @@ where
     /// Parse the trailing part of a hole
     fn parse_hole(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Hole(token.span))
+    }
+
+    /// Parse the trailing part of a universe
+    fn parse_universe(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
+        Ok(Term::Universe(token.span))
     }
 
     /// Parse the trailing part of a string literal
@@ -840,28 +857,6 @@ where
         Ok(Term::Let(span, items, Box::new(body_term)))
     }
 
-    /// Parse the trailing part of a universe
-    ///
-    /// ```text
-    /// universe ::= ("^" INT_LITERAL)?
-    /// ```
-    fn parse_universe(
-        &mut self,
-        start_token: Token<'file>,
-    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        if self.try_match(TokenKind::Caret).is_some() {
-            let integer_token = self.expect_match(TokenKind::IntLiteral)?;
-            // FIXME: if prefixed integer
-            // FIXME: if separators
-            let level = integer_token.slice.parse().unwrap();
-            let span = FileSpan::merge(start_token.span, integer_token.span);
-
-            Ok(Term::Universe(span, Some((integer_token.span, level))))
-        } else {
-            Ok(Term::Universe(start_token.span, None))
-        }
-    }
-
     /// Parse the trailing part of a record elimination
     ///
     /// ```text
@@ -874,6 +869,26 @@ where
     ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let label = self.expect_identifier()?;
         Ok(Term::RecordElim(Box::new(lhs), label))
+    }
+
+    /// Parse the trailing part of a universe lift
+    ///
+    /// ```text
+    /// lift ::= INT_LITERAL
+    /// ```
+    fn parse_lift(
+        &mut self,
+        lhs: Term<'file>,
+        _start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
+        let integer_token = self.expect_match(TokenKind::IntLiteral)?;
+        // FIXME: if prefixed integer
+        // FIXME: if separators
+        Ok(Term::Lift(
+            Box::new(lhs),
+            integer_token.span,
+            integer_token.slice.parse().unwrap(),
+        ))
     }
 
     /// Parse the trailing part of a type annotation
@@ -1036,7 +1051,7 @@ mod tests {
                 label: SpannedString::new(file_id, 4, "var"),
                 params: Vec::new(),
                 body_ty: None,
-                body: Term::Universe(FileSpan::new(file_id, 10, 14), None),
+                body: Term::Universe(FileSpan::new(file_id, 10, 14)),
             })],
             Box::new(Term::Var(SpannedString::new(file_id, 19, "var"))),
         ),);
@@ -1063,12 +1078,12 @@ mod tests {
                             SpannedString::new(file_id, 5, "x"),
                             SpannedString::new(file_id, 7, "y"),
                         ],
-                        Term::Universe(FileSpan::new(file_id, 11, 15), None),
+                        Term::Universe(FileSpan::new(file_id, 11, 15)),
                     ),
                     TypeParam::Explicit(
                         FileSpan::new(file_id, 17, 27),
                         vec![SpannedString::new(file_id, 18, "z")],
-                        Term::Universe(FileSpan::new(file_id, 22, 26), None),
+                        Term::Universe(FileSpan::new(file_id, 22, 26)),
                     ),
                 ],
                 Box::new(Term::Var(SpannedString::new(file_id, 31, "x"))),
@@ -1087,7 +1102,7 @@ mod tests {
                         SpannedString::new(file_id, 5, "x"),
                         SpannedString::new(file_id, 7, "y"),
                     ],
-                    Some(Term::Universe(FileSpan::new(file_id, 11, 15), None)),
+                    Some(Term::Universe(FileSpan::new(file_id, 11, 15))),
                 ),
                 TypeParam::Implicit(
                     FileSpan::new(file_id, 17, 20),
@@ -1260,12 +1275,12 @@ mod tests {
                 RecordTypeField {
                     docs: Vec::new(),
                     label: SpannedString::new(file_id, 9, "x"),
-                    ann: Term::Universe(FileSpan::new(file_id, 13, 17), None),
+                    ann: Term::Universe(FileSpan::new(file_id, 13, 17)),
                 },
                 RecordTypeField {
                     docs: Vec::new(),
                     label: SpannedString::new(file_id, 19, "y"),
-                    ann: Term::Universe(FileSpan::new(file_id, 23, 27), None),
+                    ann: Term::Universe(FileSpan::new(file_id, 23, 27)),
                 },
             ]
         ));
@@ -1281,12 +1296,12 @@ mod tests {
                     RecordTypeField {
                         docs: Vec::new(),
                         label: SpannedString::new(file_id, 9, "x"),
-                        ann: Term::Universe(FileSpan::new(file_id, 13, 17), None),
+                        ann: Term::Universe(FileSpan::new(file_id, 13, 17)),
                     },
                     RecordTypeField {
                         docs: Vec::new(),
                         label: SpannedString::new(file_id, 19, "y"),
-                        ann: Term::Universe(FileSpan::new(file_id, 23, 27), None),
+                        ann: Term::Universe(FileSpan::new(file_id, 23, 27)),
                     },
                 ]
             ),
@@ -1343,7 +1358,7 @@ mod tests {
                                 file_id, 24, "y",
                             ))),
                         ],
-                        body_ty: Some(Term::Universe(FileSpan::new(file_id, 28, 32), None)),
+                        body_ty: Some(Term::Universe(FileSpan::new(file_id, 28, 32))),
                         body: Term::Var(SpannedString::new(file_id, 35, "x")),
                     },
                 ],
@@ -1366,7 +1381,7 @@ mod tests {
                     RecordIntroField::Explicit {
                         label: SpannedString::new(file_id, 16, "y"),
                         params: Vec::new(),
-                        body_ty: Some(Term::Universe(FileSpan::new(file_id, 20, 24), None)),
+                        body_ty: Some(Term::Universe(FileSpan::new(file_id, 20, 24))),
                         body: Term::Var(SpannedString::new(file_id, 27, "y")),
                     },
                 ],
@@ -1423,25 +1438,26 @@ mod tests {
 
     #[test]
     fn universe() {
-        test_term!("Type", |file_id| Term::Universe(
-            FileSpan::new(file_id, 0, 4),
-            None
-        ));
+        test_term!("Type", |file_id| Term::Universe(FileSpan::new(
+            file_id, 0, 4,
+        )));
     }
 
     #[test]
     fn universe_level_0() {
-        test_term!("Type^0", |file_id| Term::Universe(
-            FileSpan::new(file_id, 0, 6),
-            Some((FileSpan::new(file_id, 5, 6), 0)),
+        test_term!("Type^0", |file_id| Term::Lift(
+            Box::new(Term::Universe(FileSpan::new(file_id, 0, 4))),
+            FileSpan::new(file_id, 5, 6),
+            0,
         ));
     }
 
     #[test]
     fn universe_level_23() {
-        test_term!("Type^23", |file_id| Term::Universe(
-            FileSpan::new(file_id, 0, 7),
-            Some((FileSpan::new(file_id, 5, 7), 23)),
+        test_term!("Type^23", |file_id| Term::Lift(
+            Box::new(Term::Universe(FileSpan::new(file_id, 0, 4))),
+            FileSpan::new(file_id, 5, 7),
+            23,
         ));
     }
 }

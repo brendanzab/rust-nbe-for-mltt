@@ -6,7 +6,9 @@ use std::fmt;
 use std::ops;
 use std::rc::Rc;
 
-use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
+use crate::syntax::{
+    AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, UniverseShift, VarIndex,
+};
 
 /// Top-level items
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +66,8 @@ pub enum Term {
     Var(VarIndex),
     /// Let bindings
     Let(RcTerm, RcTerm),
+    /// Universe lift
+    Lift(RcTerm, UniverseShift),
 
     /// Literal types
     LiteralType(LiteralType),
@@ -106,6 +110,7 @@ impl Term {
                 .append("in")
                 .append(Doc::space())
                 .append(body.to_doc()),
+            Term::Lift(term, shift) => term.to_doc().append("^").append(shift.to_doc()),
 
             Term::LiteralType(literal_ty) => literal_ty.to_doc(),
             Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
@@ -339,6 +344,7 @@ impl Term {
                     .append(Doc::space())
                     .append(body_doc)
             },
+            Term::Lift(term, shift) => term.to_doc().append("^").append(shift.to_doc()),
 
             Term::LiteralType(literal_ty) => literal_ty.to_doc(),
             Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),

@@ -13,7 +13,9 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, IntroParam, Item, Pattern, Term, TypeParam};
 use mltt_core::nbe;
-use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
+use mltt_core::syntax::{
+    core, domain, AppMode, Env, Label, UniverseLevel, UniverseShift, VarIndex, VarLevel,
+};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
 
@@ -66,6 +68,12 @@ impl Context {
     /// Values to be used during evaluation
     pub fn values(&self) -> &Env<domain::RcValue> {
         &self.values
+    }
+
+    /// Lift the evaluation environment by the given universe shift
+    pub fn lift(&mut self, shift: UniverseShift) {
+        self.values.lift(shift);
+        self.tys.lift(shift);
     }
 
     /// Types of the entries in the context
@@ -606,6 +614,15 @@ pub fn synth_term(
                 body_ty,
             ))
         },
+        Term::Lift(concrete_term, _, shift) => {
+            let shift = UniverseShift(*shift);
+
+            let mut context = context.clone();
+            context.lift(shift);
+            let (term, ty) = synth_term(&context, concrete_term)?;
+
+            Ok((core::RcTerm::from(core::Term::Lift(term, shift)), ty))
+        },
 
         Term::Literal(concrete_literal) => literal::synth(concrete_literal),
 
@@ -762,15 +779,13 @@ pub fn synth_term(
                 .with_label(DiagnosticLabel::new_primary(label.span())))
         },
 
-        Term::Universe(_, level) => {
-            let level = match level {
-                None => UniverseLevel(0),
-                Some((_, level)) => UniverseLevel(*level),
-            };
+        Term::Universe(_) => {
+            let term_level = UniverseLevel(0);
+            let ty_level = UniverseLevel(1) + context.values.shift();
 
             Ok((
-                core::RcTerm::from(core::Term::Universe(level)),
-                domain::RcValue::from(domain::Value::Universe(level + 1)),
+                core::RcTerm::from(core::Term::Universe(term_level)),
+                domain::RcValue::from(domain::Value::Universe(ty_level)),
             ))
         },
     }
