@@ -25,8 +25,8 @@ impl AsRef<Normal> for RcNormal {
 
 impl RcNormal {
     /// Construct a variable
-    pub fn var(level: impl Into<DbIndex>) -> RcNormal {
-        RcNormal::from(Normal::var(level))
+    pub fn var(index: impl Into<DbIndex>) -> RcNormal {
+        RcNormal::from(Normal::var(index))
     }
 }
 
@@ -38,8 +38,13 @@ impl RcNormal {
 /// alpha equality.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Normal {
-    /// Neutral values, annotated with a type
-    Neutral(RcNeutral),
+    /// Neutral values
+    ///
+    /// Terms for which computation has stopped because of an attempt to
+    /// evaluate a variable.
+    ///
+    /// These are known as _neutral values_ or _accumulators_.
+    Neutral(Head, Spine),
 
     /// Literal values
     Literal(Literal),
@@ -60,42 +65,26 @@ pub enum Normal {
 
 impl Normal {
     /// Construct a variable
-    pub fn var(level: impl Into<DbIndex>) -> Normal {
-        Normal::Neutral(RcNeutral::from(Neutral::Var(level.into())))
+    pub fn var(index: impl Into<DbIndex>) -> Normal {
+        Normal::Neutral(Head::Var(index.into()), Vec::new())
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct RcNeutral {
-    pub inner: Rc<Neutral>,
-}
-
-impl From<Neutral> for RcNeutral {
-    fn from(src: Neutral) -> RcNeutral {
-        RcNeutral {
-            inner: Rc::new(src),
-        }
-    }
-}
-
-impl AsRef<Neutral> for RcNeutral {
-    fn as_ref(&self) -> &Neutral {
-        self.inner.as_ref()
-    }
-}
-
-/// Terms for which computation has stopped because of an attempt to evaluate a
-/// variable
-///
-/// These are known as _neutral values_ or _accumulators_.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Neutral {
+/// The head of a neutral term
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Head {
     /// Variables
     Var(DbIndex),
+}
 
-    /// Apply a function to an argument
-    FunApp(RcNeutral, AppMode, RcNormal),
+/// A spine of eliminators
+pub type Spine = Vec<Elim>;
 
-    /// Project on a record
-    RecordProj(RcNeutral, Label),
+/// An eliminator
+#[derive(Debug, Clone, PartialEq)]
+pub enum Elim {
+    /// Argument application
+    FunApp(AppMode, RcNormal),
+    /// Field projection
+    RecordProj(Label),
 }

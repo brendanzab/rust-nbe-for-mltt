@@ -59,7 +59,12 @@ impl RcValue {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Neutral values
-    Neutral(RcNeutral),
+    ///
+    /// Terms for which computation has stopped because of an attempt to
+    /// evaluate a variable.
+    ///
+    /// These are known as _neutral values_ or _accumulators_.
+    Neutral(Head, Spine),
 
     /// Literals
     Literal(Literal),
@@ -83,7 +88,7 @@ pub enum Value {
 impl Value {
     /// Construct a variable
     pub fn var(level: impl Into<DbLevel>) -> Value {
-        Value::Neutral(RcNeutral::from(Neutral::Var(level.into())))
+        Value::Neutral(Head::Var(level.into()), Vec::new())
     }
 }
 
@@ -95,37 +100,21 @@ pub type Type = Value;
 /// typed language types, so this is just an alias
 pub type RcType = RcValue;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct RcNeutral {
-    pub inner: Rc<Neutral>,
-}
-
-impl From<Neutral> for RcNeutral {
-    fn from(src: Neutral) -> RcNeutral {
-        RcNeutral {
-            inner: Rc::new(src),
-        }
-    }
-}
-
-impl AsRef<Neutral> for RcNeutral {
-    fn as_ref(&self) -> &Neutral {
-        self.inner.as_ref()
-    }
-}
-
-/// Terms for which computation has stopped because of an attempt to evaluate a
-/// variable
-///
-/// These are known as _neutral values_ or _accumulators_.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Neutral {
+/// The head of a neutral term
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Head {
     /// Variables
     Var(DbLevel),
+}
 
-    /// Apply a function to an argument
-    FunApp(RcNeutral, AppMode, RcValue),
+/// A spine of eliminators
+pub type Spine = Vec<Elim>;
 
-    /// Project on a record
-    RecordProj(RcNeutral, Label),
+/// An eliminator
+#[derive(Debug, Clone, PartialEq)]
+pub enum Elim {
+    /// Argument application
+    FunApp(AppMode, RcValue),
+    /// Field projection
+    RecordProj(Label),
 }

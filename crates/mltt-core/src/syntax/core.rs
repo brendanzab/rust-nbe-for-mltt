@@ -264,7 +264,18 @@ impl From<&'_ normal::RcNormal> for RcTerm {
 impl From<&'_ normal::Normal> for RcTerm {
     fn from(src: &normal::Normal) -> RcTerm {
         RcTerm::from(match src {
-            normal::Normal::Neutral(neutral) => return RcTerm::from(neutral),
+            normal::Normal::Neutral(normal::Head::Var(index), spine) => {
+                spine
+                    .iter()
+                    .fold(Term::Var(*index), |acc, elim| match elim {
+                        normal::Elim::FunApp(app_mode, arg) => {
+                            Term::FunApp(RcTerm::from(acc), app_mode.clone(), RcTerm::from(arg))
+                        },
+                        normal::Elim::RecordProj(label) => {
+                            Term::RecordProj(RcTerm::from(acc), label.clone())
+                        },
+                    })
+            },
             normal::Normal::Literal(literal) => Term::Literal(literal.clone()),
             normal::Normal::FunType(app_mode, param_ty, body_ty) => Term::FunType(
                 app_mode.clone(),
@@ -291,26 +302,6 @@ impl From<&'_ normal::Normal> for RcTerm {
                 Term::RecordIntro(fields)
             },
             normal::Normal::Universe(level) => Term::Universe(*level),
-        })
-    }
-}
-
-impl From<&'_ normal::RcNeutral> for RcTerm {
-    fn from(src: &normal::RcNeutral) -> RcTerm {
-        RcTerm::from(src.as_ref())
-    }
-}
-
-impl From<&'_ normal::Neutral> for RcTerm {
-    fn from(src: &normal::Neutral) -> RcTerm {
-        RcTerm::from(match src {
-            normal::Neutral::Var(index) => Term::Var(*index),
-            normal::Neutral::FunApp(fun, app_mode, arg) => {
-                Term::FunApp(RcTerm::from(fun), app_mode.clone(), RcTerm::from(arg))
-            },
-            normal::Neutral::RecordProj(record, label) => {
-                Term::RecordProj(RcTerm::from(record), label.clone())
-            },
         })
     }
 }

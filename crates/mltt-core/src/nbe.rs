@@ -47,12 +47,10 @@ fn do_record_proj(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> 
                 label.0,
             ))),
         },
-        Value::Neutral(record_ne) => {
-            let proj = domain::RcNeutral::from(domain::Neutral::RecordProj(
-                record_ne.clone(),
-                label.clone(),
-            ));
-            Ok(RcValue::from(Value::Neutral(proj)))
+        Value::Neutral(head, spine) => {
+            let mut spine = spine.clone();
+            spine.push(domain::Elim::RecordProj(label.clone()));
+            Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
         _ => Err(NbeError::new("do_record_proj: not a record")),
     }
@@ -78,9 +76,10 @@ pub fn do_fun_app(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcVa
                 )))
             }
         },
-        Value::Neutral(fun) => {
-            let body = domain::RcNeutral::from(domain::Neutral::FunApp(fun.clone(), app_mode, arg));
-            Ok(RcValue::from(Value::Neutral(body)))
+        Value::Neutral(head, spine) => {
+            let mut spine = spine.clone();
+            spine.push(domain::Elim::FunApp(app_mode, arg));
+            Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
         _ => Err(NbeError::new("do_ap: not a function")),
     }
@@ -154,10 +153,9 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 /// Quote back a term into normal form
 pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeError> {
     match term.as_ref() {
-        Value::Neutral(term) => {
-            let neutral = read_back_neutral(level, term)?;
-
-            Ok(RcNormal::from(Normal::Neutral(neutral)))
+        Value::Neutral(head, spine) => {
+            let (head, spine) = read_back_neutral(level, *head, spine)?;
+            Ok(RcNormal::from(Normal::Neutral(head, spine)))
         },
 
         // Literals
@@ -220,40 +218,33 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
 /// Quote back a neutral term into normal form
 pub fn read_back_neutral(
     level: DbLevel,
-    neutral: &domain::RcNeutral,
-) -> Result<normal::RcNeutral, NbeError> {
-    match &neutral.as_ref() {
-        domain::Neutral::Var(var_level) => {
-            let index = DbIndex(level.0 - (var_level.0 + 1));
+    head: domain::Head,
+    spine: &domain::Spine,
+) -> Result<(normal::Head, normal::Spine), NbeError> {
+    let head = match head {
+        domain::Head::Var(var_level) => normal::Head::Var(DbIndex(level.0 - (var_level.0 + 1))),
+    };
 
-            Ok(normal::RcNeutral::from(normal::Neutral::Var(index)))
-        },
-        domain::Neutral::FunApp(fun, app_mode, arg) => {
-            let fun = read_back_neutral(level, fun)?;
-            let app_mode = app_mode.clone();
-            let arg = read_back_term(level, arg)?;
+    let spine = spine
+        .iter()
+        .map(|elim| match elim {
+            domain::Elim::FunApp(app_mode, arg) => Ok(normal::Elim::FunApp(
+                app_mode.clone(),
+                read_back_term(level, arg)?,
+            )),
+            domain::Elim::RecordProj(label) => Ok(normal::Elim::RecordProj(label.clone())),
+        })
+        .collect::<Result<_, _>>()?;
 
-            Ok(normal::RcNeutral::from(normal::Neutral::FunApp(
-                fun, app_mode, arg,
-            )))
-        },
-        domain::Neutral::RecordProj(record, label) => {
-            let record = read_back_neutral(level, record)?;
-            let label = label.clone();
-
-            Ok(normal::RcNeutral::from(normal::Neutral::RecordProj(
-                record, label,
-            )))
-        },
-    }
+    Ok((head, spine))
 }
 
 /// Check whether a semantic type is a subtype of another
 pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
     match (&ty1.as_ref(), &ty2.as_ref()) {
-        (&Value::Neutral(term1), &Value::Neutral(term2)) => {
-            let term1 = read_back_neutral(level, term1)?;
-            let term2 = read_back_neutral(level, term2)?;
+        (&Value::Neutral(head1, spine1), &Value::Neutral(head2, spine2)) => {
+            let term1 = read_back_neutral(level, *head1, spine1)?;
+            let term2 = read_back_neutral(level, *head2, spine2)?;
 
             Ok(term1 == term2)
         },
