@@ -9,23 +9,23 @@ unit : Unit;
 unit = record {};
 
 ||| The polymorphic identity function
-id : Fun {A : Type} -> A -> A;
-id {A} a = a;
+id : Fun @{A : Type} -> A -> A;
+id @{A} a = a;
 
 test-id : Unit;
-test-id = id {A = Unit} unit;
+test-id = id @{A = Unit} unit;
 
 ||| Creates a function that always returns the same value.
 |||
 ||| Also known at the 'K Combinator' in the [SKI combinator calculus][ski-wiki].
 |||
 ||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
-const : Fun {A B : Type} -> A -> B -> A;
-const {A} {B} a =
+const : Fun @{A B : Type} -> A -> B -> A;
+const @{A, B} a =
     fun b => a;
 
 test-const : Unit;
-test-const = const {A = Unit} {B = Unit -> Unit} unit (id {A = Unit});
+test-const = const @{A = Unit, B = Unit -> Unit} unit (id @{A = Unit});
 
 ||| Dependent substitution.
 |||
@@ -43,22 +43,22 @@ test-const = const {A = Unit} {B = Unit -> Unit} unit (id {A = Unit});
 ||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
 ||| [dep-rep]: https://personal.cis.strath.ac.uk/conor.mcbride/pub/DepRep/DepRep.pdf
 subst :
-    Fun {A : Type} {B : A -> Type} {C : Fun (x : A) -> B x -> Type}
+    Fun @{A : Type, B : A -> Type, C : Fun (x : A) -> B x -> Type}
         (f : Fun (x : A) (y : B x) -> C x y)
         (g : Fun (x : A) -> B x) ->
         (Fun (x : A) -> C x (g x));
-subst {A} {B} {C} f g =
+subst @{A, B, C} f g =
     fun x => f x (g x);
 
 ||| Function composition
-compose : Fun {A B C : Type} -> (B -> C) -> (A -> B) -> (A -> C);
-compose {A} {B} {C} f g =
+compose : Fun @{A B C : Type} -> (B -> C) -> (A -> B) -> (A -> C);
+compose @{A, B, C} f g =
     fun a => f (g a);
 
 ||| Flip the order of the first two arguments to a function
-flip : Fun {A B C : Type} -> (A -> B -> C) -> (B -> A -> C);
-flip {A} {B} {C} f =
+flip : Fun @{A B C : Type} -> (A -> B -> C) -> (B -> A -> C);
+flip @{A, B, C} f =
     fun a b => f b a;
 
 test-flip : (Unit -> Unit) -> Unit -> Unit;
-test-flip = flip {A = Unit} {B = Unit -> Unit} {C = Unit} (const {A = Unit} {B = Unit -> Unit});
+test-flip = flip @{A = Unit, B = Unit -> Unit, C = Unit} (const @{A = Unit, B = Unit -> Unit});
