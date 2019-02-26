@@ -8,12 +8,14 @@ Unit = Record {};
 unit : Unit;
 unit = record {};
 
+
 ||| The polymorphic identity function
 id : Fun {A : Type} -> A -> A;
 id {A} a = a;
 
 test-id : Unit;
 test-id = id {A = Unit} unit;
+
 
 ||| Creates a function that always returns the same value.
 |||
@@ -26,6 +28,7 @@ const {A} {B} a =
 
 test-const : Unit;
 test-const = const {A = Unit} {B = Unit -> Unit} unit (id {A = Unit});
+
 
 ||| Dependent substitution.
 |||
@@ -42,18 +45,34 @@ test-const = const {A = Unit} {B = Unit -> Unit} unit (id {A = Unit});
 |||
 ||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
 ||| [dep-rep]: https://personal.cis.strath.ac.uk/conor.mcbride/pub/DepRep/DepRep.pdf
-subst :
-    Fun {A : Type} {B : A -> Type} {C : Fun (x : A) -> B x -> Type}
-        (f : Fun (x : A) (y : B x) -> C x y)
-        (g : Fun (x : A) -> B x) ->
-        (Fun (x : A) -> C x (g x));
+d-subst :
+    Fun {A : Type} {B : A -> Type} {C : Fun (a : A) -> B a -> Type}
+        (f : Fun (a : A) (b : B a) -> C a b)
+        (g : Fun (a : A) -> B a) ->
+        (Fun (a : A) -> C a (g a));
+d-subst {A} {B} {C} f g =
+    fun a => f a (g a);
+
+||| Substitution
+subst : Fun {A B C : Type} -> (A -> B -> C) -> (A -> B) -> (A -> C);
 subst {A} {B} {C} f g =
-    fun x => f x (g x);
+    d-subst {A} {B = fun a => B} {C = fun a b => C} f g;
+
+
+||| Dependent function composition
+d-compose :
+    Fun {A : Type} {B : A -> Type} {C : Fun {a : A} -> B a -> Type}
+        (f : Fun {a : A} (b : B a) -> C {a} b)
+        (g : Fun (a : A) -> B a) ->
+        (Fun (a : A) -> C {a} (g a));
+d-compose {A} {B} {C} f g =
+    fun a => f {a} (g a);
 
 ||| Function composition
 compose : Fun {A B C : Type} -> (B -> C) -> (A -> B) -> (A -> C);
 compose {A} {B} {C} f g =
-    fun a => f (g a);
+    d-compose {A} {B = fun a => B} {C = fun {a} b => C} (fun {a} b => f b) g;
+
 
 ||| Flip the order of the first two arguments to a function
 flip : Fun {A B C : Type} -> (A -> B -> C) -> (B -> A -> C);
