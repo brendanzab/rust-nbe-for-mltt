@@ -8,7 +8,13 @@ use crate::syntax::{AppMode, DbLevel, Label, Literal, UniverseLevel};
 /// An environment of values
 pub type Env = im::Vector<RcValue>;
 
-/// A closure that binds a variable
+/// A closure that binds a single variable.
+///
+/// We can think of these closures as a limited form of [_explicit substitutions_].
+/// They allow us to avoid eagerly substituting under binders when evaluating
+/// terms.
+///
+/// [_explicit substitutions_]: https://en.wikipedia.org/wiki/Explicit_substitution
 #[derive(Debug, Clone, PartialEq)]
 pub struct Closure {
     /// The term that the argument will be applied to.
