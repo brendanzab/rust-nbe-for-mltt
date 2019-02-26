@@ -571,11 +571,9 @@ where
                 }
                 if param_names.is_empty() {
                     return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(
-                            Label::new_primary(brace_token.span).with_message(
-                                "at least one parameter was expected after this brace",
-                            ),
-                        ));
+                        .with_label(Label::new_primary(brace_token.span).with_message(
+                            "at least one parameter was expected after this brace",
+                        )));
                 }
 
                 let param_ty = if self.try_match(TokenKind::Colon).is_some() {

@@ -1,7 +1,7 @@
 use heck::SnakeCase;
 use std::env;
-use std::io::Write;
 use std::fs::{self, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 pub fn main() {
@@ -24,7 +24,8 @@ fn generate_tests_module(result: &mut impl Write, base_path: &Path, indent: usiz
         "",
         indent = indent,
         mod_name = mod_name.to_snake_case(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let dir_entries = fs::read_dir(base_path)
         .unwrap_or_else(|err| panic!("failed to read dir `{}`: {}", base_path.display(), err))
