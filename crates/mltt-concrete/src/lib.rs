@@ -42,7 +42,7 @@ impl Item {
 pub struct Declaration {
     pub docs: Vec<String>,
     pub label: String,
-    pub ann: Term,
+    pub body_ty: Term,
 }
 
 /// Term definitions

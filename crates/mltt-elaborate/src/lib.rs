@@ -140,46 +140,42 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
 
         match concrete_item {
             Item::Declaration(declaration) => {
-                log::trace!(
-                    "checking declaration:\t\t{}\t: {}",
-                    declaration.label,
-                    declaration.ann,
-                );
+                let label = &declaration.label;
+                let body_ty = &declaration.body_ty;
 
-                match forward_declarations.entry(&declaration.label) {
+                log::trace!("checking declaration:\t\t{}\t: {}", label, body_ty);
+
+                match forward_declarations.entry(label) {
                     // No previous declaration for this name was seen, so we can
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
                     Entry::Vacant(entry) => {
-                        let (ty, _) = synth_universe(&context, &declaration.ann)?;
+                        let (body_ty, _) = synth_universe(&context, &body_ty)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
                         //
                         // NOTE: I'm not sure how this reordering affects name
                         // binding - we might need to account for it!
-                        let ty = context.eval(&ty)?;
-                        entry.insert(Some((&declaration.docs, ty)));
+                        let body_ty = context.eval(&body_ty)?;
+                        entry.insert(Some((&declaration.docs, body_ty)));
                     },
                     // There's a declaration for this name already pending - we
                     // can't add a new one!
                     Entry::Occupied(_) => {
-                        return Err(TypeError::AlreadyDeclared(declaration.label.clone()));
+                        return Err(TypeError::AlreadyDeclared(label.clone()));
                     },
                 }
             },
             Item::Definition(definition) => {
-                log::trace!(
-                    "checking definition:\t\t{}\t= {}",
-                    definition.label,
-                    definition.body,
-                );
-
+                let label = &definition.label;
                 let params = &definition.params;
                 let body_ty = definition.body_ty.as_ref();
                 let body = &definition.body;
 
-                let (doc, term, ty) = match forward_declarations.entry(&definition.label) {
+                log::trace!("checking definition:\t\t{}\t= {}", label, body);
+
+                let (doc, term, ty) = match forward_declarations.entry(label) {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
@@ -194,7 +190,7 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
-                            let docs = docs::merge(&definition.label, decl_docs, &definition.docs)?;
+                            let docs = docs::merge(&label, decl_docs, &definition.docs)?;
                             let term = check_clause(&context, params, body_ty, body, &ty)?;
                             (docs, term, ty)
                         },
@@ -204,24 +200,20 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                         // NOTE: Some languages (eg. Haskell, Agda, Idris, and
                         // Erlang) turn duplicate definitions into case matches.
                         // Languages like Elm don't. What should we do here?
-                        None => return Err(TypeError::AlreadyDefined(definition.label.clone())),
+                        None => return Err(TypeError::AlreadyDefined(label.clone())),
                     },
                 };
                 let value = context.eval(&term)?;
                 // NOTE: Not sure how expensive this readback is here!
                 let term_ty = context.read_back(&ty)?;
 
-                log::trace!(
-                    "elaborated declaration:\t{}\t: {}",
-                    definition.label,
-                    term_ty
-                );
-                log::trace!("elaborated definition:\t{}\t= {}", definition.label, term);
+                log::trace!("elaborated declaration:\t{}\t: {}", label, term_ty);
+                log::trace!("elaborated definition:\t{}\t= {}", label, term);
 
-                context.local_define(definition.label.clone(), value, ty);
+                context.local_define(label.clone(), value, ty);
                 core_items.push(core::Item {
                     doc,
-                    label: definition.label.clone(),
+                    label: label.clone(),
                     term_ty,
                     term,
                 });

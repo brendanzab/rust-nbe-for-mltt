@@ -287,12 +287,18 @@ where
         let params = self.parse_intro_params()?;
 
         let body_ty = if self.try_match(TokenKind::Colon).is_some() {
-            let ann = self.parse_term(Prec(0))?;
+            let body_ty = self.parse_term(Prec(0))?;
 
             if params.is_empty() && self.try_match(TokenKind::Semicolon).is_some() {
-                return Ok(Item::Declaration(Declaration { docs, label, ann }));
+                let declaration = Declaration {
+                    docs,
+                    label,
+                    body_ty,
+                };
+
+                return Ok(Item::Declaration(declaration));
             } else {
-                Some(ann)
+                Some(body_ty)
             }
         } else {
             None
