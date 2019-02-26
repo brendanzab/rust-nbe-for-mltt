@@ -7,6 +7,7 @@ use rustyline::{Config, Editor};
 use std::error::Error;
 use std::path::PathBuf;
 
+/// The MLTT REPL/interactive mode
 #[derive(structopt::StructOpt)]
 pub struct Options {
     /// The file to save the command history to
@@ -17,6 +18,7 @@ pub struct Options {
     pub prompt: String,
 }
 
+/// Run the REPL with the given options
 pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     let mut editor = {
         let config = Config::builder()
