@@ -42,17 +42,18 @@ impl Context {
         &self.values
     }
 
-    /// Add a new local entry to the context
-    pub fn insert_local(&mut self, value: RcValue, ty: RcType) {
+    /// Add a local definition to the context.
+    pub fn local_define(&mut self, value: RcValue, ty: RcType) {
         self.level += 1;
         self.values.push_front(value);
         self.binders.push_front(ty);
     }
 
-    /// Add a new binder to the context, returning a value that points to the parameter
-    pub fn insert_binder(&mut self, ty: RcType) -> RcValue {
+    /// Add a bound variable the context, returning a variable that points to
+    /// the correct binder.
+    pub fn local_bind(&mut self, ty: RcType) -> RcValue {
         let param = RcValue::var(self.level());
-        self.insert_local(param.clone(), ty);
+        self.local_define(param.clone(), ty);
         param
     }
 
@@ -151,7 +152,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
         let value = context.eval(&item.term)?;
 
         log::trace!("validated item:\t\t{}", item.label);
-        context.insert_local(value, term_ty);
+        context.local_define(value, term_ty);
     }
 
     Ok(())
@@ -174,7 +175,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
         Term::Literal(literal) => unimplemented!("literals {:?}", literal),
         Term::Let(def, body) => {
             let mut body_context = context.clone();
-            body_context.insert_local(context.eval(def)?, synth_term(context, def)?);
+            body_context.local_define(context.eval(def)?, synth_term(context, def)?);
 
             check_term(&body_context, body, expected_ty)
         },
@@ -182,7 +183,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
         Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
             Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
-                let param = body_context.insert_binder(param_ty.clone());
+                let param = body_context.local_bind(param_ty.clone());
                 let body_ty = nbe::do_closure_app(body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
@@ -214,7 +215,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                     check_term(&context, term, expected_term_ty)?;
                     let term_value = context.eval(term)?;
 
-                    context.insert_local(term_value.clone(), expected_term_ty.clone());
+                    context.local_define(term_value.clone(), expected_term_ty.clone());
                     expected_ty = nbe::do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(TypeError::TooManyFieldsFound);
@@ -247,7 +248,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             let def_ty = synth_term(context, def)?;
-            body_context.insert_local(context.eval(def)?, def_ty);
+            body_context.local_define(context.eval(def)?, def_ty);
 
             synth_term(&body_context, body)
         },
@@ -257,7 +258,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             let param_ty_value = context.eval(param_ty)?;
 
             let mut body_ty_context = context.clone();
-            body_ty_context.insert_binder(param_ty_value);
+            body_ty_context.local_bind(param_ty_value);
 
             let body_level = synth_universe(&body_ty_context, body_ty)?;
 
@@ -292,7 +293,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
             for (_, _, ty) in ty_fields {
                 let ty_level = synth_universe(&context, &ty)?;
-                context.insert_binder(context.eval(&ty)?);
+                context.local_bind(context.eval(&ty)?);
                 max_level = cmp::max(max_level, ty_level);
             }
 
@@ -329,16 +330,16 @@ mod test {
     use super::*;
 
     #[test]
-    fn insert_binders() {
+    fn local_binds() {
         let mut context = Context::new();
 
         let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
         let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
-        let param1 = context.insert_binder(ty1.clone());
-        let param2 = context.insert_binder(ty2.clone());
-        let param3 = context.insert_binder(ty3.clone());
+        let param1 = context.local_bind(ty1.clone());
+        let param2 = context.local_bind(ty2.clone());
+        let param3 = context.local_bind(ty3.clone());
 
         assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
         assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
