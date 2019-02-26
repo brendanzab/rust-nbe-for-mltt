@@ -379,19 +379,19 @@ where
     /// ```text
     /// term(prec) ::= operators(prec) {
     ///     prefix  "let"               ::= let
-    ///     prefix  "("                 ::= parens fun-app
+    ///     prefix  "("                 ::= parens fun-elim
     ///     prefix  "Fun"               ::= fun-type
     ///     prefix  "fun"               ::= fun-intro
     ///     prefix  "Record"            ::= record-type
     ///     prefix  "record"            ::= record-intro
     ///     prefix  "Type"              ::= universe
-    ///     prefix  IDENTIFIER          ::= fun-app
+    ///     prefix  IDENTIFIER          ::= fun-elim
     ///     nilfix  STRING_LITERAL
     ///     nilfix  CHAR_LITERAL
     ///     nilfix  INT_LITERAL
     ///     nilfix  FLOAT_LITERAL
     ///
-    ///     infixr  "."             80  ::= record-proj fun-app
+    ///     infixr  "."             80  ::= record-elim fun-elim
     ///     infixr  ":"             20  ::= ann
     ///     infixr  "->"            50  ::= fun-arrow-type
     /// }
@@ -409,7 +409,7 @@ where
         let mut term = match (token.kind, token.slice) {
             (TokenKind::Identifier, _) => {
                 let term = self.parse_var(token)?;
-                self.parse_fun_app(term)
+                self.parse_fun_elim(term)
             },
             (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
             (TokenKind::CharLiteral, _) => self.parse_char_literal(token),
@@ -417,7 +417,7 @@ where
             (TokenKind::FloatLiteral, _) => self.parse_float_literal(token),
             (TokenKind::Open(DelimKind::Paren), _) => {
                 let term = self.parse_parens(token)?;
-                self.parse_fun_app(term)
+                self.parse_fun_elim(term)
             },
             (TokenKind::Keyword, "Fun") => self.parse_fun_ty(token),
             (TokenKind::Keyword, "fun") => self.parse_fun_intro(token),
@@ -434,8 +434,8 @@ where
             match token.kind {
                 TokenKind::Dot if right_prec < 80 => {
                     let token = self.advance().unwrap();
-                    term = self.parse_record_proj(term, token)?;
-                    term = self.parse_fun_app(term)?;
+                    term = self.parse_record_elim(term, token)?;
+                    term = self.parse_fun_elim(term)?;
                 },
                 TokenKind::Colon if right_prec < 20 => {
                     let token = self.advance().unwrap();
@@ -464,7 +464,7 @@ where
     ///     nilfix  INT_LITERAL
     ///     nilfix  FLOAT_LITERAL
     ///
-    ///     infixr  "."             80  ::= record-proj
+    ///     infixr  "."             80  ::= record-elim
     /// }
     /// ```
     fn parse_arg_term(&mut self, right_prec: Prec) -> Result<Term, Diagnostic<FileSpan>> {
@@ -494,7 +494,7 @@ where
             match token.kind {
                 TokenKind::Dot if right_prec < 80 => {
                     let token = self.advance().unwrap();
-                    term = self.parse_record_proj(term, token)?;
+                    term = self.parse_record_elim(term, token)?;
                 },
                 _ => break,
             }
@@ -755,18 +755,18 @@ where
         }
     }
 
-    /// Parse the trailing part of a projection
+    /// Parse the trailing part of a record elimination
     ///
     /// ```text
-    /// record-proj ::= IDENTIFIER
+    /// record-elim ::= IDENTIFIER
     /// ```
-    fn parse_record_proj(
+    fn parse_record_elim(
         &mut self,
         lhs: Term,
         _token: Token<'file>,
     ) -> Result<Term, Diagnostic<FileSpan>> {
         let label = self.expect_identifier()?;
-        Ok(Term::RecordProj(Box::new(lhs), label))
+        Ok(Term::RecordElim(Box::new(lhs), label))
     }
 
     /// Parse the trailing part of a type annotation
@@ -795,15 +795,15 @@ where
         Ok(Term::FunArrowType(Box::new(lhs), Box::new(rhs)))
     }
 
-    /// Parse the trailing part of a function application
+    /// Parse the trailing part of a function elimination
     ///
     /// ```text
-    /// fun-app ::= arg*
-    /// arg     ::= arg-term(0)
-    ///           | "{" IDENTIFIER "}"
-    ///           | "{" IDENTIFIER "=" term(0) "}"
+    /// fun-elim    ::= arg*
+    /// arg         ::= arg-term(0)
+    ///               | "{" IDENTIFIER "}"
+    ///               | "{" IDENTIFIER "=" term(0) "}"
     /// ```
-    fn parse_fun_app(&mut self, lhs: Term) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_fun_elim(&mut self, lhs: Term) -> Result<Term, Diagnostic<FileSpan>> {
         let mut args = Vec::new();
 
         while self.check_match(ArgParamStart) {
@@ -825,7 +825,7 @@ where
         if args.is_empty() {
             Ok(lhs)
         } else {
-            Ok(Term::FunApp(Box::new(lhs), args))
+            Ok(Term::FunElim(Box::new(lhs), args))
         }
     }
 }
@@ -994,16 +994,16 @@ mod tests {
         test_term!(
             "Option A -> Option B -> Option C",
             Term::FunArrowType(
-                Box::new(Term::FunApp(
+                Box::new(Term::FunElim(
                     Box::new(Term::Var("Option".to_owned())),
                     vec![Arg::Explicit(Term::Var("A".to_owned()))]
                 )),
                 Box::new(Term::FunArrowType(
-                    Box::new(Term::FunApp(
+                    Box::new(Term::FunElim(
                         Box::new(Term::Var("Option".to_owned())),
                         vec![Arg::Explicit(Term::Var("B".to_owned()))]
                     )),
-                    Box::new(Term::FunApp(
+                    Box::new(Term::FunElim(
                         Box::new(Term::Var("Option".to_owned())),
                         vec![Arg::Explicit(Term::Var("C".to_owned()))]
                     )),
@@ -1057,7 +1057,7 @@ mod tests {
     fn fun_app_1() {
         test_term!(
             r"foo arg",
-            Term::FunApp(
+            Term::FunElim(
                 Box::new(Term::Var("foo".to_owned())),
                 vec![Arg::Explicit(Term::Var("arg".to_owned()))],
             ),
@@ -1068,7 +1068,7 @@ mod tests {
     fn fun_app_2a() {
         test_term!(
             r"foo arg1 arg2",
-            Term::FunApp(
+            Term::FunElim(
                 Box::new(Term::Var("foo".to_owned())),
                 vec![
                     Arg::Explicit(Term::Var("arg1".to_owned())),
@@ -1082,12 +1082,12 @@ mod tests {
     fn fun_app_2b() {
         test_term!(
             r"foo (arg1) arg2.foo.bar arg3",
-            Term::FunApp(
+            Term::FunElim(
                 Box::new(Term::Var("foo".to_owned())),
                 vec![
                     Arg::Explicit(Term::Parens(Box::new(Term::Var("arg1".to_owned())))),
-                    Arg::Explicit(Term::RecordProj(
-                        Box::new(Term::RecordProj(
+                    Arg::Explicit(Term::RecordElim(
+                        Box::new(Term::RecordElim(
                             Box::new(Term::Var("arg2".to_owned())),
                             "foo".to_owned()
                         )),
@@ -1103,7 +1103,7 @@ mod tests {
     fn fun_app_implicit() {
         test_term!(
             r"foo {arg1} {arg2 = arg2}",
-            Term::FunApp(
+            Term::FunElim(
                 Box::new(Term::Var("foo".to_owned())),
                 vec![
                     Arg::Implicit("arg1".to_owned(), None),
@@ -1224,7 +1224,7 @@ mod tests {
     fn record_proj() {
         test_term!(
             "foo.bar",
-            Term::RecordProj(Box::new(Term::Var("foo".to_owned())), "bar".to_owned()),
+            Term::RecordElim(Box::new(Term::Var("foo".to_owned())), "bar".to_owned()),
         );
     }
 
@@ -1232,8 +1232,8 @@ mod tests {
     fn record_proj_proj() {
         test_term!(
             "foo.bar.baz",
-            Term::RecordProj(
-                Box::new(Term::RecordProj(
+            Term::RecordElim(
+                Box::new(Term::RecordElim(
                     Box::new(Term::Var("foo".to_owned(),)),
                     "bar".to_owned()
                 )),
@@ -1246,14 +1246,14 @@ mod tests {
     fn record_proj_fun_app() {
         test_term!(
             "foo.bar baz foo.bar",
-            Term::FunApp(
-                Box::new(Term::RecordProj(
+            Term::FunElim(
+                Box::new(Term::RecordElim(
                     Box::new(Term::Var("foo".to_owned())),
                     "bar".to_owned()
                 )),
                 vec![
                     Arg::Explicit(Term::Var("baz".to_owned())),
-                    Arg::Explicit(Term::RecordProj(
+                    Arg::Explicit(Term::RecordElim(
                         Box::new(Term::Var("foo".to_owned())),
                         "bar".to_owned()
                     )),

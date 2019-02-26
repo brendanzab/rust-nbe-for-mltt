@@ -135,7 +135,7 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
 
     fn resugar_app(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
-            core::Term::FunApp(fun, app_mode, arg) => {
+            core::Term::FunElim(fun, app_mode, arg) => {
                 let arg = match app_mode {
                     AppMode::Explicit => Arg::Explicit(resugar_atomic(arg, env)),
                     AppMode::Implicit(label) => {
@@ -144,11 +144,11 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
                 };
 
                 match resugar_term(fun, env) {
-                    Term::FunApp(fun, mut args) => {
+                    Term::FunElim(fun, mut args) => {
                         args.push(arg);
-                        Term::FunApp(fun, args)
+                        Term::FunElim(fun, args)
                     },
-                    fun => Term::FunApp(Box::new(fun), vec![arg]),
+                    fun => Term::FunElim(Box::new(fun), vec![arg]),
                 }
             },
             _ => resugar_atomic(term, env),
@@ -158,8 +158,8 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
             core::Term::Var(index) => Term::Var(env.lookup_index(*index)),
-            core::Term::RecordProj(record, label) => {
-                Term::RecordProj(Box::new(resugar_atomic(record, env)), label.0.clone())
+            core::Term::RecordElim(record, label) => {
+                Term::RecordElim(Box::new(resugar_atomic(record, env)), label.0.clone())
             },
             core::Term::Universe(UniverseLevel(0)) => Term::Universe(None),
             core::Term::Universe(UniverseLevel(level)) => Term::Universe(Some(*level)),

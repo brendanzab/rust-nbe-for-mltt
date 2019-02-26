@@ -57,15 +57,15 @@ pub enum Term {
     FunType(AppMode, RcTerm, RcTerm),
     /// Introduce a function
     FunIntro(AppMode, RcTerm),
-    /// Apply a function to an argument
-    FunApp(RcTerm, AppMode, RcTerm),
+    /// Eliminate a function (application)
+    FunElim(RcTerm, AppMode, RcTerm),
 
     /// Dependent record types
     RecordType(Vec<(String, Label, RcTerm)>),
     /// Introduce a record
     RecordIntro(Vec<(Label, RcTerm)>),
-    /// Project on a record
-    RecordProj(RcTerm, Label),
+    /// Eliminate a record (projection)
+    RecordElim(RcTerm, Label),
 
     /// Universe of types
     Universe(UniverseLevel),
@@ -209,7 +209,7 @@ impl Term {
 
         fn to_doc_app(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
-                Term::FunApp(fun, app_mode, arg) => {
+                Term::FunElim(fun, app_mode, arg) => {
                     let arg = match app_mode {
                         AppMode::Explicit => to_doc_atomic(arg.as_ref()),
                         AppMode::Implicit(label) => Doc::nil()
@@ -235,7 +235,7 @@ impl Term {
             match term {
                 Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
                 Term::Literal(literal) => literal.to_doc(),
-                Term::RecordProj(record, label) => {
+                Term::RecordElim(record, label) => {
                     to_doc_atomic(record.as_ref()).append(".").append(&label.0)
                 },
                 Term::Universe(UniverseLevel(level)) => {

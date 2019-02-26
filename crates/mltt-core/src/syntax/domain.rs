@@ -119,8 +119,8 @@ pub type Spine = Vec<Elim>;
 /// An eliminator
 #[derive(Debug, Clone, PartialEq)]
 pub enum Elim {
-    /// Argument application
-    FunApp(AppMode, RcValue),
-    /// Field projection
-    RecordProj(Label),
+    /// Function elimination (application)
+    Fun(AppMode, RcValue),
+    /// Record elimination (projection)
+    Record(Label),
 }

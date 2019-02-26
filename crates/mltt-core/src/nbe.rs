@@ -37,21 +37,21 @@ impl fmt::Display for NbeError {
 }
 
 /// Return the field in from a record
-fn do_record_proj(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> {
+fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
             Some((_, term)) => Ok(term.clone()),
             None => Err(NbeError::new(format!(
-                "do_record_proj: field `{}` not found in record",
+                "do_record_elim: field `{}` not found in record",
                 label.0,
             ))),
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
-            spine.push(domain::Elim::RecordProj(label.clone()));
+            spine.push(domain::Elim::Record(label.clone()));
             Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
-        _ => Err(NbeError::new("do_record_proj: not a record")),
+        _ => Err(NbeError::new("do_record_elim: not a record")),
     }
 }
 
@@ -63,7 +63,7 @@ pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeErr
 }
 
 /// Apply a function to an argument
-pub fn do_fun_app(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcValue, NbeError> {
+pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcValue, NbeError> {
     match fun.as_ref() {
         Value::FunIntro(fun_app_mode, body) => {
             if *fun_app_mode == app_mode {
@@ -77,7 +77,7 @@ pub fn do_fun_app(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcVa
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
-            spine.push(domain::Elim::FunApp(app_mode, arg));
+            spine.push(domain::Elim::Fun(app_mode, arg));
             Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
         _ => Err(NbeError::new("do_ap: not a function")),
@@ -114,12 +114,12 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 
             Ok(RcValue::from(Value::FunIntro(app_mode, body)))
         },
-        Term::FunApp(fun, app_mode, arg) => {
+        Term::FunElim(fun, app_mode, arg) => {
             let fun = eval(fun, env)?;
             let app_mode = app_mode.clone();
             let arg = eval(arg, env)?;
 
-            do_fun_app(&fun, app_mode, arg)
+            do_fun_elim(&fun, app_mode, arg)
         },
 
         // Records
@@ -142,7 +142,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
 
             Ok(RcValue::from(Value::RecordIntro(fields)))
         },
-        Term::RecordProj(record, label) => do_record_proj(&eval(record, env)?, label),
+        Term::RecordElim(record, label) => do_record_elim(&eval(record, env)?, label),
 
         // Universes
         Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
@@ -228,12 +228,12 @@ pub fn read_back_neutral(
     };
 
     spine.iter().fold(Ok(head), |acc, elim| match elim {
-        domain::Elim::FunApp(app_mode, arg) => Ok(RcTerm::from(Term::FunApp(
+        domain::Elim::Fun(app_mode, arg) => Ok(RcTerm::from(Term::FunElim(
             acc?,
             app_mode.clone(),
             read_back_term(level, arg)?,
         ))),
-        domain::Elim::RecordProj(label) => Ok(RcTerm::from(Term::RecordProj(acc?, label.clone()))),
+        domain::Elim::Record(label) => Ok(RcTerm::from(Term::RecordElim(acc?, label.clone()))),
     })
 }
 

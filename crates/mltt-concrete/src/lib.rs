@@ -303,15 +303,15 @@ pub enum Term {
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
     FunIntro(Vec<IntroParam>, Box<Term>),
-    /// Apply a function to an argument
-    FunApp(Box<Term>, Vec<Arg>),
+    /// Eliminate a function by applying it to an argument
+    FunElim(Box<Term>, Vec<Arg>),
 
     /// Dependent record type
     RecordType(Vec<RecordTypeField>),
     /// Record introduction
     RecordIntro(Vec<RecordIntroField>),
-    /// Record projection
-    RecordProj(Box<Term>, String),
+    /// Eliminate a record by projecting on it
+    RecordElim(Box<Term>, String),
 
     /// Universe of types
     Universe(Option<u32>),
@@ -399,7 +399,7 @@ impl Term {
                 .append("->")
                 .append(Doc::space())
                 .append(body_ty.to_doc()),
-            Term::FunApp(fun, args) => {
+            Term::FunElim(fun, args) => {
                 let args = Doc::intersperse(args.iter().map(Arg::to_doc), Doc::space());
 
                 Doc::nil()
@@ -410,7 +410,7 @@ impl Term {
             Term::Var(name) => Doc::as_string(name),
             Term::Literal(literal) => literal.to_doc(),
             Term::Parens(term) => Doc::text("(").append(term.to_doc()).append(")"),
-            Term::RecordProj(record, label) => record.to_doc().append(".").append(label),
+            Term::RecordElim(record, label) => record.to_doc().append(".").append(label),
             Term::Universe(None) => Doc::text("Type"),
             Term::Universe(Some(level)) => Doc::text("Type^").append(Doc::as_string(level)),
         }

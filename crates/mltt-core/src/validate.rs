@@ -269,7 +269,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         },
         Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
-        Term::FunApp(fun, arg_app_mode, arg) => {
+        Term::FunElim(fun, arg_app_mode, arg) => {
             let fun_ty = synth_term(context, fun)?;
             match fun_ty.as_ref() {
                 Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
@@ -300,13 +300,13 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             Ok(domain::RcValue::from(domain::Value::Universe(max_level)))
         },
         Term::RecordIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
-        Term::RecordProj(record, label) => {
+        Term::RecordElim(record, label) => {
             let mut record_ty = synth_term(context, record)?;
 
             while let domain::Value::RecordTypeExtend(current_label, current_ty, rest) =
                 record_ty.as_ref()
             {
-                let expr = core::RcTerm::from(core::Term::RecordProj(
+                let expr = core::RcTerm::from(core::Term::RecordElim(
                     record.clone(),
                     current_label.clone(),
                 ));

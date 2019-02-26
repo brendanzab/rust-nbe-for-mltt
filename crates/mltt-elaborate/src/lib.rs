@@ -547,7 +547,7 @@ pub fn synth_term(
             ))
         },
         Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
-        Term::FunApp(concrete_fun, concrete_args) => {
+        Term::FunElim(concrete_fun, concrete_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
             for concrete_arg in concrete_args {
                 if let domain::Value::FunType(ty_app_mode, param_ty, body_ty) = fun_ty.as_ref() {
@@ -569,7 +569,7 @@ pub fn synth_term(
                     if arg_app_mode == *ty_app_mode {
                         let arg_value = context.eval(&arg)?;
 
-                        fun = core::RcTerm::from(core::Term::FunApp(fun, arg_app_mode, arg));
+                        fun = core::RcTerm::from(core::Term::FunElim(fun, arg_app_mode, arg));
                         fun_ty = nbe::do_closure_app(body_ty, arg_value)?;
                     } else {
                         return Err(TypeError::UnexpectedAppMode {
@@ -607,13 +607,13 @@ pub fn synth_term(
             ))
         },
         Term::RecordIntro(_) => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
-        Term::RecordProj(concrete_record, label) => {
+        Term::RecordElim(concrete_record, label) => {
             let (record, mut record_ty) = synth_term(context, concrete_record)?;
 
             while let domain::Value::RecordTypeExtend(current_label, current_ty, rest) =
                 record_ty.as_ref()
             {
-                let expr = core::RcTerm::from(core::Term::RecordProj(
+                let expr = core::RcTerm::from(core::Term::RecordElim(
                     record.clone(),
                     current_label.clone(),
                 ));
