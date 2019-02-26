@@ -4,7 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::{normal, AppMode, DbIndex, Label, Literal, UniverseLevel};
+use crate::syntax::{AppMode, DbIndex, Label, Literal, UniverseLevel};
 
 pub type Env = im::Vector<RcTerm>;
 
@@ -252,56 +252,5 @@ impl Term {
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.to_doc().group().pretty(1_000_000_000).fmt(f)
-    }
-}
-
-impl From<&'_ normal::RcNormal> for RcTerm {
-    fn from(src: &normal::RcNormal) -> RcTerm {
-        RcTerm::from(src.as_ref())
-    }
-}
-
-impl From<&'_ normal::Normal> for RcTerm {
-    fn from(src: &normal::Normal) -> RcTerm {
-        RcTerm::from(match src {
-            normal::Normal::Neutral(normal::Head::Var(index), spine) => {
-                spine
-                    .iter()
-                    .fold(Term::Var(*index), |acc, elim| match elim {
-                        normal::Elim::FunApp(app_mode, arg) => {
-                            Term::FunApp(RcTerm::from(acc), app_mode.clone(), RcTerm::from(arg))
-                        },
-                        normal::Elim::RecordProj(label) => {
-                            Term::RecordProj(RcTerm::from(acc), label.clone())
-                        },
-                    })
-            },
-            normal::Normal::Literal(literal) => Term::Literal(literal.clone()),
-            normal::Normal::FunType(app_mode, param_ty, body_ty) => Term::FunType(
-                app_mode.clone(),
-                RcTerm::from(param_ty),
-                RcTerm::from(body_ty),
-            ),
-            normal::Normal::FunIntro(app_mode, body) => {
-                Term::FunIntro(app_mode.clone(), RcTerm::from(body))
-            },
-            normal::Normal::RecordType(fields) => {
-                let fields = fields
-                    .iter()
-                    .map(|(label, ty)| (String::new(), label.clone(), RcTerm::from(ty)))
-                    .collect();
-
-                Term::RecordType(fields)
-            },
-            normal::Normal::RecordIntro(fields) => {
-                let fields = fields
-                    .iter()
-                    .map(|(label, term)| (label.clone(), RcTerm::from(term)))
-                    .collect();
-
-                Term::RecordIntro(fields)
-            },
-            normal::Normal::Universe(level) => Term::Universe(*level),
-        })
     }
 }

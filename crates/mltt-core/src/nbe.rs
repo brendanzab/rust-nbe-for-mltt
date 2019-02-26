@@ -9,7 +9,6 @@ use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
-use crate::syntax::normal::{self, Normal, RcNormal};
 use crate::syntax::{AppMode, DbIndex, DbLevel, Label};
 
 /// An error produced during normalization
@@ -150,16 +149,13 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
     }
 }
 
-/// Quote back a term into normal form
-pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeError> {
+/// Read a value back into the core syntax, normalizing as required.
+pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcTerm, NbeError> {
     match term.as_ref() {
-        Value::Neutral(head, spine) => {
-            let (head, spine) = read_back_neutral(level, *head, spine)?;
-            Ok(RcNormal::from(Normal::Neutral(head, spine)))
-        },
+        Value::Neutral(head, spine) => read_back_neutral(level, *head, spine),
 
         // Literals
-        Value::Literal(literal) => Ok(RcNormal::from(Normal::Literal(literal.clone()))),
+        Value::Literal(literal) => Ok(RcTerm::from(Term::Literal(literal.clone()))),
 
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
@@ -168,14 +164,14 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
             let param_ty = read_back_term(level, param_ty)?;
             let body_ty = read_back_term(level + 1, &do_closure_app(body_ty, param)?)?;
 
-            Ok(RcNormal::from(Normal::FunType(app_mode, param_ty, body_ty)))
+            Ok(RcTerm::from(Term::FunType(app_mode, param_ty, body_ty)))
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
             let param = RcValue::var(level);
             let body = read_back_term(level + 1, &do_closure_app(body, param)?)?;
 
-            Ok(RcNormal::from(Normal::FunIntro(app_mode, body)))
+            Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
         },
 
         // Records
@@ -186,7 +182,7 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
             let term_ty = read_back_term(level, term_ty)?;
 
             let mut rest_ty = do_closure_app(rest_ty, term)?;
-            let mut field_tys = vec![(label.clone(), term_ty)];
+            let mut field_tys = vec![(String::new(), label.clone(), term_ty)];
 
             while let Value::RecordTypeExtend(next_label, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
@@ -194,49 +190,51 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcNormal, NbeErr
                 level += 1;
                 let next_term = RcValue::var(level);
 
-                field_tys.push((next_label.clone(), read_back_term(level, next_term_ty)?));
+                field_tys.push((
+                    String::new(),
+                    next_label.clone(),
+                    read_back_term(level, next_term_ty)?,
+                ));
                 rest_ty = do_closure_app(next_rest_ty, next_term)?;
             }
 
-            Ok(RcNormal::from(Normal::RecordType(field_tys)))
+            Ok(RcTerm::from(Term::RecordType(field_tys)))
         },
-        Value::RecordTypeEmpty => Ok(RcNormal::from(Normal::RecordType(Vec::new()))),
+        Value::RecordTypeEmpty => Ok(RcTerm::from(Term::RecordType(Vec::new()))),
         Value::RecordIntro(fields) => {
             let fields = fields
                 .iter()
                 .map(|(label, term)| Ok((label.clone(), read_back_term(level, term)?)))
                 .collect::<Result<_, _>>()?;
 
-            Ok(RcNormal::from(Normal::RecordIntro(fields)))
+            Ok(RcTerm::from(Term::RecordIntro(fields)))
         },
 
         // Universes
-        Value::Universe(level) => Ok(RcNormal::from(Normal::Universe(*level))),
+        Value::Universe(level) => Ok(RcTerm::from(Term::Universe(*level))),
     }
 }
 
-/// Quote back a neutral term into normal form
+/// Read a neutral value back into the core syntax, normalizing as required.
 pub fn read_back_neutral(
     level: DbLevel,
     head: domain::Head,
     spine: &domain::Spine,
-) -> Result<(normal::Head, normal::Spine), NbeError> {
+) -> Result<RcTerm, NbeError> {
     let head = match head {
-        domain::Head::Var(var_level) => normal::Head::Var(DbIndex(level.0 - (var_level.0 + 1))),
+        domain::Head::Var(var_level) => {
+            RcTerm::from(Term::Var(DbIndex(level.0 - (var_level.0 + 1))))
+        },
     };
 
-    let spine = spine
-        .iter()
-        .map(|elim| match elim {
-            domain::Elim::FunApp(app_mode, arg) => Ok(normal::Elim::FunApp(
-                app_mode.clone(),
-                read_back_term(level, arg)?,
-            )),
-            domain::Elim::RecordProj(label) => Ok(normal::Elim::RecordProj(label.clone())),
-        })
-        .collect::<Result<_, _>>()?;
-
-    Ok((head, spine))
+    spine.iter().fold(Ok(head), |acc, elim| match elim {
+        domain::Elim::FunApp(app_mode, arg) => Ok(RcTerm::from(Term::FunApp(
+            acc?,
+            app_mode.clone(),
+            read_back_term(level, arg)?,
+        ))),
+        domain::Elim::RecordProj(label) => Ok(RcTerm::from(Term::RecordProj(acc?, label.clone()))),
+    })
 }
 
 /// Check whether a semantic type is a subtype of another

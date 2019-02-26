@@ -12,7 +12,7 @@
 
 use mltt_concrete::{Arg, IntroParam, Item, Pattern, RecordIntroField, Term, TypeParam};
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, normal, AppMode, DbIndex, DbLevel, Label, UniverseLevel};
+use mltt_core::syntax::{core, domain, AppMode, DbIndex, DbLevel, Label, UniverseLevel};
 
 mod docs;
 mod errors;
@@ -97,13 +97,13 @@ impl Context {
         nbe::eval(term, self.values())
     }
 
-    /// Read back a value into normal form
-    pub fn read_back(&self, value: &domain::RcValue) -> Result<normal::RcNormal, NbeError> {
+    /// Read a value back into the core syntax, normalizing as required.
+    pub fn read_back(&self, value: &domain::RcValue) -> Result<core::RcTerm, NbeError> {
         nbe::read_back_term(self.level(), value)
     }
 
-    /// Fully normalize a term
-    pub fn normalize(&self, term: &core::RcTerm) -> Result<normal::RcNormal, NbeError> {
+    /// Fully normalize a term by first evaluating it, then reading it back.
+    pub fn normalize(&self, term: &core::RcTerm) -> Result<core::RcTerm, NbeError> {
         let value = self.eval(term)?;
         self.read_back(&value)
     }
@@ -207,11 +207,8 @@ pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeErro
                     },
                 };
                 let value = context.eval(&term)?;
-                // NOTE: Not sure how expensive this readback is here! We should
-                // definitely investigate fusing the conversion between
-                // `value::Value -> normal::Normal -> core::Term` by way of
-                // visitors...
-                let term_ty = core::RcTerm::from(&context.read_back(&ty)?);
+                // NOTE: Not sure how expensive this readback is here!
+                let term_ty = context.read_back(&ty)?;
 
                 log::trace!(
                     "elaborated declaration:\t{}\t: {}",

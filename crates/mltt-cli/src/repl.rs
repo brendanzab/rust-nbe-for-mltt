@@ -41,7 +41,6 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
         match line {
             Ok(line) => {
                 use mltt_concrete::resugar;
-                use mltt_core::syntax::core;
 
                 let file_id = files.add("repl", line);
 
@@ -66,10 +65,10 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                 };
 
                 let term_nf = context.normalize(&core_term).unwrap();
-                let term = resugar::resugar(&core::RcTerm::from(&term_nf));
+                let term = resugar::resugar(&term_nf);
 
                 let ty_nf = context.read_back(&ty).unwrap();
-                let ty = resugar::resugar(&core::RcTerm::from(&ty_nf));
+                let ty = resugar::resugar(&ty_nf);
 
                 println!("{} : {}", term, ty);
             },

@@ -7,7 +7,6 @@ use std::ops;
 
 pub mod core;
 pub mod domain;
-pub mod normal;
 
 /// DeBruijn level
 ///
