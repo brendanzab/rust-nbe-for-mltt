@@ -32,6 +32,10 @@ impl<Source: Copy> Span<Source> {
         Span::new(source, 0, s.len())
     }
 
+    pub fn merge(self, other: Span<Source>) -> Span<Source> {
+        Span::new(self.source(), self.start(), other.end())
+    }
+
     pub fn with_source<NewSource: Copy>(&self, source: NewSource) -> Span<NewSource> {
         Span::new(source, self.start(), self.end())
     }

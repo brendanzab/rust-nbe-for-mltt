@@ -47,8 +47,8 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                 editor.add_history_entry(files[file_id].contents());
 
                 let lexer = Lexer::new(&files[file_id]);
-                let term = match parser::parse_term(lexer) {
-                    Ok(term) => term,
+                let concrete_term = match parser::parse_term(lexer) {
+                    Ok(concrete_term) => concrete_term,
                     Err(diagnostic) => {
                         let config = language_reporting::DefaultConfig;
                         language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
@@ -56,16 +56,18 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                     },
                 };
 
-                let (core_term, ty) = match mltt_elaborate::synth_term(&context, &term) {
+                let (core_term, ty) = match mltt_elaborate::synth_term(&context, &concrete_term) {
                     Ok((core_term, ty)) => (core_term, ty),
-                    Err(error) => {
-                        println!("{}", error);
+                    Err(diagnostic) => {
+                        let config = language_reporting::DefaultConfig;
+                        language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
                         continue;
                     },
                 };
 
-                let term = context.normalize(&core_term).unwrap();
-                let ty = context.read_back(&ty).unwrap();
+                let term_span = concrete_term.span();
+                let term = context.normalize(term_span, &core_term).unwrap();
+                let ty = context.read_back(None, &ty).unwrap();
 
                 println!("{} : {}", term, ty);
             },

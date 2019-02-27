@@ -20,7 +20,7 @@ macro_rules! run_test {
             let file_id = files.add($path, src);
 
             let lexer = Lexer::new(&files[file_id]);
-            let concrete_module = parser::parse_module(lexer).unwrap_or_else(|diagnostic| {
+            let module = parser::parse_module(lexer).unwrap_or_else(|diagnostic| {
                 let writer = &mut writer.lock();
                 language_reporting::emit(writer, &files, &diagnostic, &reporting_config).unwrap();
                 panic!("error encountered");
@@ -28,10 +28,16 @@ macro_rules! run_test {
             // FIXME: check lexer for errors
 
             let context = mltt_elaborate::Context::default();
-            let core_module = mltt_elaborate::check_module(&context, &concrete_module).unwrap();
+            let module =
+                mltt_elaborate::check_module(&context, &module).unwrap_or_else(|diagnostic| {
+                    let writer = &mut writer.lock();
+                    language_reporting::emit(writer, &files, &diagnostic, &reporting_config)
+                        .unwrap();
+                    panic!("error encountered");
+                });
 
             let context = validate::Context::default();
-            validate::check_module(&context, &core_module).unwrap_or_else(|error| {
+            validate::check_module(&context, &module).unwrap_or_else(|error| {
                 panic!("failed validation: {}\n\n{:#?}", error, error);
             });
         }

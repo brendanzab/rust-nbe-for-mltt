@@ -31,7 +31,7 @@ DeBruijn levels in the syntax of the semantic domain.
 - [x] Resugaring of core syntax to concrete syntax
 - [x] Pretty printing
 - [x] Add a REPL
-- [ ] Add span information to ASTs to improve diagnostics
+- [x] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
 - [x] Dependent record types
 - [ ] Add eta rules to normalizer

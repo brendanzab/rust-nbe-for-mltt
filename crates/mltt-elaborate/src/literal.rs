@@ -9,48 +9,54 @@
 //! functions that would be able to convert (at elaboration time) a UTF-8 string
 //! into a data type of your choice, or return a custom error diagnostic.
 
+use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Literal, LiteralKind};
 use mltt_core::syntax::{core, domain, LiteralIntro, LiteralType};
-
-use crate::TypeError;
+use mltt_span::FileSpan;
 
 pub fn check(
     concrete_literal: &Literal,
     expected_ty: &domain::RcType,
-) -> Result<core::RcTerm, TypeError> {
+) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
     use mltt_core::syntax::domain::Value;
+    use mltt_core::syntax::LiteralType as LitType;
 
-    let Literal { kind, value } = concrete_literal;
+    let Literal { span, kind, value } = concrete_literal;
 
     let literal_intro = match (kind, expected_ty.as_ref()) {
-        (LiteralKind::String, Value::LiteralType(LiteralType::String)) => parse_string(value),
-        (LiteralKind::Char, Value::LiteralType(LiteralType::Char)) => parse_char(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::U8)) => parse_u8(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::U16)) => parse_u16(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::U32)) => parse_u32(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::U64)) => parse_u64(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::S8)) => parse_s8(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::S16)) => parse_s16(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::S32)) => parse_s32(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::S64)) => parse_s64(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::F32)) => parse_f32(value),
-        (LiteralKind::Int, Value::LiteralType(LiteralType::F64)) => parse_f64(value),
-        (LiteralKind::Float, Value::LiteralType(LiteralType::F32)) => parse_f32(value),
-        (LiteralKind::Float, Value::LiteralType(LiteralType::F64)) => parse_f64(value),
-        (_, _) => Err(TypeError::MismatchedLiteral(*kind, expected_ty.clone())),
+        (LiteralKind::String, Value::LiteralType(LitType::String)) => parse_string(*span, value),
+        (LiteralKind::Char, Value::LiteralType(LitType::Char)) => parse_char(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::U8)) => parse_u8(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::U16)) => parse_u16(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::U32)) => parse_u32(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::U64)) => parse_u64(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::S8)) => parse_s8(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::S16)) => parse_s16(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::S32)) => parse_s32(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::S64)) => parse_s64(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::F32)) => parse_f32(*span, value),
+        (LiteralKind::Int, Value::LiteralType(LitType::F64)) => parse_f64(*span, value),
+        (LiteralKind::Float, Value::LiteralType(LitType::F32)) => parse_f32(*span, value),
+        (LiteralKind::Float, Value::LiteralType(LitType::F64)) => parse_f64(*span, value),
+        (_, _) => Err(Diagnostic::new_error("mismatched literal")
+            .with_label(DiagnosticLabel::new_primary(*span))),
     }?;
 
     Ok(core::RcTerm::from(core::Term::LiteralIntro(literal_intro)))
 }
 
-pub fn synth(concrete_literal: &Literal) -> Result<(core::RcTerm, domain::RcType), TypeError> {
-    let Literal { kind, value } = concrete_literal;
+pub fn synth(
+    concrete_literal: &Literal,
+) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+    let Literal { span, kind, value } = concrete_literal;
 
     let (literal_intro, literal_ty) = match kind {
-        LiteralKind::String => (parse_string(value)?, LiteralType::String),
-        LiteralKind::Char => (parse_char(value)?, LiteralType::Char),
-        LiteralKind::Int => return Err(TypeError::AmbiguousLiteral(LiteralKind::Int)),
-        LiteralKind::Float => return Err(TypeError::AmbiguousLiteral(LiteralKind::Float)),
+        LiteralKind::String => (parse_string(*span, value)?, LiteralType::String),
+        LiteralKind::Char => (parse_char(*span, value)?, LiteralType::Char),
+        LiteralKind::Int | LiteralKind::Float => {
+            return Err(Diagnostic::new_error("ambiguous literal")
+                .with_label(DiagnosticLabel::new_primary(*span)));
+        },
     };
 
     Ok((
@@ -61,7 +67,7 @@ pub fn synth(concrete_literal: &Literal) -> Result<(core::RcTerm, domain::RcType
 
 // FIXME: convert panics into internal compiler errors
 
-fn parse_string(src: &str) -> Result<LiteralIntro, TypeError> {
+fn parse_string(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     let mut chars = src.chars();
     let mut string = String::new();
 
@@ -80,7 +86,7 @@ fn parse_string(src: &str) -> Result<LiteralIntro, TypeError> {
     Ok(LiteralIntro::String(string))
 }
 
-fn parse_char(src: &str) -> Result<LiteralIntro, TypeError> {
+fn parse_char(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     let mut chars = src.chars();
 
     assert_eq!(chars.next(), Some('\''));
@@ -146,7 +152,7 @@ fn parse_escape(chars: &mut std::str::Chars<'_>) -> char {
 
 // FIXME: convert to a polymorphic function?
 macro_rules! parse_int {
-    ($T:ty, $Lit:ident, $src:ident) => {{
+    ($span:expr, $T:ty, $Lit:ident, $src:ident) => {{
         let mut chars = $src.chars();
 
         let (base, mut number) = match chars.next().expect("unexpected EOF") {
@@ -166,7 +172,10 @@ macro_rules! parse_int {
         let acc = |prev: $T, base: $T, inc: $T| {
             prev.checked_mul(base)
                 .and_then(|prev| prev.checked_add(inc))
-                .ok_or_else(|| TypeError::OverflowingLiteral($src.to_owned()))
+                .ok_or_else(|| {
+                    Diagnostic::new_error("overflowing literal")
+                        .with_label(DiagnosticLabel::new_primary($span))
+                })
         };
 
         while let Some(ch) = chars.next() {
@@ -186,42 +195,42 @@ macro_rules! parse_int {
     }};
 }
 
-fn parse_u8(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(u8, U8, src)
+fn parse_u8(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, u8, U8, src)
 }
 
-fn parse_u16(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(u16, U16, src)
+fn parse_u16(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, u16, U16, src)
 }
 
-fn parse_u32(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(u32, U32, src)
+fn parse_u32(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, u32, U32, src)
 }
 
-fn parse_u64(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(u64, U64, src)
+fn parse_u64(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, u64, U64, src)
 }
 
-fn parse_s8(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(i8, S8, src)
+fn parse_s8(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, i8, S8, src)
 }
 
-fn parse_s16(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(i16, S16, src)
+fn parse_s16(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, i16, S16, src)
 }
 
-fn parse_s32(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(i32, S32, src)
+fn parse_s32(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, i32, S32, src)
 }
 
-fn parse_s64(src: &str) -> Result<LiteralIntro, TypeError> {
-    parse_int!(i64, S64, src)
+fn parse_s64(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    parse_int!(span, i64, S64, src)
 }
 
-fn parse_f32(src: &str) -> Result<LiteralIntro, TypeError> {
+fn parse_f32(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     unimplemented!("f32 literals: {:?}", src)
 }
 
-fn parse_f64(src: &str) -> Result<LiteralIntro, TypeError> {
+fn parse_f64(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     unimplemented!("f64 literals: {:?}", src)
 }

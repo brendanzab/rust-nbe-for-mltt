@@ -55,7 +55,7 @@
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::{
     Arg, Declaration, Definition, IntroParam, Item, Literal, LiteralKind, Pattern,
-    RecordIntroField, RecordTypeField, Term, TypeParam,
+    RecordIntroField, RecordTypeField, SpannedString, Term, TypeParam,
 };
 use mltt_span::FileSpan;
 
@@ -242,12 +242,22 @@ where
         })
     }
 
-    fn try_identifier(&mut self) -> Option<String> {
-        Some(self.try_match(TokenKind::Identifier)?.slice.to_owned())
+    fn try_identifier(&mut self) -> Option<SpannedString> {
+        let token = self.try_match(TokenKind::Identifier)?;
+        Some(SpannedString {
+            source: token.span.source(),
+            start: token.span.start(),
+            value: token.slice.to_owned(),
+        })
     }
 
-    fn expect_identifier(&mut self) -> Result<String, Diagnostic<FileSpan>> {
-        Ok(self.expect_match(TokenKind::Identifier)?.slice.to_owned())
+    fn expect_identifier(&mut self) -> Result<SpannedString, Diagnostic<FileSpan>> {
+        let token = self.expect_match(TokenKind::Identifier)?;
+        Ok(SpannedString {
+            source: token.span.source(),
+            start: token.span.start(),
+            value: token.slice.to_owned(),
+        })
     }
 
     fn expect_eof(&mut self) -> Result<(), Diagnostic<FileSpan>> {
@@ -261,10 +271,14 @@ where
         }
     }
 
-    fn expect_doc_comments(&mut self) -> Vec<String> {
+    fn expect_doc_comments(&mut self) -> Vec<SpannedString> {
         let mut docs = Vec::new();
         while let Some(doc_token) = self.try_match(TokenKind::LineDoc) {
-            docs.push(doc_token.slice.to_owned());
+            docs.push(SpannedString {
+                source: doc_token.span.source(),
+                start: doc_token.span.start(),
+                value: doc_token.slice.to_owned(),
+            });
         }
         docs
     }
@@ -361,16 +375,17 @@ where
     ///               | "{" IDENTIFIER "=" pattern "}"
     /// ```
     fn parse_intro_param(&mut self) -> Result<IntroParam, Diagnostic<FileSpan>> {
-        if self.try_match(TokenKind::Open(DelimKind::Brace)).is_some() {
+        if let Some(start_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
             let label = self.expect_identifier()?;
             let term = if self.try_match(TokenKind::Equals).is_some() {
                 Some(self.parse_pattern()?)
             } else {
                 None
             };
-            self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+            let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+            let span = FileSpan::merge(start_token.span, end_token.span);
 
-            Ok(IntroParam::Implicit(label, term))
+            Ok(IntroParam::Implicit(span, label, term))
         } else {
             Ok(IntroParam::Explicit(self.parse_pattern()?))
         }
@@ -382,8 +397,7 @@ where
     /// pattern ::= IDENTIFIER
     /// ```
     fn parse_pattern(&mut self) -> Result<Pattern, Diagnostic<FileSpan>> {
-        let token = self.expect_match(TokenKind::Identifier)?;
-        Ok(Pattern::Var(token.slice.to_owned()))
+        Ok(Pattern::Var(self.expect_identifier()?))
     }
 
     /// Parse a term
@@ -524,17 +538,22 @@ where
 
     /// Parse the trailing part of a variable
     fn parse_var(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        Ok(Term::Var(token.slice.to_owned()))
+        Ok(Term::Var(SpannedString {
+            source: token.span.source(),
+            start: token.span.start(),
+            value: token.slice.to_owned(),
+        }))
     }
 
     /// Parse the trailing part of a hole
-    fn parse_hole(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        Ok(Term::Hole)
+    fn parse_hole(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        Ok(Term::Hole(token.span))
     }
 
     /// Parse the trailing part of a string literal
     fn parse_string_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
+            span: token.span,
             kind: LiteralKind::String,
             value: token.slice.to_owned(),
         }))
@@ -543,6 +562,7 @@ where
     /// Parse the trailing part of a character literal
     fn parse_char_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
+            span: token.span,
             kind: LiteralKind::Char,
             value: token.slice.to_owned(),
         }))
@@ -551,6 +571,7 @@ where
     /// Parse the trailing part of a integer literal
     fn parse_int_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
+            span: token.span,
             kind: LiteralKind::Int,
             value: token.slice.to_owned(),
         }))
@@ -559,6 +580,7 @@ where
     /// Parse the trailing part of a floating point literal
     fn parse_float_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
+            span: token.span,
             kind: LiteralKind::Float,
             value: token.slice.to_owned(),
         }))
@@ -573,35 +595,38 @@ where
     ///               | "{" IDENTIFIER+ "}"
     ///               | "{" IDENTIFIER+ ":" term(0) "}"
     /// ```
-    fn parse_fun_ty(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_fun_ty(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let mut params = Vec::new();
 
         loop {
-            if let Some(paren_token) = self.try_match(TokenKind::Open(DelimKind::Paren)) {
+            if let Some(start_param_token) = self.try_match(TokenKind::Open(DelimKind::Paren)) {
                 let mut param_names = Vec::new();
                 while let Some(param_name) = self.try_identifier() {
                     param_names.push(param_name);
                 }
                 if param_names.is_empty() {
                     return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(Label::new_primary(paren_token.span).with_message(
+                        .with_label(Label::new_primary(start_param_token.span).with_message(
                             "at least one parameter was expected after this parenthesis",
                         )));
                 }
 
                 self.expect_match(TokenKind::Colon)?;
                 let param_ty = self.parse_term(Prec(0))?;
-                params.push(TypeParam::Explicit(param_names, param_ty));
+                let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Paren))?;
+                let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
 
-                self.expect_match(TokenKind::Close(DelimKind::Paren))?;
-            } else if let Some(brace_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
+                params.push(TypeParam::Explicit(param_span, param_names, param_ty));
+            } else if let Some(start_param_token) =
+                self.try_match(TokenKind::Open(DelimKind::Brace))
+            {
                 let mut param_names = Vec::new();
                 while let Some(param_name) = self.try_identifier() {
                     param_names.push(param_name);
                 }
                 if param_names.is_empty() {
                     return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(Label::new_primary(brace_token.span).with_message(
+                        .with_label(Label::new_primary(start_param_token.span).with_message(
                             "at least one parameter was expected after this brace",
                         )));
                 }
@@ -611,9 +636,10 @@ where
                 } else {
                     None
                 };
-                params.push(TypeParam::Implicit(param_names, param_ty));
+                let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
 
-                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                params.push(TypeParam::Implicit(param_span, param_names, param_ty));
             } else {
                 break;
             }
@@ -622,7 +648,7 @@ where
         if params.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one parameter").with_label(
-                    Label::new_primary(token.span)
+                    Label::new_primary(start_token.span)
                         .with_message("at least one parameter was expected after this keyword"),
                 ),
             );
@@ -630,8 +656,9 @@ where
 
         self.expect_match(TokenKind::RArrow)?;
         let body_ty = self.parse_term(Prec(50 - 1))?;
+        let span = FileSpan::merge(start_token.span, body_ty.span());
 
-        Ok(Term::FunType(params, Box::new(body_ty)))
+        Ok(Term::FunType(span, params, Box::new(body_ty)))
     }
 
     /// Parse the trailing part of a function introduction
@@ -639,20 +666,21 @@ where
     /// ```text
     /// fun-intro ::= intro-param+ "=>" term(0)
     /// ```
-    fn parse_fun_intro(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_fun_intro(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let params = self.parse_intro_params()?;
         if params.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one parameters").with_label(
-                    Label::new_primary(token.span)
+                    Label::new_primary(start_token.span)
                         .with_message("at least one parameter was expected after this keyword"),
                 ),
             );
         }
         self.expect_match(TokenKind::RFatArrow)?;
         let body = self.parse_term(Prec(0))?;
+        let span = FileSpan::merge(start_token.span, body.span());
 
-        Ok(Term::FunIntro(params, Box::new(body)))
+        Ok(Term::FunIntro(span, params, Box::new(body)))
     }
 
     /// Parse the trailing part of a parenthesis grouping
@@ -660,11 +688,12 @@ where
     /// ```text
     /// parens ::= term(0) ")"
     /// ```
-    fn parse_parens(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_parens(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let term = self.parse_term(Prec(0))?;
-        self.expect_match(TokenKind::Close(DelimKind::Paren))?;
+        let end_token = self.expect_match(TokenKind::Close(DelimKind::Paren))?;
+        let span = FileSpan::merge(start_token.span, end_token.span);
 
-        Ok(Term::Parens(Box::new(term)))
+        Ok(Term::Parens(span, Box::new(term)))
     }
 
     /// Parse the trailing part of a record type
@@ -673,7 +702,7 @@ where
     /// record-type         ::= "{" (record-type-field ";")* record-type-field? "}"
     /// record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term(0)
     /// ```
-    fn parse_record_ty(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_record_ty(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let mut fields = Vec::new();
 
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
@@ -690,17 +719,20 @@ where
                 if self.try_match(TokenKind::Semicolon).is_some() {
                     continue;
                 } else {
-                    self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    return Ok(Term::RecordType(fields));
+                    let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                    let span = FileSpan::merge(start_token.span, end_token.span);
+
+                    return Ok(Term::RecordType(span, fields));
                 }
             } else {
                 break;
             }
         }
 
-        self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+        let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+        let span = FileSpan::merge(start_token.span, end_token.span);
 
-        Ok(Term::RecordType(fields))
+        Ok(Term::RecordType(span, fields))
     }
 
     /// Parse the trailing part of a record introduction
@@ -710,7 +742,10 @@ where
     /// record-intro-field  ::= IDENTIFIER
     ///                       | IDENTIFIER intro-param* (":" term(0))? "=" term(0)
     /// ```
-    fn parse_record_intro(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_record_intro(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term, Diagnostic<FileSpan>> {
         let mut fields = Vec::new();
 
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
@@ -738,14 +773,17 @@ where
             if self.try_match(TokenKind::Semicolon).is_some() {
                 continue;
             } else {
-                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                return Ok(Term::RecordIntro(fields));
+                let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                let span = FileSpan::merge(start_token.span, end_token.span);
+
+                return Ok(Term::RecordIntro(span, fields));
             }
         }
 
-        self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+        let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+        let span = FileSpan::merge(start_token.span, end_token.span);
 
-        Ok(Term::RecordIntro(fields))
+        Ok(Term::RecordIntro(span, fields))
     }
 
     /// Parse the trailing part of a let expression
@@ -753,7 +791,7 @@ where
     /// ```text
     /// let ::= item+ "in" term(0)
     /// ```
-    fn parse_let(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_let(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         let mut items = Vec::new();
         while self.is_peek_match(ItemStart) {
             items.push(self.parse_item()?);
@@ -761,7 +799,7 @@ where
         if items.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one item").with_label(
-                    Label::new_primary(token.span)
+                    Label::new_primary(start_token.span)
                         .with_message("at least one item was expected after this keyword"),
                 ),
             );
@@ -770,7 +808,9 @@ where
         self.expect_match(Keyword("in"))?;
         let body_term = self.parse_term(Prec(0))?;
 
-        Ok(Term::Let(items, Box::new(body_term)))
+        let span = FileSpan::merge(start_token.span, body_term.span());
+
+        Ok(Term::Let(span, items, Box::new(body_term)))
     }
 
     /// Parse the trailing part of a universe
@@ -778,14 +818,17 @@ where
     /// ```text
     /// universe ::= ("^" INT_LITERAL)?
     /// ```
-    fn parse_universe(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_universe(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         if self.try_match(TokenKind::Caret).is_some() {
             let integer_token = self.expect_match(TokenKind::IntLiteral)?;
             // FIXME: if prefixed integer
             // FIXME: if separators
-            Ok(Term::Universe(Some(integer_token.slice.parse().unwrap())))
+            let level = integer_token.slice.parse().unwrap();
+            let span = FileSpan::merge(start_token.span, integer_token.span);
+
+            Ok(Term::Universe(span, Some((integer_token.span, level))))
         } else {
-            Ok(Term::Universe(None))
+            Ok(Term::Universe(start_token.span, None))
         }
     }
 
@@ -808,7 +851,11 @@ where
     /// ```text
     /// ann ::= term(20 - 1)
     /// ```
-    fn parse_ann(&mut self, lhs: Term, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_ann(
+        &mut self,
+        lhs: Term,
+        _start_token: Token<'file>,
+    ) -> Result<Term, Diagnostic<FileSpan>> {
         let rhs = self.parse_term(Prec(20 - 1))?;
 
         Ok(Term::Ann(Box::new(lhs), Box::new(rhs)))
@@ -841,16 +888,17 @@ where
         let mut args = Vec::new();
 
         while self.is_peek_match(ArgParamStart) {
-            if self.try_match(TokenKind::Open(DelimKind::Brace)).is_some() {
+            if let Some(start_arg_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
                 let label = self.expect_identifier()?;
                 let term = if self.try_match(TokenKind::Equals).is_some() {
                     Some(self.parse_term(Prec(0))?)
                 } else {
                     None
                 };
-                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                let end_arg_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                let arg_span = FileSpan::merge(start_arg_token.span, end_arg_token.span);
 
-                args.push(Arg::Implicit(label, term));
+                args.push(Arg::Implicit(arg_span, label, term));
             } else {
                 args.push(Arg::Explicit(self.parse_arg_term(Prec(0))?));
             }
@@ -874,15 +922,15 @@ mod tests {
     use crate::lexer::Lexer;
 
     macro_rules! test_term {
-        ($src:expr, $expected_term:expr,) => {{
-            test_term!($src, $expected_term);
+        ($src:expr, |$file_id:ident| $expected_term:expr,) => {{
+            test_term!($src, |$file_id| $expected_term);
         }};
-        ($src:expr, $expected_term:expr) => {{
+        ($src:expr, |$file_id:ident| $expected_term:expr) => {{
             let _ = pretty_env_logger::try_init();
 
             let mut files = Files::new();
-            let file_id = files.add("test", $src);
-            let term = match parse_term(Lexer::new(&files[file_id])) {
+            let $file_id = files.add("test", $src);
+            let term = match parse_term(Lexer::new(&files[$file_id])) {
                 Ok(term) => term,
                 Err(diagnostic) => {
                     let writer = StandardStream::stdout(ColorChoice::Always);
@@ -903,435 +951,467 @@ mod tests {
 
     #[test]
     fn var() {
-        test_term!("var", Term::Var("var".to_owned()));
+        test_term!("var", |file_id| Term::Var(SpannedString::new(
+            file_id, 0, "var",
+        )));
     }
 
     #[test]
     fn hole() {
-        test_term!("?", Term::Hole);
+        test_term!("?", |file_id| Term::Hole(FileSpan::new(file_id, 0, 1)));
     }
 
     #[test]
     fn string_literal() {
-        test_term!(
-            "\"value\"",
-            Term::Literal(Literal {
-                kind: LiteralKind::String,
-                value: "\"value\"".to_owned()
-            }),
-        );
+        test_term!("\"value\"", |file_id| Term::Literal(Literal {
+            span: FileSpan::new(file_id, 0, 7),
+            kind: LiteralKind::String,
+            value: "\"value\"".to_owned(),
+        }));
     }
 
     #[test]
     fn char_literal() {
-        test_term!(
-            "'\\n'",
-            Term::Literal(Literal {
-                kind: LiteralKind::Char,
-                value: "'\\n'".to_owned()
-            }),
-        );
+        test_term!("'\\n'", |file_id| Term::Literal(Literal {
+            span: FileSpan::new(file_id, 0, 4),
+            kind: LiteralKind::Char,
+            value: "'\\n'".to_owned(),
+        }));
     }
 
     #[test]
     fn int_literal() {
-        test_term!(
-            "0xA_F00",
-            Term::Literal(Literal {
-                kind: LiteralKind::Int,
-                value: "0xA_F00".to_owned()
-            }),
-        );
+        test_term!("0xA_F00", |file_id| Term::Literal(Literal {
+            span: FileSpan::new(file_id, 0, 7),
+            kind: LiteralKind::Int,
+            value: "0xA_F00".to_owned(),
+        }));
     }
 
     #[test]
     fn float_literal() {
-        test_term!(
-            "0.3_46e_23",
-            Term::Literal(Literal {
-                kind: LiteralKind::Float,
-                value: "0.3_46e_23".to_owned()
-            }),
-        );
+        test_term!("0.3_46e_23", |file_id| Term::Literal(Literal {
+            span: FileSpan::new(file_id, 0, 10),
+            kind: LiteralKind::Float,
+            value: "0.3_46e_23".to_owned(),
+        }));
     }
 
     #[test]
     fn let_expr() {
-        test_term!(
-            "let var = Type; in var",
-            Term::Let(
-                vec![Item::Definition(Definition {
-                    docs: Vec::new(),
-                    label: "var".to_owned(),
-                    params: Vec::new(),
-                    body_ty: None,
-                    body: Term::Universe(None),
-                })],
-                Box::new(Term::Var("var".to_owned())),
-            ),
-        );
+        test_term!("let var = Type; in var", |file_id| Term::Let(
+            FileSpan::new(file_id, 0, 22),
+            vec![Item::Definition(Definition {
+                docs: Vec::new(),
+                label: SpannedString::new(file_id, 4, "var"),
+                params: Vec::new(),
+                body_ty: None,
+                body: Term::Universe(FileSpan::new(file_id, 10, 14), None),
+            })],
+            Box::new(Term::Var(SpannedString::new(file_id, 19, "var"))),
+        ),);
     }
 
     #[test]
     fn parens() {
-        test_term!("(foo)", Term::Parens(Box::new(Term::Var("foo".to_owned()))));
+        test_term!("(foo)", |file_id| Term::Parens(
+            FileSpan::new(file_id, 0, 5),
+            Box::new(Term::Var(SpannedString::new(file_id, 1, "foo"))),
+        ));
     }
 
     #[test]
     fn fun_ty() {
         test_term!(
             r"Fun (x y : Type) (z : Type) -> x",
-            Term::FunType(
+            |file_id| Term::FunType(
+                FileSpan::new(file_id, 0, 32),
                 vec![
-                    TypeParam::Explicit(vec!["x".to_owned(), "y".to_owned()], Term::Universe(None)),
-                    TypeParam::Explicit(vec!["z".to_owned()], Term::Universe(None)),
+                    TypeParam::Explicit(
+                        FileSpan::new(file_id, 4, 16),
+                        vec![
+                            SpannedString::new(file_id, 5, "x"),
+                            SpannedString::new(file_id, 7, "y"),
+                        ],
+                        Term::Universe(FileSpan::new(file_id, 11, 15), None),
+                    ),
+                    TypeParam::Explicit(
+                        FileSpan::new(file_id, 17, 27),
+                        vec![SpannedString::new(file_id, 18, "z")],
+                        Term::Universe(FileSpan::new(file_id, 22, 26), None),
+                    ),
                 ],
-                Box::new(Term::Var("x".to_owned())),
+                Box::new(Term::Var(SpannedString::new(file_id, 31, "x"))),
             ),
         );
     }
 
     #[test]
     fn fun_ty_implict() {
-        test_term!(
-            r"Fun {x y : Type} {z} -> x",
-            Term::FunType(
-                vec![
-                    TypeParam::Implicit(
-                        vec!["x".to_owned(), "y".to_owned()],
-                        Some(Term::Universe(None))
-                    ),
-                    TypeParam::Implicit(vec!["z".to_owned()], None),
-                ],
-                Box::new(Term::Var("x".to_owned())),
-            ),
-        );
+        test_term!(r"Fun {x y : Type} {z} -> x", |file_id| Term::FunType(
+            FileSpan::new(file_id, 0, 25),
+            vec![
+                TypeParam::Implicit(
+                    FileSpan::new(file_id, 4, 16),
+                    vec![
+                        SpannedString::new(file_id, 5, "x"),
+                        SpannedString::new(file_id, 7, "y"),
+                    ],
+                    Some(Term::Universe(FileSpan::new(file_id, 11, 15), None)),
+                ),
+                TypeParam::Implicit(
+                    FileSpan::new(file_id, 17, 20),
+                    vec![SpannedString::new(file_id, 18, "z")],
+                    None,
+                ),
+            ],
+            Box::new(Term::Var(SpannedString::new(file_id, 24, "x"))),
+        ));
     }
 
     #[test]
     fn fun_arrow_type() {
-        test_term!(
-            "Foo -> Bar",
-            Term::FunArrowType(
-                Box::new(Term::Var("Foo".to_owned())),
-                Box::new(Term::Var("Bar".to_owned()))
-            ),
-        );
+        test_term!("Foo -> Bar", |file_id| Term::FunArrowType(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "Foo"))),
+            Box::new(Term::Var(SpannedString::new(file_id, 7, "Bar"))),
+        ));
     }
 
     #[test]
     fn fun_arrow_type_nested() {
-        test_term!(
-            "Foo -> Bar -> Baz",
-            Term::FunArrowType(
-                Box::new(Term::Var("Foo".to_owned())),
-                Box::new(Term::FunArrowType(
-                    Box::new(Term::Var("Bar".to_owned())),
-                    Box::new(Term::Var("Baz".to_owned())),
-                )),
-            ),
-        );
+        test_term!("Foo -> Bar -> Baz", |file_id| Term::FunArrowType(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "Foo"))),
+            Box::new(Term::FunArrowType(
+                Box::new(Term::Var(SpannedString::new(file_id, 7, "Bar"))),
+                Box::new(Term::Var(SpannedString::new(file_id, 14, "Baz"))),
+            )),
+        ));
     }
 
     #[test]
     fn fun_arrow_type_fun_app() {
-        test_term!(
-            "Option A -> Option B -> Option C",
+        test_term!("Option A -> Option B -> Option C", |file_id| {
             Term::FunArrowType(
                 Box::new(Term::FunElim(
-                    Box::new(Term::Var("Option".to_owned())),
-                    vec![Arg::Explicit(Term::Var("A".to_owned()))]
+                    Box::new(Term::Var(SpannedString::new(file_id, 0, "Option"))),
+                    vec![Arg::Explicit(Term::Var(SpannedString::new(
+                        file_id, 7, "A",
+                    )))],
                 )),
                 Box::new(Term::FunArrowType(
                     Box::new(Term::FunElim(
-                        Box::new(Term::Var("Option".to_owned())),
-                        vec![Arg::Explicit(Term::Var("B".to_owned()))]
+                        Box::new(Term::Var(SpannedString::new(file_id, 12, "Option"))),
+                        vec![Arg::Explicit(Term::Var(SpannedString::new(
+                            file_id, 19, "B",
+                        )))],
                     )),
                     Box::new(Term::FunElim(
-                        Box::new(Term::Var("Option".to_owned())),
-                        vec![Arg::Explicit(Term::Var("C".to_owned()))]
+                        Box::new(Term::Var(SpannedString::new(file_id, 24, "Option"))),
+                        vec![Arg::Explicit(Term::Var(SpannedString::new(
+                            file_id, 31, "C",
+                        )))],
                     )),
-                ),)
-            ),
-        );
+                )),
+            )
+        });
     }
 
     #[test]
     fn fun_intro() {
-        test_term!(
-            r"fun x => x",
-            Term::FunIntro(
-                vec![IntroParam::Explicit(Pattern::Var("x".to_owned()))],
-                Box::new(Term::Var("x".to_owned())),
-            ),
-        );
+        test_term!(r"fun x => x", |file_id| Term::FunIntro(
+            FileSpan::new(file_id, 0, 10),
+            vec![IntroParam::Explicit(Pattern::Var(SpannedString::new(
+                file_id, 4, "x",
+            )))],
+            Box::new(Term::Var(SpannedString::new(file_id, 9, "x"))),
+        ));
     }
 
     #[test]
     fn fun_intro_multi_params() {
-        test_term!(
-            r"fun x y z => x",
-            Term::FunIntro(
-                vec![
-                    IntroParam::Explicit(Pattern::Var("x".to_owned())),
-                    IntroParam::Explicit(Pattern::Var("y".to_owned())),
-                    IntroParam::Explicit(Pattern::Var("z".to_owned())),
-                ],
-                Box::new(Term::Var("x".to_owned())),
-            ),
-        );
+        test_term!(r"fun x y z => x", |file_id| Term::FunIntro(
+            FileSpan::new(file_id, 0, 14),
+            vec![
+                IntroParam::Explicit(Pattern::Var(SpannedString::new(file_id, 4, "x"))),
+                IntroParam::Explicit(Pattern::Var(SpannedString::new(file_id, 6, "y"))),
+                IntroParam::Explicit(Pattern::Var(SpannedString::new(file_id, 8, "z"))),
+            ],
+            Box::new(Term::Var(SpannedString::new(file_id, 13, "x"))),
+        ));
     }
 
     #[test]
     fn fun_intro_multi_params_implicit() {
-        test_term!(
-            r"fun x {y} {z = zz} => x",
-            Term::FunIntro(
-                vec![
-                    IntroParam::Explicit(Pattern::Var("x".to_owned())),
-                    IntroParam::Implicit("y".to_owned(), None),
-                    IntroParam::Implicit("z".to_owned(), Some(Pattern::Var("zz".to_owned()))),
-                ],
-                Box::new(Term::Var("x".to_owned())),
-            ),
-        );
+        test_term!(r"fun x {y} {z = zz} => x", |file_id| Term::FunIntro(
+            FileSpan::new(file_id, 0, 23),
+            vec![
+                IntroParam::Explicit(Pattern::Var(SpannedString::new(file_id, 4, "x"))),
+                IntroParam::Implicit(
+                    FileSpan::new(file_id, 6, 9),
+                    SpannedString::new(file_id, 7, "y"),
+                    None,
+                ),
+                IntroParam::Implicit(
+                    FileSpan::new(file_id, 10, 18),
+                    SpannedString::new(file_id, 11, "z"),
+                    Some(Pattern::Var(SpannedString::new(file_id, 15, "zz")))
+                ),
+            ],
+            Box::new(Term::Var(SpannedString::new(file_id, 22, "x"))),
+        ));
     }
 
     #[test]
     fn fun_app_1() {
-        test_term!(
-            r"foo arg",
-            Term::FunElim(
-                Box::new(Term::Var("foo".to_owned())),
-                vec![Arg::Explicit(Term::Var("arg".to_owned()))],
-            ),
-        );
+        test_term!(r"foo arg", |file_id| Term::FunElim(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            vec![Arg::Explicit(Term::Var(SpannedString::new(
+                file_id, 4, "arg",
+            )))],
+        ));
     }
 
     #[test]
     fn fun_app_2a() {
-        test_term!(
-            r"foo arg1 arg2",
-            Term::FunElim(
-                Box::new(Term::Var("foo".to_owned())),
-                vec![
-                    Arg::Explicit(Term::Var("arg1".to_owned())),
-                    Arg::Explicit(Term::Var("arg2".to_owned())),
-                ],
-            ),
-        );
+        test_term!(r"foo arg1 arg2", |file_id| Term::FunElim(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            vec![
+                Arg::Explicit(Term::Var(SpannedString::new(file_id, 4, "arg1"))),
+                Arg::Explicit(Term::Var(SpannedString::new(file_id, 9, "arg2"))),
+            ],
+        ));
     }
 
     #[test]
     fn fun_app_2b() {
-        test_term!(
-            r"foo (arg1) arg2.foo.bar arg3",
-            Term::FunElim(
-                Box::new(Term::Var("foo".to_owned())),
-                vec![
-                    Arg::Explicit(Term::Parens(Box::new(Term::Var("arg1".to_owned())))),
-                    Arg::Explicit(Term::RecordElim(
-                        Box::new(Term::RecordElim(
-                            Box::new(Term::Var("arg2".to_owned())),
-                            "foo".to_owned()
-                        )),
-                        "bar".to_owned()
+        test_term!(r"foo (arg1) arg2.foo.bar arg3", |file_id| Term::FunElim(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            vec![
+                Arg::Explicit(Term::Parens(
+                    FileSpan::new(file_id, 4, 10),
+                    Box::new(Term::Var(SpannedString::new(file_id, 5, "arg1")))
+                )),
+                Arg::Explicit(Term::RecordElim(
+                    Box::new(Term::RecordElim(
+                        Box::new(Term::Var(SpannedString::new(file_id, 11, "arg2"))),
+                        SpannedString::new(file_id, 16, "foo"),
                     )),
-                    Arg::Explicit(Term::Var("arg3".to_owned())),
-                ],
-            ),
-        );
+                    SpannedString::new(file_id, 20, "bar"),
+                )),
+                Arg::Explicit(Term::Var(SpannedString::new(file_id, 24, "arg3"))),
+            ],
+        ));
     }
 
     #[test]
     fn fun_app_implicit() {
-        test_term!(
-            r"foo {arg1} {arg2 = arg2}",
-            Term::FunElim(
-                Box::new(Term::Var("foo".to_owned())),
-                vec![
-                    Arg::Implicit("arg1".to_owned(), None),
-                    Arg::Implicit("arg2".to_owned(), Some(Term::Var("arg2".to_owned()))),
-                ],
-            ),
-        );
+        test_term!(r"foo {arg1} {arg2 = arg2}", |file_id| Term::FunElim(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            vec![
+                Arg::Implicit(
+                    FileSpan::new(file_id, 4, 10),
+                    SpannedString::new(file_id, 5, "arg1"),
+                    None,
+                ),
+                Arg::Implicit(
+                    FileSpan::new(file_id, 11, 24),
+                    SpannedString::new(file_id, 12, "arg2"),
+                    Some(Term::Var(SpannedString::new(file_id, 19, "arg2"))),
+                ),
+            ],
+        ));
     }
 
     #[test]
     fn record_type() {
-        test_term!(
-            "Record { x : Type; y : Type }",
-            Term::RecordType(vec![
+        test_term!("Record { x : Type; y : Type }", |file_id| Term::RecordType(
+            FileSpan::new(file_id, 0, 29),
+            vec![
                 RecordTypeField {
                     docs: Vec::new(),
-                    label: "x".to_owned(),
-                    ann: Term::Universe(None),
+                    label: SpannedString::new(file_id, 9, "x"),
+                    ann: Term::Universe(FileSpan::new(file_id, 13, 17), None),
                 },
                 RecordTypeField {
                     docs: Vec::new(),
-                    label: "y".to_owned(),
-                    ann: Term::Universe(None),
+                    label: SpannedString::new(file_id, 19, "y"),
+                    ann: Term::Universe(FileSpan::new(file_id, 23, 27), None),
                 },
-            ]),
-        );
+            ]
+        ));
     }
 
     #[test]
     fn record_type_trailing_semicolon() {
         test_term!(
             "Record { x : Type; y : Type; }",
-            Term::RecordType(vec![
-                RecordTypeField {
-                    docs: Vec::new(),
-                    label: "x".to_owned(),
-                    ann: Term::Universe(None),
-                },
-                RecordTypeField {
-                    docs: Vec::new(),
-                    label: "y".to_owned(),
-                    ann: Term::Universe(None),
-                },
-            ]),
+            |file_id| Term::RecordType(
+                FileSpan::new(file_id, 0, 30),
+                vec![
+                    RecordTypeField {
+                        docs: Vec::new(),
+                        label: SpannedString::new(file_id, 9, "x"),
+                        ann: Term::Universe(FileSpan::new(file_id, 13, 17), None),
+                    },
+                    RecordTypeField {
+                        docs: Vec::new(),
+                        label: SpannedString::new(file_id, 19, "y"),
+                        ann: Term::Universe(FileSpan::new(file_id, 23, 27), None),
+                    },
+                ]
+            ),
         );
     }
 
     #[test]
     fn record_intro() {
-        test_term!(
-            "record { x = x; y = y }",
-            Term::RecordIntro(vec![
+        test_term!("record { x = x; y = y }", |file_id| Term::RecordIntro(
+            FileSpan::new(file_id, 0, 23),
+            vec![
                 RecordIntroField::Explicit {
-                    label: "x".to_owned(),
+                    label: SpannedString::new(file_id, 9, "x"),
                     params: Vec::new(),
                     body_ty: None,
-                    body: Term::Var("x".to_owned()),
+                    body: Term::Var(SpannedString::new(file_id, 13, "x")),
                 },
                 RecordIntroField::Explicit {
-                    label: "y".to_owned(),
+                    label: SpannedString::new(file_id, 16, "y"),
                     params: Vec::new(),
                     body_ty: None,
-                    body: Term::Var("y".to_owned()),
+                    body: Term::Var(SpannedString::new(file_id, 20, "y")),
                 },
-            ]),
-        );
+            ]
+        ));
     }
 
     #[test]
     fn record_intro_fun_sugar() {
-        test_term!(
-            "record { f x y = x; g x y : Type = x }",
-            Term::RecordIntro(vec![
-                RecordIntroField::Explicit {
-                    label: "f".to_owned(),
-                    params: vec![
-                        IntroParam::Explicit(Pattern::Var("x".to_owned())),
-                        IntroParam::Explicit(Pattern::Var("y".to_owned()))
-                    ],
-                    body_ty: None,
-                    body: Term::Var("x".to_owned()),
-                },
-                RecordIntroField::Explicit {
-                    label: "g".to_owned(),
-                    params: vec![
-                        IntroParam::Explicit(Pattern::Var("x".to_owned())),
-                        IntroParam::Explicit(Pattern::Var("y".to_owned()))
-                    ],
-                    body_ty: Some(Term::Universe(None)),
-                    body: Term::Var("x".to_owned()),
-                },
-            ]),
-        );
+        test_term!("record { f x y = x; g x y : Type = x }", |file_id| {
+            Term::RecordIntro(
+                FileSpan::new(file_id, 0, 38),
+                vec![
+                    RecordIntroField::Explicit {
+                        label: SpannedString::new(file_id, 9, "f"),
+                        params: vec![
+                            IntroParam::Explicit(Pattern::Var(SpannedString::new(
+                                file_id, 11, "x",
+                            ))),
+                            IntroParam::Explicit(Pattern::Var(SpannedString::new(
+                                file_id, 13, "y",
+                            ))),
+                        ],
+                        body_ty: None,
+                        body: Term::Var(SpannedString::new(file_id, 17, "x")),
+                    },
+                    RecordIntroField::Explicit {
+                        label: SpannedString::new(file_id, 20, "g"),
+                        params: vec![
+                            IntroParam::Explicit(Pattern::Var(SpannedString::new(
+                                file_id, 22, "x",
+                            ))),
+                            IntroParam::Explicit(Pattern::Var(SpannedString::new(
+                                file_id, 24, "y",
+                            ))),
+                        ],
+                        body_ty: Some(Term::Universe(FileSpan::new(file_id, 28, 32), None)),
+                        body: Term::Var(SpannedString::new(file_id, 35, "x")),
+                    },
+                ],
+            )
+        });
     }
 
     #[test]
     fn record_intro_trailing_semicolon() {
-        test_term!(
-            "record { x = x; y : Type = y; }",
-            Term::RecordIntro(vec![
-                RecordIntroField::Explicit {
-                    label: "x".to_owned(),
-                    params: Vec::new(),
-                    body_ty: None,
-                    body: Term::Var("x".to_owned()),
-                },
-                RecordIntroField::Explicit {
-                    label: "y".to_owned(),
-                    params: Vec::new(),
-                    body_ty: Some(Term::Universe(None)),
-                    body: Term::Var("y".to_owned()),
-                },
-            ]),
-        );
+        test_term!("record { x = x; y : Type = y; }", |file_id| {
+            Term::RecordIntro(
+                FileSpan::new(file_id, 0, 31),
+                vec![
+                    RecordIntroField::Explicit {
+                        label: SpannedString::new(file_id, 9, "x"),
+                        params: Vec::new(),
+                        body_ty: None,
+                        body: Term::Var(SpannedString::new(file_id, 13, "x")),
+                    },
+                    RecordIntroField::Explicit {
+                        label: SpannedString::new(file_id, 16, "y"),
+                        params: Vec::new(),
+                        body_ty: Some(Term::Universe(FileSpan::new(file_id, 20, 24), None)),
+                        body: Term::Var(SpannedString::new(file_id, 27, "y")),
+                    },
+                ],
+            )
+        });
     }
 
     #[test]
     fn record_proj() {
-        test_term!(
-            "foo.bar",
-            Term::RecordElim(Box::new(Term::Var("foo".to_owned())), "bar".to_owned()),
-        );
+        test_term!("foo.bar", |file_id| Term::RecordElim(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            SpannedString::new(file_id, 4, "bar"),
+        ));
     }
 
     #[test]
     fn record_proj_proj() {
-        test_term!(
-            "foo.bar.baz",
-            Term::RecordElim(
-                Box::new(Term::RecordElim(
-                    Box::new(Term::Var("foo".to_owned(),)),
-                    "bar".to_owned()
-                )),
-                "baz".to_owned()
-            ),
-        );
+        test_term!("foo.bar.baz", |file_id| Term::RecordElim(
+            Box::new(Term::RecordElim(
+                Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+                SpannedString::new(file_id, 4, "bar"),
+            )),
+            SpannedString::new(file_id, 8, "baz"),
+        ));
     }
 
     #[test]
     fn record_proj_fun_app() {
-        test_term!(
-            "foo.bar baz foo.bar",
-            Term::FunElim(
-                Box::new(Term::RecordElim(
-                    Box::new(Term::Var("foo".to_owned())),
-                    "bar".to_owned()
+        test_term!("foo.bar baz foo.bar", |file_id| Term::FunElim(
+            Box::new(Term::RecordElim(
+                Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+                SpannedString::new(file_id, 4, "bar"),
+            )),
+            vec![
+                Arg::Explicit(Term::Var(SpannedString::new(file_id, 8, "baz"))),
+                Arg::Explicit(Term::RecordElim(
+                    Box::new(Term::Var(SpannedString::new(file_id, 12, "foo"))),
+                    SpannedString::new(file_id, 16, "bar"),
                 )),
-                vec![
-                    Arg::Explicit(Term::Var("baz".to_owned())),
-                    Arg::Explicit(Term::RecordElim(
-                        Box::new(Term::Var("foo".to_owned())),
-                        "bar".to_owned()
-                    )),
-                ],
-            ),
-        );
+            ],
+        ));
     }
 
     #[test]
     fn ann() {
-        test_term!(
-            "foo : Bar : Baz",
-            Term::Ann(
-                Box::new(Term::Var("foo".to_owned())),
-                Box::new(Term::Ann(
-                    Box::new(Term::Var("Bar".to_owned())),
-                    Box::new(Term::Var("Baz".to_owned()))
-                )),
-            ),
-        );
+        test_term!("foo : Bar : Baz", |file_id| Term::Ann(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            Box::new(Term::Ann(
+                Box::new(Term::Var(SpannedString::new(file_id, 6, "Bar"))),
+                Box::new(Term::Var(SpannedString::new(file_id, 12, "Baz"))),
+            )),
+        ));
     }
 
     #[test]
     fn universe() {
-        test_term!("Type", Term::Universe(None));
+        test_term!("Type", |file_id| Term::Universe(
+            FileSpan::new(file_id, 0, 4),
+            None
+        ));
     }
 
     #[test]
     fn universe_level_0() {
-        test_term!("Type^0", Term::Universe(Some(0)));
+        test_term!("Type^0", |file_id| Term::Universe(
+            FileSpan::new(file_id, 0, 6),
+            Some((FileSpan::new(file_id, 5, 6), 0)),
+        ));
     }
 
     #[test]
     fn universe_level_23() {
-        test_term!("Type^23", Term::Universe(Some(23)));
+        test_term!("Type^23", |file_id| Term::Universe(
+            FileSpan::new(file_id, 0, 7),
+            Some((FileSpan::new(file_id, 5, 7), 23)),
+        ));
     }
 }
