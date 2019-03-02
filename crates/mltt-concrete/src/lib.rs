@@ -143,7 +143,7 @@ impl TypeParam {
                     param_labels.iter().map(Doc::text),
                     Doc::space(),
                 ))
-                .append(")"),
+                .append("}"),
             TypeParam::Implicit(param_labels, Some(term)) => Doc::nil()
                 .append("{")
                 .append(Doc::intersperse(
@@ -172,7 +172,7 @@ impl IntroParam {
         match self {
             IntroParam::Explicit(pattern) => pattern.to_doc(),
             IntroParam::Implicit(param_label, None) => {
-                Doc::nil().append("{").append(param_label).append(")")
+                Doc::nil().append("{").append(param_label).append("}")
             },
             IntroParam::Implicit(param_label, Some(pattern)) => Doc::nil()
                 .append("{")
