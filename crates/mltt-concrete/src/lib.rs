@@ -35,6 +35,14 @@ impl Item {
             Item::Definition(_) => true,
         }
     }
+
+    /// Convert the item into a pretty-printable document
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            Item::Declaration(declaration) => declaration.to_doc(),
+            Item::Definition(definition) => definition.to_doc(),
+        }
+    }
 }
 
 /// Forward-declarations
@@ -45,6 +53,26 @@ pub struct Declaration {
     pub body_ty: Term,
 }
 
+impl Declaration {
+    /// Convert the declaration into a pretty-printable document
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        let docs = Doc::concat(
+            self.docs
+                .iter()
+                .map(|doc| Doc::text(doc).append(Doc::newline())),
+        );
+
+        Doc::nil()
+            .append(docs)
+            .append(&self.label)
+            .append(Doc::space())
+            .append(":")
+            .append(Doc::space())
+            .append(self.body_ty.to_doc())
+            .append(";")
+    }
+}
+
 /// Term definitions
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
@@ -53,6 +81,37 @@ pub struct Definition {
     pub params: Vec<IntroParam>,
     pub body_ty: Option<Term>,
     pub body: Term,
+}
+
+impl Definition {
+    /// Convert the definition into a pretty-printable document
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        let docs = Doc::concat(
+            self.docs
+                .iter()
+                .map(|doc| Doc::text(doc).append(Doc::newline())),
+        );
+        let params = Doc::intersperse(self.params.iter().map(IntroParam::to_doc), Doc::space());
+        let body_ty = self.body_ty.as_ref().map_or(Doc::nil(), |body_ty| {
+            Doc::nil()
+                .append(":")
+                .append(Doc::space())
+                .append(body_ty.to_doc())
+                .append(Doc::space())
+        });
+
+        Doc::nil()
+            .append(docs)
+            .append(&self.label)
+            .append(Doc::space())
+            .append(params)
+            .append(Doc::space())
+            .append(body_ty)
+            .append("=")
+            .append(Doc::space())
+            .append(self.body.to_doc())
+            .append(";")
+    }
 }
 
 /// Concrete patterns
