@@ -125,10 +125,17 @@ impl Context {
 
 /// Check that this is a valid module
 pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeError> {
-    // Declarations that may be waiting to be defined
-    let mut forward_declarations = im::HashMap::new();
     // The local elaboration context
     let mut context = Context::new();
+    check_items(&mut context, concrete_items)
+}
+
+fn check_items(
+    context: &mut Context,
+    concrete_items: &[Item],
+) -> Result<Vec<core::Item>, TypeError> {
+    // Declarations that may be waiting to be defined
+    let mut forward_declarations = im::HashMap::new();
     // The elaborated items
     let mut core_items = {
         let expected_defn_count = concrete_items.iter().filter(|i| i.is_definition()).count();
@@ -375,16 +382,15 @@ pub fn check_term(
 
     match concrete_term {
         Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
-        Term::Let(def_name, concrete_def, concrete_body) => {
-            let (def, def_ty) = synth_term(context, concrete_def)?;
-            let def_value = context.eval(&def)?;
-            let body = {
-                let mut context = context.clone();
-                context.local_define(def_name.clone(), def_value, def_ty);
-                check_term(&context, concrete_body, expected_ty)?
-            };
+        Term::Let(concrete_items, concrete_body) => {
+            let mut context = context.clone();
+            let items = check_items(&mut context, concrete_items)?;
+            let body = check_term(&context, concrete_body, expected_ty)?;
 
-            Ok(core::RcTerm::from(core::Term::Let(def, body)))
+            Ok(items.into_iter().rev().fold(body, |acc, item| {
+                // TODO: other item fields?
+                core::RcTerm::from(core::Term::Let(item.term, acc))
+            }))
         },
         Term::Parens(concrete_term) => check_term(context, concrete_term, expected_ty),
 
@@ -472,16 +478,18 @@ pub fn synth_term(
     match concrete_term {
         Term::Var(name) => synth_var(context, name),
         Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
-        Term::Let(def_name, concrete_def, concrete_body) => {
-            let (def, def_ty) = synth_term(context, concrete_def)?;
-            let def_value = context.eval(&def)?;
-            let (body, body_ty) = {
-                let mut context = context.clone();
-                context.local_define(def_name.clone(), def_value, def_ty);
-                synth_term(&context, concrete_body)?
-            };
+        Term::Let(concrete_items, concrete_body) => {
+            let mut context = context.clone();
+            let items = check_items(&mut context, concrete_items)?;
+            let (body, body_ty) = synth_term(&context, concrete_body)?;
 
-            Ok((core::RcTerm::from(core::Term::Let(def, body)), body_ty))
+            Ok((
+                items.into_iter().rev().fold(body, |acc, item| {
+                    // TODO: other item fields?
+                    core::RcTerm::from(core::Term::Let(item.term, acc))
+                }),
+                body_ty,
+            ))
         },
         Term::Ann(concrete_term, concrete_term_ty) => {
             synth_ann(context, concrete_term, Some(concrete_term_ty))

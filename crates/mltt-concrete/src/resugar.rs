@@ -5,7 +5,9 @@
 
 use mltt_core::syntax::{core, AppMode, DbIndex, UniverseLevel};
 
-use crate::{Arg, IntroParam, Pattern, RecordIntroField, RecordTypeField, Term, TypeParam};
+use crate::{
+    Arg, Definition, IntroParam, Item, Pattern, RecordIntroField, RecordTypeField, Term, TypeParam,
+};
 
 pub struct Env {
     counter: usize,
@@ -60,7 +62,17 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
             core::Term::Let(def, body) => {
                 let def = resugar_app(def, env);
                 let (def_name, body) = env.with_binding(|env| resugar_term(body, env));
-                Term::Let(def_name, Box::new(def), Box::new(body))
+                // TODO: flatten definitions
+                Term::Let(
+                    vec![Item::Definition(Definition {
+                        docs: Vec::new(),
+                        label: def_name,
+                        params: Vec::new(),
+                        body_ty: None,
+                        body: def,
+                    })],
+                    Box::new(body),
+                )
             },
             core::Term::FunIntro(app_mode, body) => {
                 let (param_name, body) = env.with_binding(|env| resugar_app(body, env));

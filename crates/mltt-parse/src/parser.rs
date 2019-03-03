@@ -17,7 +17,7 @@
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
 //!           | FLOAT_LITERAL
-//!           | "let" IDENTIFIER "=" term "in" term
+//!           | "let" item+ "in" term
 //!           | term ":" term
 //!           | "(" term ")"
 //!           | "Fun" type-param+ "->" term
@@ -102,6 +102,17 @@ struct Keyword<'a>(pub &'a str);
 impl Matcher<Token<'_>> for Keyword<'_> {
     fn is_match(&self, given: &Token<'_>) -> bool {
         given.kind == TokenKind::Keyword && given.slice == self.0
+    }
+}
+
+struct ItemStart;
+
+impl Matcher<Token<'_>> for ItemStart {
+    fn is_match(&self, given: &Token<'_>) -> bool {
+        match given.kind {
+            TokenKind::LineDoc | TokenKind::Identifier => true,
+            _ => false,
+        }
     }
 }
 
@@ -204,12 +215,12 @@ where
         next_token
     }
 
-    fn check_match(&self, matcher: impl Matcher<Token<'file>>) -> bool {
+    fn is_peek_match(&self, matcher: impl Matcher<Token<'file>>) -> bool {
         self.peek().map_or(false, |token| matcher.is_match(token))
     }
 
     fn try_match(&mut self, matcher: impl Matcher<Token<'file>>) -> Option<Token<'file>> {
-        if self.check_match(matcher) {
+        if self.is_peek_match(matcher) {
             self.advance()
         } else {
             None
@@ -335,7 +346,7 @@ where
     /// ```
     fn parse_intro_params(&mut self) -> Result<Vec<IntroParam>, Diagnostic<FileSpan>> {
         let mut params = Vec::new();
-        while self.check_match(ArgParamStart) {
+        while self.is_peek_match(ArgParamStart) {
             params.push(self.parse_intro_param()?);
         }
         Ok(params)
@@ -577,9 +588,11 @@ where
                 }
                 if param_names.is_empty() {
                     return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(Label::new_primary(brace_token.span).with_message(
-                            "at least one parameter was expected after this brace",
-                        )));
+                        .with_label(
+                            Label::new_primary(brace_token.span).with_message(
+                                "at least one parameter was expected after this brace",
+                            ),
+                        ));
                 }
 
                 let param_ty = if self.try_match(TokenKind::Colon).is_some() {
@@ -727,16 +740,26 @@ where
     /// Parse the trailing part of a let expression
     ///
     /// ```text
-    /// let ::= IDENTIFIER "=" term(0) "in" term(0)
+    /// let ::= item+ "in" term(0)
     /// ```
-    fn parse_let(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
-        let name = self.expect_identifier()?;
-        self.expect_match(TokenKind::Equals)?;
-        let def_term = self.parse_term(Prec(0))?;
+    fn parse_let(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        let mut items = Vec::new();
+        while self.is_peek_match(ItemStart) {
+            items.push(self.parse_item()?);
+        }
+        if items.is_empty() {
+            return Err(
+                Diagnostic::new_error("expected at least one item").with_label(
+                    Label::new_primary(token.span)
+                        .with_message("at least one item was expected after this keyword"),
+                ),
+            );
+        }
+
         self.expect_match(Keyword("in"))?;
         let body_term = self.parse_term(Prec(0))?;
 
-        Ok(Term::Let(name, Box::new(def_term), Box::new(body_term)))
+        Ok(Term::Let(items, Box::new(body_term)))
     }
 
     /// Parse the trailing part of a universe
@@ -806,7 +829,7 @@ where
     fn parse_fun_elim(&mut self, lhs: Term) -> Result<Term, Diagnostic<FileSpan>> {
         let mut args = Vec::new();
 
-        while self.check_match(ArgParamStart) {
+        while self.is_peek_match(ArgParamStart) {
             if self.try_match(TokenKind::Open(DelimKind::Brace)).is_some() {
                 let label = self.expect_identifier()?;
                 let term = if self.try_match(TokenKind::Equals).is_some() {
@@ -919,10 +942,15 @@ mod tests {
     #[test]
     fn let_expr() {
         test_term!(
-            "let var = Type in var",
+            "let var = Type; in var",
             Term::Let(
-                "var".to_owned(),
-                Box::new(Term::Universe(None)),
+                vec![Item::Definition(Definition {
+                    docs: Vec::new(),
+                    label: "var".to_owned(),
+                    params: Vec::new(),
+                    body_ty: None,
+                    body: Term::Universe(None),
+                })],
                 Box::new(Term::Var("var".to_owned())),
             ),
         );

@@ -346,7 +346,7 @@ pub enum Term {
     /// Literals
     Literal(Literal),
     /// Let bindings
-    Let(String, Box<Term>, Box<Term>),
+    Let(Vec<Item>, Box<Term>),
     /// A term that is explicitly annotated with a type
     Ann(Box<Term>, Box<Term>),
     /// A parenthesized term
@@ -386,18 +386,20 @@ impl Term {
                 .append(":")
                 .append(Doc::space())
                 .append(ann.to_doc()),
-            Term::Let(def_name, def, body) => Doc::nil()
-                .append("let")
-                .append(Doc::space())
-                .append(def_name)
-                .append(Doc::space())
-                .append("=")
-                .append(Doc::space())
-                .append(def.to_doc())
-                .append(Doc::space())
-                .append("in")
-                .append(Doc::space())
-                .append(body.to_doc()),
+            Term::Let(items, body) => {
+                let items = Doc::intersperse(items.iter().map(Item::to_doc), Doc::newline());
+
+                Doc::nil()
+                    .append("let")
+                    .append(Doc::space())
+                    .append(Doc::newline())
+                    .append(items.nest(4))
+                    .append(Doc::newline())
+                    .append(Doc::space())
+                    .append("in")
+                    .append(Doc::space())
+                    .append(body.to_doc())
+            },
             Term::FunType(params, body_ty) => Doc::nil()
                 .append("Fun")
                 .append(Doc::space())
