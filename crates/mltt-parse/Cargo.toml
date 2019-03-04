@@ -2,6 +2,7 @@
 name = "mltt-parse"
 version = "0.1.0"
 authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
+description = "The parser for the MLTT language"
 license = "MIT"
 edition = "2018"
 publish = false

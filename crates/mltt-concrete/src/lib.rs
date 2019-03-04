@@ -1,4 +1,4 @@
-//! The concrete syntax tree for the language
+//! The concrete syntax of the MLTT language
 //!
 //! This could also be referred to as a 'parse tree'. We should aim to be able
 //! to reproduce the source code that the user typed in based on this syntax

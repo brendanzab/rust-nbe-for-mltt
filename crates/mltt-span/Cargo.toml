@@ -2,6 +2,7 @@
 name = "mltt-span"
 version = "0.1.0"
 authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
+description = "Data structures for tracking source positions in the MLTT language"
 license = "MIT"
 edition = "2018"
 publish = false

@@ -2,6 +2,7 @@
 name = "mltt-concrete"
 version = "0.1.0"
 authors = ["Brendan Zabarauskas <bjzaba@yahoo.com.au>"]
+description = "The concrete syntax of the MLTT language"
 license = "MIT"
 edition = "2018"
 publish = false
