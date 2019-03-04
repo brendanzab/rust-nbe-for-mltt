@@ -8,7 +8,10 @@ edition = "2018"
 publish = false
 
 [dependencies]
-mltt-test-harness = { path = "../mltt-test-harness" }
-
-[build-dependencies]
-heck = "0.3.1"
+language-reporting = { git = "https://github.com/nikomatsakis/language-reporting", branch = "remove-codespan-dep" }
+mltt-concrete = { path = "../mltt-concrete"}
+mltt-core = { path = "../mltt-core"}
+mltt-elaborate = { path = "../mltt-elaborate"}
+mltt-parse = { path = "../mltt-parse"}
+mltt-span = { path = "../mltt-span"}
+pretty_env_logger = "0.3"

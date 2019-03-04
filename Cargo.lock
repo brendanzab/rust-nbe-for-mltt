@@ -336,14 +336,6 @@ dependencies = [
 name = "mltt-test"
 version = "0.1.0"
 dependencies = [
- "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mltt-test-harness 0.1.0",
-]
-
-[[package]]
-name = "mltt-test-harness"
-version = "0.1.0"
-dependencies = [
  "language-reporting 0.2.0 (git+https://github.com/nikomatsakis/language-reporting?branch=remove-codespan-dep)",
  "mltt-concrete 0.1.0",
  "mltt-core 0.1.0",

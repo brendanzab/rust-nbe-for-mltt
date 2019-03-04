@@ -7,5 +7,4 @@ members = [
     "./crates/mltt-elaborate",
     "./crates/mltt-span",
     "./crates/mltt-test",
-    "./crates/mltt-test-harness",
 ]
