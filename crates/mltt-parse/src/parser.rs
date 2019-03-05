@@ -397,6 +397,7 @@ where
     ///     prefix  "record"            ::= record-intro
     ///     prefix  "Type"              ::= universe
     ///     prefix  IDENTIFIER          ::= fun-elim
+    ///     nilfix  "?"                 ::= hole fun-elim
     ///     nilfix  STRING_LITERAL
     ///     nilfix  CHAR_LITERAL
     ///     nilfix  INT_LITERAL
@@ -420,6 +421,10 @@ where
         let mut term = match (token.kind, token.slice) {
             (TokenKind::Identifier, _) => {
                 let term = self.parse_var(token)?;
+                self.parse_fun_elim(term)
+            },
+            (TokenKind::Question, _) => {
+                let term = self.parse_hole(token)?;
                 self.parse_fun_elim(term)
             },
             (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
@@ -470,6 +475,7 @@ where
     ///     prefix  "("                 ::= parens
     ///     prefix  "Type"              ::= universe
     ///     nilfix  IDENTIFIER
+    ///     nilfix  "?"
     ///     nilfix  STRING_LITERAL
     ///     nilfix  CHAR_LITERAL
     ///     nilfix  INT_LITERAL
@@ -490,6 +496,7 @@ where
         // Prefix operators
         let mut term = match (token.kind, token.slice) {
             (TokenKind::Identifier, _) => self.parse_var(token),
+            (TokenKind::Question, _) => self.parse_hole(token),
             (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
             (TokenKind::CharLiteral, _) => self.parse_char_literal(token),
             (TokenKind::IntLiteral, _) => self.parse_int_literal(token),
@@ -517,6 +524,11 @@ where
     /// Parse the trailing part of a variable
     fn parse_var(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
         Ok(Term::Var(token.slice.to_owned()))
+    }
+
+    /// Parse the trailing part of a hole
+    fn parse_hole(&mut self, _token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+        Ok(Term::Hole)
     }
 
     /// Parse the trailing part of a string literal
@@ -588,11 +600,9 @@ where
                 }
                 if param_names.is_empty() {
                     return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(
-                            Label::new_primary(brace_token.span).with_message(
-                                "at least one parameter was expected after this brace",
-                            ),
-                        ));
+                        .with_label(Label::new_primary(brace_token.span).with_message(
+                            "at least one parameter was expected after this brace",
+                        )));
                 }
 
                 let param_ty = if self.try_match(TokenKind::Colon).is_some() {
@@ -893,6 +903,11 @@ mod tests {
     #[test]
     fn var() {
         test_term!("var", Term::Var("var".to_owned()));
+    }
+
+    #[test]
+    fn hole() {
+        test_term!("?", Term::Hole);
     }
 
     #[test]

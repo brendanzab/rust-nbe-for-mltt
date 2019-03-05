@@ -477,6 +477,7 @@ pub fn synth_term(
 
     match concrete_term {
         Term::Var(name) => synth_var(context, name),
+        Term::Hole => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
         Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
         Term::Let(concrete_items, concrete_body) => {
             let mut context = context.clone();

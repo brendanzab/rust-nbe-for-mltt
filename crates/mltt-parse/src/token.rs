@@ -33,6 +33,7 @@ pub enum TokenKind {
     Colon,
     Dot,
     Equals,
+    Question,
     RArrow,
     RFatArrow,
 

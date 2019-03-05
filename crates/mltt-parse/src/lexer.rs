@@ -27,8 +27,7 @@ fn is_whitespace(ch: char) -> bool {
 
 fn is_symbol(ch: char) -> bool {
     match ch {
-        '&' | '!' | ':' | '.' | '=' | '\\' | '/' | '>' | '<' | '-' | '|' | '+' | '*' | '^'
-        | '?' => true,
+        '&' | '!' | ':' | '.' | '=' | '\\' | '/' | '>' | '<' | '-' | '|' | '+' | '*' | '^' => true,
         _ => false,
     }
 }
@@ -197,6 +196,7 @@ impl<'file> Lexer<'file> {
         self.advance().map(|ch| match ch {
             ',' => TokenKind::Comma,
             ';' => TokenKind::Semicolon,
+            '?' => TokenKind::Question,
             '(' => TokenKind::Open(DelimKind::Paren),
             ')' => TokenKind::Close(DelimKind::Paren),
             '{' => TokenKind::Open(DelimKind::Brace),
@@ -678,7 +678,7 @@ mod tests {
             r"                ~       " => (TokenKind::Whitespace, " "),
             r"                 ~~     " => (TokenKind::RFatArrow, "=>"),
             r"                   ~    " => (TokenKind::Whitespace, " "),
-            r"                    ~   " => (TokenKind::Symbol, "?"),
+            r"                    ~   " => (TokenKind::Question, "?"),
             r"                     ~  " => (TokenKind::Whitespace, " "),
             r"                      ~ " => (TokenKind::Semicolon, ";"),
             r"                       ~" => (TokenKind::Whitespace, " "),

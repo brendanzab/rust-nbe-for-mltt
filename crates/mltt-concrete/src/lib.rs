@@ -343,6 +343,8 @@ impl RecordIntroField {
 pub enum Term {
     /// Variables
     Var(String),
+    /// Holes
+    Hole,
     /// Literals
     Literal(Literal),
     /// Let bindings
@@ -380,6 +382,7 @@ impl Term {
     /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
+            Term::Hole => Doc::text("?"),
             Term::Ann(term, ann) => Doc::nil()
                 .append(term.to_doc())
                 .append(Doc::space())
