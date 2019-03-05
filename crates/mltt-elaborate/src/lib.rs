@@ -63,7 +63,7 @@ impl Context {
             Some(name) => log::trace!("insert local: {}", name),
         }
         self.level += 1;
-        self.values.push_front(value);
+        self.values.add_value(value);
         self.binders.push_front((name, ty));
     }
 

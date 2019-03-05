@@ -58,7 +58,7 @@ fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> 
 /// Apply a closure to an argument
 pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
-    env.push_front(arg);
+    env.add_value(arg);
     eval(&closure.term, &env)
 }
 
@@ -88,7 +88,7 @@ pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcV
 /// the term was typed.
 pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
     match term.as_ref() {
-        Term::Var(DbIndex(index)) => match env.get(*index as usize) {
+        Term::Var(index) => match env.lookup_value(*index) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
@@ -96,7 +96,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         Term::Let(def, body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
-            env.push_front(def);
+            env.add_value(def);
             eval(body, &env)
         },
 

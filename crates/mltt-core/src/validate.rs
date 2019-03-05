@@ -45,7 +45,7 @@ impl Context {
     /// Add a local definition to the context.
     pub fn local_define(&mut self, value: RcValue, ty: RcType) {
         self.level += 1;
-        self.values.push_front(value);
+        self.values.add_value(value);
         self.binders.push_front(ty);
     }
 

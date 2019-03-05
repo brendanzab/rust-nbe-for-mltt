@@ -3,10 +3,36 @@
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{AppMode, DbLevel, Label, Literal, UniverseLevel};
+use crate::syntax::{AppMode, DbIndex, DbLevel, Label, Literal, UniverseLevel};
 
-/// An environment of values
-pub type Env = im::Vector<RcValue>;
+/// An environment of values to substitute in place of variables during
+/// evaluation.
+///
+/// Also known as an 'evaluation context'.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Env {
+    /// The values to be used during evaluation.
+    pub values: im::Vector<RcValue>,
+}
+
+impl Env {
+    /// Create a new, empty environment.
+    pub fn new() -> Env {
+        Env {
+            values: im::Vector::new(),
+        }
+    }
+
+    /// Lookup a value in the environment.
+    pub fn lookup_value(&self, index: DbIndex) -> Option<&RcValue> {
+        self.values.get(index.0 as usize)
+    }
+
+    /// Add a new value to the environment.
+    pub fn add_value(&mut self, value: RcValue) {
+        self.values.push_front(value)
+    }
+}
 
 /// A closure that binds a single variable.
 ///
