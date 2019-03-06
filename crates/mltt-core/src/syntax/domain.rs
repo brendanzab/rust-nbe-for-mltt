@@ -3,36 +3,7 @@
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{AppMode, DbIndex, DbLevel, Label, Literal, UniverseLevel};
-
-/// An environment of values to substitute in place of variables during
-/// evaluation.
-///
-/// Also known as an 'evaluation context'.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Env {
-    /// The values to be used during evaluation.
-    pub values: im::Vector<RcValue>,
-}
-
-impl Env {
-    /// Create a new, empty environment.
-    pub fn new() -> Env {
-        Env {
-            values: im::Vector::new(),
-        }
-    }
-
-    /// Lookup a value in the environment.
-    pub fn lookup_value(&self, index: DbIndex) -> Option<&RcValue> {
-        self.values.get(index.0 as usize)
-    }
-
-    /// Add a new value to the environment.
-    pub fn add_value(&mut self, value: RcValue) {
-        self.values.push_front(value)
-    }
-}
+use crate::syntax::{AppMode, DbLevel, Env, Label, Literal, UniverseLevel};
 
 /// A closure that binds a single variable.
 ///
@@ -49,11 +20,11 @@ pub struct Closure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env,
+    pub env: Env<RcValue>,
 }
 
 impl Closure {
-    pub fn new(term: RcTerm, env: Env) -> Closure {
+    pub fn new(term: RcTerm, env: Env<RcValue>) -> Closure {
         Closure { term, env }
     }
 }

@@ -9,17 +9,17 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{self, Item, RcTerm, Term};
 use crate::syntax::domain::{self, RcType, RcValue, Value};
-use crate::syntax::{AppMode, DbIndex, DbLevel, Label, UniverseLevel};
+use crate::syntax::{AppMode, DbLevel, Env, Label, UniverseLevel};
 
-/// Local type checking context
+/// Local type checking context.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context {
-    /// Number of local entries
+    /// Number of local entries.
     level: DbLevel,
-    /// Values to be used during evaluation
-    values: domain::Env,
-    /// Type annotations of the binders we have passed over
-    binders: im::Vector<RcType>,
+    /// Values to be used during evaluation.
+    values: Env<RcValue>,
+    /// Types of the entries in the context.
+    tys: Env<RcType>,
 }
 
 impl Context {
@@ -27,8 +27,8 @@ impl Context {
     pub fn new() -> Context {
         Context {
             level: DbLevel(0),
-            values: domain::Env::new(),
-            binders: im::Vector::new(),
+            values: Env::new(),
+            tys: Env::new(),
         }
     }
 
@@ -38,15 +38,20 @@ impl Context {
     }
 
     /// Values to be used during evaluation
-    pub fn values(&self) -> &domain::Env {
+    pub fn values(&self) -> &Env<RcValue> {
         &self.values
+    }
+
+    /// Types of the entries in the context
+    pub fn tys(&self) -> &Env<RcType> {
+        &self.tys
     }
 
     /// Add a local definition to the context.
     pub fn local_define(&mut self, value: RcValue, ty: RcType) {
         self.level += 1;
-        self.values.add_value(value);
-        self.binders.push_front(ty);
+        self.values.add_entry(value);
+        self.tys.add_entry(ty);
     }
 
     /// Add a bound variable the context, returning a variable that points to
@@ -55,11 +60,6 @@ impl Context {
         let param = RcValue::var(self.level());
         self.local_define(param.clone(), ty);
         param
-    }
-
-    /// Lookup the type annotation of a binder in the context
-    pub fn lookup_binder(&self, index: DbIndex) -> Option<&RcType> {
-        self.binders.get(index.0 as usize)
     }
 
     /// Evaluate a term using the evaluation environment
@@ -240,7 +240,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
     log::trace!("synthesizing term:\t\t{}", term);
 
     match term.as_ref() {
-        Term::Var(index) => match context.lookup_binder(*index) {
+        Term::Var(index) => match context.tys().lookup_entry(*index) {
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
@@ -329,6 +329,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 mod test {
     use super::*;
 
+    use crate::syntax::DbIndex;
+
     #[test]
     fn local_binds() {
         let mut context = Context::new();
@@ -345,8 +347,8 @@ mod test {
         assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
         assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
 
-        assert_eq!(context.lookup_binder(DbIndex(2)).unwrap(), &ty1);
-        assert_eq!(context.lookup_binder(DbIndex(1)).unwrap(), &ty2);
-        assert_eq!(context.lookup_binder(DbIndex(0)).unwrap(), &ty3);
+        assert_eq!(context.tys().lookup_entry(DbIndex(2)).unwrap(), &ty1);
+        assert_eq!(context.tys().lookup_entry(DbIndex(1)).unwrap(), &ty2);
+        assert_eq!(context.tys().lookup_entry(DbIndex(0)).unwrap(), &ty3);
     }
 }

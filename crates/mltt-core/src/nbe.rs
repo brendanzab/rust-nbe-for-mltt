@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
-use crate::syntax::{AppMode, DbIndex, DbLevel, Label};
+use crate::syntax::{AppMode, DbIndex, DbLevel, Env, Label};
 
 /// An error produced during normalization
 ///
@@ -58,7 +58,7 @@ fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> 
 /// Apply a closure to an argument
 pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
-    env.add_value(arg);
+    env.add_entry(arg);
     eval(&closure.term, &env)
 }
 
@@ -86,9 +86,9 @@ pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcV
 
 /// Evaluate a term in the environment that corresponds to the context in which
 /// the term was typed.
-pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
+pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
     match term.as_ref() {
-        Term::Var(index) => match env.lookup_value(*index) {
+        Term::Var(index) => match env.lookup_entry(*index) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
@@ -96,7 +96,7 @@ pub fn eval(term: &RcTerm, env: &domain::Env) -> Result<RcValue, NbeError> {
         Term::Let(def, body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
-            env.add_value(def);
+            env.add_entry(def);
             eval(body, &env)
         },
 

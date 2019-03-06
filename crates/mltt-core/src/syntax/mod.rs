@@ -64,6 +64,32 @@ impl ops::Add<u32> for DbIndex {
     }
 }
 
+/// An environment of entries that can be looked up based on a debruijn index.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Env<T: Clone> {
+    /// The entries in the environment
+    entries: im::Vector<T>,
+}
+
+impl<T: Clone> Env<T> {
+    /// Create a new, empty environment.
+    pub fn new() -> Env<T> {
+        Env {
+            entries: im::Vector::new(),
+        }
+    }
+
+    /// Lookup an entry in the environment.
+    pub fn lookup_entry(&self, index: DbIndex) -> Option<&T> {
+        self.entries.get(index.0 as usize)
+    }
+
+    /// Add a new entry to the environment.
+    pub fn add_entry(&mut self, value: T) {
+        self.entries.push_front(value)
+    }
+}
+
 /// The level of a universe
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseLevel(pub u32);

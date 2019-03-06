@@ -12,22 +12,30 @@
 
 use mltt_concrete::{Arg, IntroParam, Item, Pattern, RecordIntroField, Term, TypeParam};
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, AppMode, DbIndex, DbLevel, Label, UniverseLevel};
+use mltt_core::syntax::{core, domain, AppMode, DbIndex, DbLevel, Env, Label, UniverseLevel};
 
 mod docs;
 mod errors;
 
 pub use self::errors::TypeError;
 
-/// Local elaboration context
+/// Local elaboration context.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context {
-    /// Number of local entries
+    /// Number of local entries.
     level: DbLevel,
-    /// Values to be used during evaluation
-    values: domain::Env,
-    /// The user-defined names and type annotations of the binders we have passed over
-    binders: im::Vector<(Option<String>, domain::RcType)>,
+    /// Values to be used during evaluation.
+    values: Env<domain::RcValue>,
+    /// Type annotations of the binders we have passed over.
+    tys: Env<domain::RcType>,
+    /// A mapping from the user-defined names to the level in which they were
+    /// bound.
+    ///
+    /// We associate levels to the binder names so that we can recover the
+    /// correct debruijn index once we reach a variable name in a nested scope.
+    /// Not all entries in the context will have a corresponding name - for
+    /// example we don't define a name for non-dependent function types.
+    names: im::HashMap<String, DbLevel>,
 }
 
 impl Context {
@@ -35,8 +43,9 @@ impl Context {
     pub fn new() -> Context {
         Context {
             level: DbLevel(0),
-            values: domain::Env::new(),
-            binders: im::Vector::new(),
+            values: Env::new(),
+            tys: Env::new(),
+            names: im::HashMap::new(),
         }
     }
 
@@ -46,8 +55,13 @@ impl Context {
     }
 
     /// Values to be used during evaluation
-    pub fn values(&self) -> &domain::Env {
+    pub fn values(&self) -> &Env<domain::RcValue> {
         &self.values
+    }
+
+    /// Types of the entries in the context
+    pub fn tys(&self) -> &Env<domain::RcType> {
+        &self.tys
     }
 
     /// Add a local definition to the context.
@@ -57,14 +71,16 @@ impl Context {
         value: domain::RcValue,
         ty: domain::RcType,
     ) {
-        let name = name.into();
-        match &name {
+        match name.into() {
             None => log::trace!("insert fresh local"),
-            Some(name) => log::trace!("insert local: {}", name),
+            Some(name) => {
+                log::trace!("insert named local: {}", name);
+                self.names.insert(name, self.level());
+            },
         }
         self.level += 1;
-        self.values.add_value(value);
-        self.binders.push_front((name, ty));
+        self.values.add_entry(value);
+        self.tys.add_entry(ty);
     }
 
     /// Add a bound variable the context, returning a variable that points to
@@ -82,15 +98,10 @@ impl Context {
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
     pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &domain::RcType)> {
-        Iterator::zip(0.., self.binders.iter()).find_map(|(index, (current_name, ty))| {
-            match current_name {
-                Some(current_name) if current_name == name => {
-                    log::trace!("lookup binder: {} -> @{}", name, index);
-                    Some((DbIndex(index), ty))
-                },
-                Some(_) | None => None,
-            }
-        })
+        let level = self.names.get(name)?;
+        let index = DbIndex(self.level.0 - (level.0 + 1));
+        let ty = self.tys().lookup_entry(index)?; // FIXME: Internal error?
+        Some((index, ty))
     }
 
     /// Evaluate a term using the evaluation environment
