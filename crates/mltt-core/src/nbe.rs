@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
-use crate::syntax::{AppMode, DbIndex, DbLevel, Env, Label};
+use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
 
 /// An error produced during normalization
 ///
@@ -150,7 +150,7 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
 }
 
 /// Read a value back into the core syntax, normalizing as required.
-pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcTerm, NbeError> {
+pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeError> {
     match term.as_ref() {
         Value::Neutral(head, spine) => read_back_neutral(level, *head, spine),
 
@@ -217,13 +217,13 @@ pub fn read_back_term(level: DbLevel, term: &RcValue) -> Result<RcTerm, NbeError
 
 /// Read a neutral value back into the core syntax, normalizing as required.
 pub fn read_back_neutral(
-    level: DbLevel,
+    level: VarLevel,
     head: domain::Head,
     spine: &domain::Spine,
 ) -> Result<RcTerm, NbeError> {
     let head = match head {
         domain::Head::Var(var_level) => {
-            RcTerm::from(Term::Var(DbIndex(level.0 - (var_level.0 + 1))))
+            RcTerm::from(Term::Var(VarIndex(level.0 - (var_level.0 + 1))))
         },
     };
 
@@ -238,7 +238,7 @@ pub fn read_back_neutral(
 }
 
 /// Check whether a semantic type is a subtype of another
-pub fn check_subtype(level: DbLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
+pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
     match (&ty1.as_ref(), &ty2.as_ref()) {
         (&Value::Neutral(head1, spine1), &Value::Neutral(head2, spine2)) => {
             let term1 = read_back_neutral(level, *head1, spine1)?;

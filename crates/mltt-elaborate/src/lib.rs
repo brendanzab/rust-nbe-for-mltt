@@ -12,7 +12,7 @@
 
 use mltt_concrete::{Arg, IntroParam, Item, Pattern, RecordIntroField, Term, TypeParam};
 use mltt_core::nbe::{self, NbeError};
-use mltt_core::syntax::{core, domain, AppMode, DbIndex, DbLevel, Env, Label, UniverseLevel};
+use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
 
 mod docs;
 mod errors;
@@ -23,7 +23,7 @@ pub use self::errors::TypeError;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context {
     /// Number of local entries.
-    level: DbLevel,
+    level: VarLevel,
     /// Values to be used during evaluation.
     values: Env<domain::RcValue>,
     /// Type annotations of the binders we have passed over.
@@ -35,14 +35,14 @@ pub struct Context {
     /// correct debruijn index once we reach a variable name in a nested scope.
     /// Not all entries in the context will have a corresponding name - for
     /// example we don't define a name for non-dependent function types.
-    names: im::HashMap<String, DbLevel>,
+    names: im::HashMap<String, VarLevel>,
 }
 
 impl Context {
     /// Create a new, empty context
     pub fn new() -> Context {
         Context {
-            level: DbLevel(0),
+            level: VarLevel(0),
             values: Env::new(),
             tys: Env::new(),
             names: im::HashMap::new(),
@@ -50,7 +50,7 @@ impl Context {
     }
 
     /// Number of local entries in the context
-    pub fn level(&self) -> DbLevel {
+    pub fn level(&self) -> VarLevel {
         self.level
     }
 
@@ -97,9 +97,9 @@ impl Context {
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
-    pub fn lookup_binder(&self, name: &str) -> Option<(DbIndex, &domain::RcType)> {
+    pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
         let level = self.names.get(name)?;
-        let index = DbIndex(self.level.0 - (level.0 + 1));
+        let index = VarIndex(self.level.0 - (level.0 + 1));
         let ty = self.tys().lookup_entry(index)?; // FIXME: Internal error?
         Some((index, ty))
     }
@@ -676,9 +676,9 @@ mod test {
         let param2 = context.local_bind("y".to_owned(), ty2.clone());
         let param3 = context.local_bind("z".to_owned(), ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
         assert_eq!(context.lookup_binder("y").unwrap().1, &ty2);
@@ -699,9 +699,9 @@ mod test {
         let param2 = context.local_bind("x".to_owned(), ty2.clone());
         let param3 = context.local_bind("x".to_owned(), ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty3);
     }
@@ -720,9 +720,9 @@ mod test {
         let param2 = context.local_bind(None, ty2.clone());
         let param3 = context.local_bind(None, ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
     }

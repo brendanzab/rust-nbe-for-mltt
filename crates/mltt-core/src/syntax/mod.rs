@@ -13,24 +13,24 @@ pub mod domain;
 /// This counts the total number of binders that we encounter when running up
 /// the syntax tree to the root, _not including free binders_.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DbLevel(pub u32);
+pub struct VarLevel(pub u32);
 
-impl From<u32> for DbLevel {
-    fn from(src: u32) -> DbLevel {
-        DbLevel(src)
+impl From<u32> for VarLevel {
+    fn from(src: u32) -> VarLevel {
+        VarLevel(src)
     }
 }
 
-impl ops::AddAssign<u32> for DbLevel {
+impl ops::AddAssign<u32> for VarLevel {
     fn add_assign(&mut self, other: u32) {
         self.0 += other;
     }
 }
 
-impl ops::Add<u32> for DbLevel {
-    type Output = DbLevel;
+impl ops::Add<u32> for VarLevel {
+    type Output = VarLevel;
 
-    fn add(mut self, other: u32) -> DbLevel {
+    fn add(mut self, other: u32) -> VarLevel {
         self += other;
         self
     }
@@ -39,26 +39,27 @@ impl ops::Add<u32> for DbLevel {
 /// DeBruijn index
 ///
 /// This counts the number of binders we encounter when running up the tree to
-/// get to the binder that bound this variable.
+/// get to the binder that bound this variable. We can use this as a way of
+/// quickly looking up entries in an `Env` when deep in a nested scope.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DbIndex(pub u32);
+pub struct VarIndex(pub u32);
 
-impl From<u32> for DbIndex {
-    fn from(src: u32) -> DbIndex {
-        DbIndex(src)
+impl From<u32> for VarIndex {
+    fn from(src: u32) -> VarIndex {
+        VarIndex(src)
     }
 }
 
-impl ops::AddAssign<u32> for DbIndex {
+impl ops::AddAssign<u32> for VarIndex {
     fn add_assign(&mut self, other: u32) {
         self.0 += other;
     }
 }
 
-impl ops::Add<u32> for DbIndex {
-    type Output = DbIndex;
+impl ops::Add<u32> for VarIndex {
+    type Output = VarIndex;
 
-    fn add(mut self, other: u32) -> DbIndex {
+    fn add(mut self, other: u32) -> VarIndex {
         self += other;
         self
     }
@@ -80,7 +81,7 @@ impl<T: Clone> Env<T> {
     }
 
     /// Lookup an entry in the environment.
-    pub fn lookup_entry(&self, index: DbIndex) -> Option<&T> {
+    pub fn lookup_entry(&self, index: VarIndex) -> Option<&T> {
         self.entries.get(index.0 as usize)
     }
 

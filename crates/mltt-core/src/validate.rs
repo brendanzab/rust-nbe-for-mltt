@@ -9,13 +9,13 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{self, Item, RcTerm, Term};
 use crate::syntax::domain::{self, RcType, RcValue, Value};
-use crate::syntax::{AppMode, DbLevel, Env, Label, UniverseLevel};
+use crate::syntax::{AppMode, Env, Label, UniverseLevel, VarLevel};
 
 /// Local type checking context.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context {
     /// Number of local entries.
-    level: DbLevel,
+    level: VarLevel,
     /// Values to be used during evaluation.
     values: Env<RcValue>,
     /// Types of the entries in the context.
@@ -26,14 +26,14 @@ impl Context {
     /// Create a new, empty context
     pub fn new() -> Context {
         Context {
-            level: DbLevel(0),
+            level: VarLevel(0),
             values: Env::new(),
             tys: Env::new(),
         }
     }
 
     /// Number of local entries in the context
-    pub fn level(&self) -> DbLevel {
+    pub fn level(&self) -> VarLevel {
         self.level
     }
 
@@ -329,7 +329,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 mod test {
     use super::*;
 
-    use crate::syntax::DbIndex;
+    use crate::syntax::VarIndex;
 
     #[test]
     fn local_binds() {
@@ -343,12 +343,12 @@ mod test {
         let param2 = context.local_bind(ty2.clone());
         let param3 = context.local_bind(ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(DbLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(DbLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(DbLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
 
-        assert_eq!(context.tys().lookup_entry(DbIndex(2)).unwrap(), &ty1);
-        assert_eq!(context.tys().lookup_entry(DbIndex(1)).unwrap(), &ty2);
-        assert_eq!(context.tys().lookup_entry(DbIndex(0)).unwrap(), &ty3);
+        assert_eq!(context.tys().lookup_entry(VarIndex(2)).unwrap(), &ty1);
+        assert_eq!(context.tys().lookup_entry(VarIndex(1)).unwrap(), &ty2);
+        assert_eq!(context.tys().lookup_entry(VarIndex(0)).unwrap(), &ty3);
     }
 }

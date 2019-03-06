@@ -4,7 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::{AppMode, DbIndex, Label, Literal, UniverseLevel};
+use crate::syntax::{AppMode, Label, Literal, UniverseLevel, VarIndex};
 
 pub type Env = im::Vector<RcTerm>;
 
@@ -47,7 +47,7 @@ impl fmt::Display for RcTerm {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     /// Variables
-    Var(DbIndex),
+    Var(VarIndex),
     /// Literals
     Literal(Literal),
     /// Let bindings
@@ -233,7 +233,7 @@ impl Term {
 
         fn to_doc_atomic(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
             match term {
-                Term::Var(DbIndex(index)) => Doc::as_string(format!("@{}", index)),
+                Term::Var(VarIndex(index)) => Doc::as_string(format!("@{}", index)),
                 Term::Literal(literal) => literal.to_doc(),
                 Term::RecordElim(record, label) => {
                     to_doc_atomic(record.as_ref()).append(".").append(&label.0)

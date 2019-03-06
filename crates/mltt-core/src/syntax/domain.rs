@@ -3,7 +3,7 @@
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{AppMode, DbLevel, Env, Label, Literal, UniverseLevel};
+use crate::syntax::{AppMode, Env, Label, Literal, UniverseLevel, VarLevel};
 
 /// A closure that binds a single variable.
 ///
@@ -50,7 +50,7 @@ impl AsRef<Value> for RcValue {
 
 impl RcValue {
     /// Construct a variable
-    pub fn var(level: impl Into<DbLevel>) -> RcValue {
+    pub fn var(level: impl Into<VarLevel>) -> RcValue {
         RcValue::from(Value::var(level))
     }
 }
@@ -90,7 +90,7 @@ pub enum Value {
 
 impl Value {
     /// Construct a variable
-    pub fn var(level: impl Into<DbLevel>) -> Value {
+    pub fn var(level: impl Into<VarLevel>) -> Value {
         Value::Neutral(Head::Var(level.into()), Vec::new())
     }
 }
@@ -107,7 +107,7 @@ pub type RcType = RcValue;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Head {
     /// Variables
-    Var(DbLevel),
+    Var(VarLevel),
 }
 
 /// A spine of eliminators

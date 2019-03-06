@@ -3,7 +3,7 @@
 //! We add back in syntactic sugar that was lost during elaboration, and also
 //! the necessary parentheses needed to appropriately group expressions.
 
-use mltt_core::syntax::{core, AppMode, DbIndex, UniverseLevel};
+use mltt_core::syntax::{core, AppMode, UniverseLevel, VarIndex};
 
 use crate::{
     Arg, Definition, IntroParam, Item, Pattern, RecordIntroField, RecordTypeField, Term, TypeParam,
@@ -22,7 +22,7 @@ impl Env {
         }
     }
 
-    pub fn lookup_index(&self, index: DbIndex) -> String {
+    pub fn lookup_index(&self, index: VarIndex) -> String {
         match self.names.get(self.names.len() - (index.0 + 1) as usize) {
             Some(name) => name.clone(),
             None => format!("free{}", index.0),
