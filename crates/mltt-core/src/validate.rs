@@ -7,8 +7,8 @@ use std::error::Error;
 use std::fmt;
 
 use crate::nbe::{self, NbeError};
-use crate::syntax::core::{self, Item, RcTerm, Term};
-use crate::syntax::domain::{self, RcType, RcValue, Value};
+use crate::syntax::core::{Item, RcTerm, Term};
+use crate::syntax::domain::{RcType, RcValue, Value};
 use crate::syntax::{AppMode, Env, Label, UniverseLevel, VarLevel};
 
 /// Local type checking context.
@@ -63,7 +63,7 @@ impl Context {
     }
 
     /// Evaluate a term using the evaluation environment
-    pub fn eval(&self, term: &core::RcTerm) -> Result<domain::RcValue, NbeError> {
+    pub fn eval(&self, term: &RcTerm) -> Result<RcValue, NbeError> {
         nbe::eval(term, self.values())
     }
 
@@ -162,7 +162,7 @@ pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
 fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, TypeError> {
     let ty = synth_term(context, term)?;
     match ty.as_ref() {
-        domain::Value::Universe(level) => Ok(*level),
+        Value::Universe(level) => Ok(*level),
         _ => Err(TypeError::ExpectedUniverse { found: ty.clone() }),
     }
 }
@@ -202,7 +202,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             let mut expected_ty = expected_ty.clone();
 
             for (label, term) in intro_fields {
-                if let domain::Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
+                if let Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
                     expected_ty.as_ref()
                 {
                     if label != expected_label {
@@ -222,7 +222,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                 }
             }
 
-            if let domain::Value::RecordTypeEmpty = expected_ty.as_ref() {
+            if let Value::RecordTypeEmpty = expected_ty.as_ref() {
                 Ok(())
             } else {
                 Err(TypeError::NotEnoughFieldsProvided)
@@ -297,23 +297,19 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 max_level = cmp::max(max_level, ty_level);
             }
 
-            Ok(domain::RcValue::from(domain::Value::Universe(max_level)))
+            Ok(RcValue::from(Value::Universe(max_level)))
         },
         Term::RecordIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
         Term::RecordElim(record, label) => {
             let mut record_ty = synth_term(context, record)?;
 
-            while let domain::Value::RecordTypeExtend(current_label, current_ty, rest) =
-                record_ty.as_ref()
+            while let Value::RecordTypeExtend(current_label, current_ty, rest) = record_ty.as_ref()
             {
-                let expr = core::RcTerm::from(core::Term::RecordElim(
-                    record.clone(),
-                    current_label.clone(),
-                ));
-
                 if label == current_label {
                     return Ok(current_ty.clone());
                 } else {
+                    let label = current_label.clone();
+                    let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
                     record_ty = nbe::do_closure_app(rest, context.eval(&expr)?)?;
                 }
             }

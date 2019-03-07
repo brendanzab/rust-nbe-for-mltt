@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
-use crate::syntax::domain::{self, Closure, RcType, RcValue, Value};
+use crate::syntax::domain::{Closure, Elim, Head, RcType, RcValue, Spine, Value};
 use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
 
 /// An error produced during normalization
@@ -48,7 +48,7 @@ fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> 
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
-            spine.push(domain::Elim::Record(label.clone()));
+            spine.push(Elim::Record(label.clone()));
             Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
         _ => Err(NbeError::new("do_record_elim: not a record")),
@@ -77,7 +77,7 @@ pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcV
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
-            spine.push(domain::Elim::Fun(app_mode, arg));
+            spine.push(Elim::Fun(app_mode, arg));
             Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
         _ => Err(NbeError::new("do_ap: not a function")),
@@ -216,24 +216,18 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
 }
 
 /// Read a neutral value back into the core syntax, normalizing as required.
-pub fn read_back_neutral(
-    level: VarLevel,
-    head: domain::Head,
-    spine: &domain::Spine,
-) -> Result<RcTerm, NbeError> {
+pub fn read_back_neutral(level: VarLevel, head: Head, spine: &Spine) -> Result<RcTerm, NbeError> {
     let head = match head {
-        domain::Head::Var(var_level) => {
-            RcTerm::from(Term::Var(VarIndex(level.0 - (var_level.0 + 1))))
-        },
+        Head::Var(var_level) => RcTerm::from(Term::Var(VarIndex(level.0 - (var_level.0 + 1)))),
     };
 
     spine.iter().fold(Ok(head), |acc, elim| match elim {
-        domain::Elim::Fun(app_mode, arg) => Ok(RcTerm::from(Term::FunElim(
+        Elim::Fun(app_mode, arg) => Ok(RcTerm::from(Term::FunElim(
             acc?,
             app_mode.clone(),
             read_back_term(level, arg)?,
         ))),
-        domain::Elim::Record(label) => Ok(RcTerm::from(Term::RecordElim(acc?, label.clone()))),
+        Elim::Record(label) => Ok(RcTerm::from(Term::RecordElim(acc?, label.clone()))),
     })
 }
 
