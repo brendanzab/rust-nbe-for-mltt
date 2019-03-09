@@ -172,9 +172,6 @@ fn check_items(
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
-                        //
-                        // NOTE: I'm not sure how this reordering affects name
-                        // binding - we might need to account for it!
                         let body_ty = context.eval(&body_ty)?;
                         entry.insert(Some((&declaration.docs, body_ty)));
                     },

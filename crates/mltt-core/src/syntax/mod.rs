@@ -8,10 +8,15 @@ use std::ops;
 pub mod core;
 pub mod domain;
 
-/// DeBruijn level
+/// De Bruijn level
 ///
-/// This counts the total number of binders that we encounter when running up
-/// the syntax tree to the root, _not including free binders_.
+/// This counts the total number of binders that we encounter when running down
+/// the syntax tree from the root.
+///
+/// De Bruijn levels are useful because unlike de Bruijn indices, they don't
+/// need to be shifted while moving around terms under a specific scope. This
+/// makes them ideal for representing values. We'll convert these back into
+/// indices during read-back.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VarLevel(pub u32);
 
@@ -36,11 +41,12 @@ impl ops::Add<u32> for VarLevel {
     }
 }
 
-/// DeBruijn index
+/// De Bruijn index
 ///
-/// This counts the number of binders we encounter when running up the tree to
-/// get to the binder that bound this variable. We can use this as a way of
-/// quickly looking up entries in an `Env` when deep in a nested scope.
+/// This counts the number of binders we encounter when running up the syntax
+/// tree to get to the binder that bound this variable. De Bruijn indices are
+/// useful for being able to quickly looking up entries in an `Env` when deep in
+/// a nested scope. They also provide easy access to alpha equality.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VarIndex(pub u32);
 

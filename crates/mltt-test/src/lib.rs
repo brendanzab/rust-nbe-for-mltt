@@ -35,9 +35,10 @@ macro_rules! run_test {
     };
 }
 
-run_test!(records, "tests/records.mltt");
+run_test!(categories, "tests/categories.mltt");
 run_test!(combinators, "tests/combinators.mltt");
-run_test!(empty, "tests/empty.mltt");
 run_test!(connectives, "tests/connectives.mltt");
 run_test!(cumulativity, "tests/cumulativity.mltt");
-run_test!(categories, "tests/categories.mltt");
+run_test!(empty, "tests/empty.mltt");
+run_test!(forward_declarations, "tests/forward-declarations.mltt");
+run_test!(records, "tests/records.mltt");
