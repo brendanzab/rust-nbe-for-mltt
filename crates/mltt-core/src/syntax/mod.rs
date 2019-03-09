@@ -72,6 +72,9 @@ impl ops::Add<u32> for VarIndex {
 }
 
 /// An environment of entries that can be looked up based on a debruijn index.
+///
+/// It is backed by an `im::Vector` to allow for efficient sharing between
+/// multiple closures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Env<T: Clone> {
     /// The entries in the environment
