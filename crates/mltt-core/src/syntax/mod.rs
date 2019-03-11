@@ -125,9 +125,45 @@ impl ops::Add<u32> for UniverseLevel {
     }
 }
 
-/// Literals
+/// Literal types
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum Literal {
+pub enum LiteralType {
+    String,
+    Char,
+    U8,
+    U16,
+    U32,
+    U64,
+    S8,
+    S16,
+    S32,
+    S64,
+    F32,
+    F64,
+}
+
+impl LiteralType {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            LiteralType::String => Doc::text("String"),
+            LiteralType::Char => Doc::text("Char"),
+            LiteralType::U8 => Doc::text("U8"),
+            LiteralType::U16 => Doc::text("U16"),
+            LiteralType::U32 => Doc::text("U32"),
+            LiteralType::U64 => Doc::text("U64"),
+            LiteralType::S8 => Doc::text("S8"),
+            LiteralType::S16 => Doc::text("S16"),
+            LiteralType::S32 => Doc::text("S32"),
+            LiteralType::S64 => Doc::text("S64"),
+            LiteralType::F32 => Doc::text("F32"),
+            LiteralType::F64 => Doc::text("F64"),
+        }
+    }
+}
+
+/// Literal introductions
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum LiteralIntro {
     String(String),
     Char(char),
     U8(u8),
@@ -142,21 +178,21 @@ pub enum Literal {
     F64(f64),
 }
 
-impl Literal {
+impl LiteralIntro {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
-            Literal::String(value) => Doc::text(format!("{:?}", value)),
-            Literal::Char(value) => Doc::text(format!("{:?}", value)),
-            Literal::U8(value) => Doc::as_string(&value),
-            Literal::U16(value) => Doc::as_string(&value),
-            Literal::U32(value) => Doc::as_string(&value),
-            Literal::U64(value) => Doc::as_string(&value),
-            Literal::S8(value) => Doc::as_string(&value),
-            Literal::S16(value) => Doc::as_string(&value),
-            Literal::S32(value) => Doc::as_string(&value),
-            Literal::S64(value) => Doc::as_string(&value),
-            Literal::F32(value) => Doc::as_string(&value),
-            Literal::F64(value) => Doc::as_string(&value),
+            LiteralIntro::String(value) => Doc::text(format!("{:?}", value)),
+            LiteralIntro::Char(value) => Doc::text(format!("{:?}", value)),
+            LiteralIntro::U8(value) => Doc::as_string(&value),
+            LiteralIntro::U16(value) => Doc::as_string(&value),
+            LiteralIntro::U32(value) => Doc::as_string(&value),
+            LiteralIntro::U64(value) => Doc::as_string(&value),
+            LiteralIntro::S8(value) => Doc::as_string(&value),
+            LiteralIntro::S16(value) => Doc::as_string(&value),
+            LiteralIntro::S32(value) => Doc::as_string(&value),
+            LiteralIntro::S64(value) => Doc::as_string(&value),
+            LiteralIntro::F32(value) => Doc::as_string(&value),
+            LiteralIntro::F64(value) => Doc::as_string(&value),
         }
     }
 }

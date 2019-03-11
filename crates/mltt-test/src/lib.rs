@@ -27,8 +27,11 @@ macro_rules! run_test {
             });
             // FIXME: check lexer for errors
 
-            let core_module = mltt_elaborate::check_module(&concrete_module).unwrap();
-            validate::check_module(&core_module).unwrap_or_else(|error| {
+            let context = mltt_elaborate::Context::default();
+            let core_module = mltt_elaborate::check_module(&context, &concrete_module).unwrap();
+
+            let context = validate::Context::default();
+            validate::check_module(&context, &core_module).unwrap_or_else(|error| {
                 panic!("failed validation: {}\n\n{:#?}", error, error);
             });
         }
@@ -41,4 +44,5 @@ run_test!(connectives, "tests/connectives.mltt");
 run_test!(cumulativity, "tests/cumulativity.mltt");
 run_test!(empty, "tests/empty.mltt");
 run_test!(forward_declarations, "tests/forward-declarations.mltt");
+run_test!(literals, "tests/literals.mltt");
 run_test!(records, "tests/records.mltt");

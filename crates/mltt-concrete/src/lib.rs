@@ -144,7 +144,7 @@ impl fmt::Display for Pattern {
 }
 
 /// The kind of literal
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum LiteralKind {
     /// String literals
     String,
@@ -154,6 +154,18 @@ pub enum LiteralKind {
     Int,
     /// Floating point literals
     Float,
+}
+
+impl LiteralKind {
+    /// Returns a string description of the literal kind
+    pub fn description(self) -> &'static str {
+        match self {
+            LiteralKind::String => "string",
+            LiteralKind::Char => "character",
+            LiteralKind::Int => "integer",
+            LiteralKind::Float => "floating point",
+        }
+    }
 }
 
 /// Concrete literals

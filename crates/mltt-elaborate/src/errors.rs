@@ -1,4 +1,4 @@
-use mltt_concrete::Term;
+use mltt_concrete::{LiteralKind, Term};
 use mltt_core::nbe::NbeError;
 use mltt_core::syntax::{domain, AppMode};
 use std::error::Error;
@@ -15,7 +15,10 @@ pub enum TypeError {
     ExpectedUniverse { found: domain::RcType },
     ExpectedSubtype(domain::RcType, domain::RcType),
     AmbiguousTerm(Term),
+    AmbiguousLiteral(LiteralKind),
     UnboundVariable(String),
+    OverflowingLiteral(String),
+    MismatchedLiteral(LiteralKind, domain::RcType),
     NoFieldInType(String),
     UnexpectedField { found: String, expected: String },
     UnexpectedAppMode { found: AppMode, expected: AppMode },
@@ -50,7 +53,20 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
+            TypeError::AmbiguousLiteral(kind) => write!(
+                f,
+                "could not infer the type of this {} literal",
+                kind.description(),
+            ),
             TypeError::UnboundVariable(name) => write!(f, "unbound variable `{}`", name),
+            TypeError::MismatchedLiteral(kind, _) => write!(
+                f,
+                "the {} literal is not compatible with the expected type",
+                kind.description(),
+            ),
+            TypeError::OverflowingLiteral(literal) => {
+                write!(f, "overflowing literal `{}`", literal)
+            },
             TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
             TypeError::UnexpectedField { found, expected } => write!(
                 f,

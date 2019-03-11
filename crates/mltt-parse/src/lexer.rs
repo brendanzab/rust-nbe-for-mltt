@@ -278,15 +278,41 @@ impl<'file> Lexer<'file> {
         Ok(())
     }
 
+    fn skip_unicode_char_code(&mut self) -> Result<(), Diagnostic<FileSpan>> {
+        if self.expect_advance()? != '{' {
+            return Err(Diagnostic::new_error("invalid unicode character code")
+                .with_label(Label::new_primary(self.token_span())));
+        }
+
+        let mut digits = 0;
+        loop {
+            match self.expect_advance()? {
+                '}' => break,
+                '_' => continue,
+                ch if is_hex_digit(ch) => {
+                    digits += 1;
+                    continue;
+                },
+                _ => {
+                    return Err(Diagnostic::new_error("invalid unicode character code")
+                        .with_label(Label::new_primary(self.token_span())))
+                },
+            }
+        }
+
+        match digits {
+            1..=6 => Ok(()),
+            _ => Err(Diagnostic::new_error("expected 1 to 6 hexadecimal digits")
+                .with_label(Label::new_primary(self.token_span()))),
+        }
+    }
+
     /// Skip an escape
     fn skip_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         match self.expect_advance()? {
-            '\'' | '\"' | '\\' | '/' | 'n' | 'r' | 't' => Ok(()),
+            '\'' | '\"' | '\\' | 'n' | 'r' | 't' | '0' => Ok(()),
             'x' => self.skip_ascii_char_code(),
-            'u' => Err(
-                Diagnostic::new_bug("unicode escapes are not yet implemented")
-                    .with_label(Label::new_primary(self.token_span())),
-            ),
+            'u' => self.skip_unicode_char_code(),
             ch => Err(
                 Diagnostic::new_error(format!("unknown escape code `\\{}`", ch))
                     .with_label(Label::new_primary(self.token_span())),
@@ -536,14 +562,14 @@ mod tests {
     #[test]
     fn string_literal() {
         test! {
-            r#"  "a" "\t" "hello \x3f \x7F"  "#,
-            r#"~~                            "# => (TokenKind::Whitespace, "  "),
-            r#"  ~~~                         "# => (TokenKind::StringLiteral, r#""a""#),
-            r#"     ~                        "# => (TokenKind::Whitespace, " "),
-            r#"      ~~~~                    "# => (TokenKind::StringLiteral, r#""\t""#),
-            r#"          ~                   "# => (TokenKind::Whitespace, " "),
-            r#"           ~~~~~~~~~~~~~~~~~  "# => (TokenKind::StringLiteral, r#""hello \x3f \x7F""#),
-            r#"                            ~~"# => (TokenKind::Whitespace, "  "),
+            r#"  "a" "\t" "hello \x3f \x7F \u{7fff} \u{7FFF}"  "#,
+            r#"~~                                              "# => (TokenKind::Whitespace, "  "),
+            r#"  ~~~                                           "# => (TokenKind::StringLiteral, r#""a""#),
+            r#"     ~                                          "# => (TokenKind::Whitespace, " "),
+            r#"      ~~~~                                      "# => (TokenKind::StringLiteral, r#""\t""#),
+            r#"          ~                                     "# => (TokenKind::Whitespace, " "),
+            r#"           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  "# => (TokenKind::StringLiteral, r#""hello \x3f \x7F \u{7fff} \u{7FFF}""#),
+            r#"                                              ~~"# => (TokenKind::Whitespace, "  "),
         };
     }
 

@@ -9,7 +9,7 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{Item, RcTerm, Term};
 use crate::syntax::domain::{RcType, RcValue, Value};
-use crate::syntax::{AppMode, Env, Label, UniverseLevel, VarLevel};
+use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
 
 /// Local type checking context.
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +77,29 @@ impl Context {
     }
 }
 
+impl Default for Context {
+    fn default() -> Context {
+        let mut context = Context::new();
+        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
+
+        context.local_define(lit_ty(LiteralType::String), u0.clone());
+        context.local_define(lit_ty(LiteralType::Char), u0.clone());
+        context.local_define(lit_ty(LiteralType::U8), u0.clone());
+        context.local_define(lit_ty(LiteralType::U16), u0.clone());
+        context.local_define(lit_ty(LiteralType::U32), u0.clone());
+        context.local_define(lit_ty(LiteralType::U64), u0.clone());
+        context.local_define(lit_ty(LiteralType::S8), u0.clone());
+        context.local_define(lit_ty(LiteralType::S16), u0.clone());
+        context.local_define(lit_ty(LiteralType::S32), u0.clone());
+        context.local_define(lit_ty(LiteralType::S64), u0.clone());
+        context.local_define(lit_ty(LiteralType::F32), u0.clone());
+        context.local_define(lit_ty(LiteralType::F64), u0.clone());
+
+        context
+    }
+}
+
 /// An error produced during type checking
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
@@ -137,8 +160,8 @@ impl fmt::Display for TypeError {
 }
 
 /// Check that this is a valid module
-pub fn check_module(items: &[Item]) -> Result<(), TypeError> {
-    let mut context = Context::new();
+pub fn check_module(context: &Context, items: &[Item]) -> Result<(), TypeError> {
+    let mut context = context.clone();
 
     for item in items {
         log::trace!("checking item:\t\t{}", item.label);
@@ -172,7 +195,6 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
     log::trace!("checking term:\t\t{}", term);
 
     match term.as_ref() {
-        Term::Literal(literal) => unimplemented!("literals {:?}", literal),
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.local_define(context.eval(def)?, synth_term(context, def)?);
@@ -244,7 +266,23 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
-        Term::Literal(literal) => unimplemented!("literals {:?}", literal),
+        Term::LiteralType(_) => Ok(RcValue::from(Value::Universe(UniverseLevel(0)))),
+        Term::LiteralIntro(literal_intro) => {
+            Ok(RcValue::from(Value::LiteralType(match literal_intro {
+                LiteralIntro::String(_) => LiteralType::String,
+                LiteralIntro::Char(_) => LiteralType::Char,
+                LiteralIntro::U8(_) => LiteralType::U8,
+                LiteralIntro::U16(_) => LiteralType::U16,
+                LiteralIntro::U32(_) => LiteralType::U32,
+                LiteralIntro::U64(_) => LiteralType::U64,
+                LiteralIntro::S8(_) => LiteralType::S8,
+                LiteralIntro::S16(_) => LiteralType::S16,
+                LiteralIntro::S32(_) => LiteralType::S32,
+                LiteralIntro::S64(_) => LiteralType::S64,
+                LiteralIntro::F32(_) => LiteralType::F32,
+                LiteralIntro::F64(_) => LiteralType::F64,
+            })))
+        },
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             let def_ty = synth_term(context, def)?;

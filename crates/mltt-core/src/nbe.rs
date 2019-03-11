@@ -92,7 +92,10 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
-        Term::Literal(literal) => Ok(RcValue::from(Value::Literal(literal.clone()))),
+        Term::LiteralType(literal_ty) => Ok(RcValue::from(Value::LiteralType(literal_ty.clone()))),
+        Term::LiteralIntro(literal_intro) => {
+            Ok(RcValue::from(Value::LiteralIntro(literal_intro.clone())))
+        },
         Term::Let(def, body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
@@ -155,7 +158,10 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
         Value::Neutral(head, spine) => read_back_neutral(level, *head, spine),
 
         // Literals
-        Value::Literal(literal) => Ok(RcTerm::from(Term::Literal(literal.clone()))),
+        Value::LiteralType(literal_ty) => Ok(RcTerm::from(Term::LiteralType(literal_ty.clone()))),
+        Value::LiteralIntro(literal_intro) => {
+            Ok(RcTerm::from(Term::LiteralIntro(literal_intro.clone())))
+        },
 
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
@@ -239,6 +245,9 @@ pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool
             let term2 = read_back_neutral(level, *head2, spine2)?;
 
             Ok(term1 == term2)
+        },
+        (&Value::LiteralType(literal_ty1), &Value::LiteralType(literal_ty2)) => {
+            Ok(literal_ty1 == literal_ty2)
         },
         (
             &Value::FunType(app_mode1, param_ty1, body_ty1),

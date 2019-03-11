@@ -36,7 +36,12 @@ DeBruijn levels in the syntax of the semantic domain.
 - [x] Dependent record types
 - [ ] Add eta rules to normalizer
 - [ ] Metavariable solving
-- [ ] Type checking and normalization tests
+- [ ] Integration tests
+  - [ ] Parse (pass)
+  - [ ] Parse (fail)
+  - [x] Type checking (pass)
+  - [ ] Type checking (fail)
+  - [ ] Normalization tests
 - [ ] Error recovery in:
   - [x] Lexer
   - [ ] Parser

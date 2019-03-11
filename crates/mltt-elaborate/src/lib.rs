@@ -16,6 +16,7 @@ use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarInd
 
 mod docs;
 mod errors;
+mod literal;
 
 pub use self::errors::TypeError;
 
@@ -134,10 +135,39 @@ impl Context {
     }
 }
 
+impl Default for Context {
+    fn default() -> Context {
+        use mltt_core::syntax::domain::{RcValue, Value};
+        use mltt_core::syntax::LiteralType;
+
+        let mut context = Context::new();
+        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
+
+        context.local_define("String".to_owned(), lit_ty(LiteralType::String), u0.clone());
+        context.local_define("Char".to_owned(), lit_ty(LiteralType::Char), u0.clone());
+        context.local_define("U8".to_owned(), lit_ty(LiteralType::U8), u0.clone());
+        context.local_define("U16".to_owned(), lit_ty(LiteralType::U16), u0.clone());
+        context.local_define("U32".to_owned(), lit_ty(LiteralType::U32), u0.clone());
+        context.local_define("U64".to_owned(), lit_ty(LiteralType::U64), u0.clone());
+        context.local_define("S8".to_owned(), lit_ty(LiteralType::S8), u0.clone());
+        context.local_define("S16".to_owned(), lit_ty(LiteralType::S16), u0.clone());
+        context.local_define("S32".to_owned(), lit_ty(LiteralType::S32), u0.clone());
+        context.local_define("S64".to_owned(), lit_ty(LiteralType::S64), u0.clone());
+        context.local_define("F32".to_owned(), lit_ty(LiteralType::F32), u0.clone());
+        context.local_define("F64".to_owned(), lit_ty(LiteralType::F64), u0.clone());
+
+        context
+    }
+}
+
 /// Check that this is a valid module
-pub fn check_module(concrete_items: &[Item]) -> Result<Vec<core::Item>, TypeError> {
+pub fn check_module(
+    context: &Context,
+    concrete_items: &[Item],
+) -> Result<Vec<core::Item>, TypeError> {
     // The local elaboration context
-    let mut context = Context::new();
+    let mut context = context.clone();
     check_items(&mut context, concrete_items)
 }
 
@@ -389,7 +419,7 @@ pub fn check_term(
     log::trace!("checking term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
+        Term::Literal(concrete_literal) => literal::check(concrete_literal, expected_ty),
         Term::Let(concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, concrete_items)?;
@@ -486,7 +516,7 @@ pub fn synth_term(
     match concrete_term {
         Term::Var(name) => synth_var(context, name),
         Term::Hole => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
-        Term::Literal(literal) => unimplemented!("literals: {:?}", literal),
+        Term::Literal(concrete_literal) => literal::synth(concrete_literal),
         Term::Let(concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, concrete_items)?;

@@ -3,7 +3,7 @@
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{AppMode, Env, Label, Literal, UniverseLevel, VarLevel};
+use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
 
 /// A closure that binds a single variable.
 ///
@@ -69,8 +69,10 @@ pub enum Value {
     /// These are known as _neutral values_ or _accumulators_.
     Neutral(Head, Spine),
 
-    /// Literals
-    Literal(Literal),
+    /// Literal types
+    LiteralType(LiteralType),
+    /// Literal introductions
+    LiteralIntro(LiteralIntro),
 
     /// Dependent function types
     FunType(AppMode, RcType, Closure),

@@ -18,7 +18,20 @@ impl Env {
     pub fn new() -> Env {
         Env {
             counter: 0,
-            names: Vec::new(),
+            names: vec![
+                "String".to_owned(),
+                "Char".to_owned(),
+                "U8".to_owned(),
+                "U16".to_owned(),
+                "U32".to_owned(),
+                "U64".to_owned(),
+                "S8".to_owned(),
+                "S16".to_owned(),
+                "S32".to_owned(),
+                "S64".to_owned(),
+                "F32".to_owned(),
+                "F64".to_owned(),
+            ],
         }
     }
 
@@ -170,6 +183,45 @@ pub fn resugar_env(term: &core::RcTerm, env: &mut Env) -> Term {
     fn resugar_atomic(term: &core::RcTerm, env: &mut Env) -> Term {
         match term.as_ref() {
             core::Term::Var(index) => Term::Var(env.lookup_index(*index)),
+            core::Term::LiteralType(literal_ty) => {
+                use mltt_core::syntax::LiteralType;
+
+                match literal_ty {
+                    LiteralType::String => Term::Var("String".to_owned()),
+                    LiteralType::Char => Term::Var("Char".to_owned()),
+                    LiteralType::U8 => Term::Var("U8".to_owned()),
+                    LiteralType::U16 => Term::Var("U16".to_owned()),
+                    LiteralType::U32 => Term::Var("U32".to_owned()),
+                    LiteralType::U64 => Term::Var("U64".to_owned()),
+                    LiteralType::S8 => Term::Var("S8".to_owned()),
+                    LiteralType::S16 => Term::Var("S16".to_owned()),
+                    LiteralType::S32 => Term::Var("S32".to_owned()),
+                    LiteralType::S64 => Term::Var("S64".to_owned()),
+                    LiteralType::F32 => Term::Var("F32".to_owned()),
+                    LiteralType::F64 => Term::Var("F64".to_owned()),
+                }
+            },
+            core::Term::LiteralIntro(literal_intro) => {
+                use crate::{Literal, LiteralKind};
+                use mltt_core::syntax::LiteralIntro;
+
+                let (kind, value) = match literal_intro {
+                    LiteralIntro::String(value) => (LiteralKind::String, format!("{:?}", value)),
+                    LiteralIntro::Char(value) => (LiteralKind::Char, format!("{:?}", value)),
+                    LiteralIntro::U8(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::U16(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::U32(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::U64(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::S8(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::S16(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::S32(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::S64(value) => (LiteralKind::Int, format!("{}", value)),
+                    LiteralIntro::F32(value) => (LiteralKind::Float, format!("{}", value)),
+                    LiteralIntro::F64(value) => (LiteralKind::Float, format!("{}", value)),
+                };
+
+                Term::Literal(Literal { kind, value })
+            },
             core::Term::RecordElim(record, label) => {
                 Term::RecordElim(Box::new(resugar_atomic(record, env)), label.0.clone())
             },
