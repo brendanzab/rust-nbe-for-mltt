@@ -6,8 +6,6 @@ use std::rc::Rc;
 
 use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
 
-pub type Env = im::Vector<RcTerm>;
-
 /// Top-level items
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
