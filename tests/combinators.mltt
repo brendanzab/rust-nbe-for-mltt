@@ -74,10 +74,18 @@ compose {A} {B} {C} f g =
     d-compose {A} {B = fun a => B} {C = fun {a} b => C} (fun {a} b => f b) g;
 
 
+||| Flip the order of the first two arguments to a dependent function
+d-flip :
+    Fun {A B : Type} {C : A -> B -> Type} ->
+        (Fun (a : A) (b : B) -> C a b) ->
+        (Fun (b : B) (a : A) -> C a b);
+d-flip {A} {B} {C} f =
+    fun a b => f b a;
+
 ||| Flip the order of the first two arguments to a function
 flip : Fun {A B C : Type} -> (A -> B -> C) -> (B -> A -> C);
 flip {A} {B} {C} f =
-    fun a b => f b a;
+    d-flip {A = A} {B = B} {C = fun a b => C} f;
 
 test-flip : (Unit -> Unit) -> Unit -> Unit;
 test-flip = flip {A = Unit} {B = Unit -> Unit} {C = Unit} (const {A = Unit} {B = Unit -> Unit});
