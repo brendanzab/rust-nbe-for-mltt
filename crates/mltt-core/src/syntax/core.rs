@@ -2,6 +2,7 @@
 
 use pretty::{BoxDoc, Doc};
 use std::fmt;
+use std::ops;
 use std::rc::Rc;
 
 use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
@@ -31,6 +32,14 @@ impl From<Term> for RcTerm {
 impl AsRef<Term> for RcTerm {
     fn as_ref(&self) -> &Term {
         self.inner.as_ref()
+    }
+}
+
+impl ops::Deref for RcTerm {
+    type Target = Term;
+
+    fn deref(&self) -> &Term {
+        self.as_ref()
     }
 }
 
@@ -72,182 +81,161 @@ pub enum Term {
     Universe(UniverseLevel),
 }
 
-impl RcTerm {
-    /// Convert the term into a pretty-printable document
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        self.inner.to_doc()
-    }
-}
-
 impl Term {
-    /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        // Using precedence climbing (mirroring the language grammar) in
-        // order to cut down on extraneous parentheses.
+        // FIXME: use proper precedences to mirror the Pratt parser?
+        match self {
+            Term::Var(index) => index.to_doc(),
+            Term::Let(def, body) => Doc::nil()
+                .append("let")
+                .append(Doc::space())
+                .append("_")
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(def.to_doc())
+                .append(";")
+                .append(Doc::space())
+                .append("in")
+                .append(Doc::space())
+                .append(body.to_doc()),
 
-        fn to_doc_term(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
-            match term {
-                _ => to_doc_expr(term),
-            }
-        }
+            Term::LiteralType(literal_ty) => literal_ty.to_doc(),
+            Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
 
-        fn to_doc_expr(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
-            match term {
-                Term::Let(def, body) => Doc::nil()
-                    .append("let")
-                    .append(Doc::space())
-                    .append("_")
-                    .append(Doc::space())
-                    .append("=")
-                    .append(Doc::space())
-                    .append(to_doc_app(def.as_ref()))
-                    .append(Doc::space())
-                    .append("in")
-                    .append(Doc::space())
-                    .append(to_doc_term(body.as_ref())),
-                Term::FunType(app_mode, param_ty, body_ty) => {
-                    let param = match app_mode {
-                        AppMode::Explicit => Doc::nil()
-                            .append("(")
-                            .append("_")
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(to_doc_term(param_ty.as_ref()))
-                            .append(")"),
-                        AppMode::Implicit(label) => Doc::nil()
-                            .append("{")
-                            .append(&label.0)
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(to_doc_term(param_ty.as_ref()))
-                            .append("}"),
-                    };
+            Term::FunType(app_mode, param_ty, body_ty) => {
+                let param = match app_mode {
+                    AppMode::Explicit => Doc::nil()
+                        .append("(")
+                        .append("_")
+                        .append(Doc::space())
+                        .append(":")
+                        .append(Doc::space())
+                        .append(param_ty.to_doc())
+                        .append(")"),
+                    AppMode::Implicit(label) => Doc::nil()
+                        .append("{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append(":")
+                        .append(Doc::space())
+                        .append(param_ty.to_doc())
+                        .append("}"),
+                };
 
-                    Doc::nil()
-                        .append(Doc::group(
-                            Doc::text("Fun").append(Doc::space()).append(param),
-                        ))
-                        .append(Doc::space())
-                        .append("->")
-                        .append(Doc::space())
-                        .append(to_doc_app(body_ty.as_ref()))
-                },
-                Term::FunIntro(app_mode, body) => {
-                    let param = match app_mode {
-                        AppMode::Explicit => Doc::text("_"),
-                        AppMode::Implicit(label) => Doc::nil()
-                            .append("{")
-                            .append(&label.0)
-                            .append(Doc::space())
-                            .append("=")
-                            .append(Doc::space())
-                            .append("_")
-                            .append("}"),
-                    };
-
-                    Doc::nil()
-                        .append("fun")
-                        .append(Doc::space())
-                        .append(param)
-                        .append(Doc::space())
-                        .append("=>")
-                        .append(Doc::space())
-                        .append(to_doc_app(body.as_ref()))
-                },
-                Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
-                Term::RecordType(ty_fields) => Doc::nil()
-                    .append("Record")
+                Doc::nil()
+                    .append(Doc::group(
+                        Doc::text("Fun").append(Doc::space()).append(param),
+                    ))
                     .append(Doc::space())
-                    .append("{")
-                    .append(Doc::newline())
-                    .append(
-                        Doc::intersperse(
-                            ty_fields.iter().map(|(_, label, ty)| {
-                                Doc::nil()
-                                    .append(&label.0)
-                                    .append(Doc::space())
-                                    .append(":")
-                                    .append(Doc::space())
-                                    .append(to_doc_app(ty.as_ref()))
-                                    .append(";")
-                            }),
-                            Doc::newline(),
-                        )
-                        .nest(4),
+                    .append("->")
+                    .append(Doc::space())
+                    .append("(")
+                    .append(body_ty.to_doc())
+                    .append(")")
+            },
+            Term::FunIntro(app_mode, body) => {
+                let param = match app_mode {
+                    AppMode::Explicit => Doc::text("_"),
+                    AppMode::Implicit(label) => Doc::nil()
+                        .append("{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append("=")
+                        .append(Doc::space())
+                        .append("_")
+                        .append("}"),
+                };
+
+                Doc::nil()
+                    .append("fun")
+                    .append(Doc::space())
+                    .append(param)
+                    .append(Doc::space())
+                    .append("=>")
+                    .append(Doc::space())
+                    .append(body.to_doc())
+            },
+            Term::FunElim(fun, app_mode, arg) => {
+                let arg = match app_mode {
+                    AppMode::Explicit => arg.to_arg_doc(),
+                    AppMode::Implicit(label) => Doc::nil()
+                        .append("{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append("=")
+                        .append(Doc::space())
+                        .append(arg.to_doc())
+                        .append("}"),
+                };
+
+                Doc::nil()
+                    .append(fun.to_arg_doc())
+                    .append(Doc::space())
+                    .append(arg)
+            },
+
+            Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
+            Term::RecordType(ty_fields) => Doc::nil()
+                .append("Record")
+                .append(Doc::space())
+                .append("{")
+                .append(Doc::newline())
+                .append(
+                    Doc::intersperse(
+                        ty_fields.iter().map(|(_, label, ty)| {
+                            Doc::nil()
+                                .append(label.to_doc())
+                                .append(Doc::space())
+                                .append(":")
+                                .append(Doc::space())
+                                .append(ty.to_doc())
+                                .append(";")
+                        }),
+                        Doc::newline(),
                     )
-                    .append(Doc::newline())
-                    .append("}"),
-                Term::RecordIntro(intro_fields) if intro_fields.is_empty() => {
-                    Doc::text("record {}")
-                },
-                Term::RecordIntro(intro_fields) => Doc::nil()
-                    .append("record")
-                    .append(Doc::space())
-                    .append("{")
-                    .append(Doc::newline())
-                    .append(
-                        Doc::intersperse(
-                            intro_fields.iter().map(|(label, term)| {
-                                Doc::nil()
-                                    .append(&label.0)
-                                    .append(Doc::space())
-                                    .append("=")
-                                    .append(Doc::space())
-                                    .append(to_doc_app(term.as_ref()))
-                                    .append(";")
-                            }),
-                            Doc::newline(),
-                        )
-                        .nest(4),
+                    .nest(4),
+                )
+                .append(Doc::newline())
+                .append("}"),
+            Term::RecordIntro(intro_fields) if intro_fields.is_empty() => Doc::text("record {}"),
+            Term::RecordIntro(intro_fields) => Doc::nil()
+                .append("record")
+                .append(Doc::space())
+                .append("{")
+                .append(Doc::newline())
+                .append(
+                    Doc::intersperse(
+                        intro_fields.iter().map(|(label, term)| {
+                            Doc::nil()
+                                .append(label.to_doc())
+                                .append(Doc::space())
+                                .append("=")
+                                .append(Doc::space())
+                                .append(term.to_doc())
+                                .append(";")
+                        }),
+                        Doc::newline(),
                     )
-                    .append(Doc::newline())
-                    .append("}"),
-                _ => to_doc_app(term),
-            }
+                    .nest(4),
+                )
+                .append(Doc::newline())
+                .append("}"),
+            Term::RecordElim(record, label) => {
+                record.to_arg_doc().append(".").append(label.to_doc())
+            },
+
+            Term::Universe(level) => Doc::text("Type^").append(level.to_doc()),
         }
+    }
 
-        fn to_doc_app(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
-            match term {
-                Term::FunElim(fun, app_mode, arg) => {
-                    let arg = match app_mode {
-                        AppMode::Explicit => to_doc_atomic(arg.as_ref()),
-                        AppMode::Implicit(label) => Doc::nil()
-                            .append("{")
-                            .append(&label.0)
-                            .append(Doc::space())
-                            .append("=")
-                            .append(Doc::space())
-                            .append(to_doc_term(arg.as_ref()))
-                            .append("}"),
-                    };
-
-                    Doc::nil()
-                        .append(to_doc_term(fun.as_ref()))
-                        .append(Doc::space())
-                        .append(arg)
-                },
-                _ => to_doc_atomic(term),
-            }
+    pub fn to_arg_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            Term::Var(_) | Term::LiteralIntro(_) | Term::LiteralType(_) | Term::Universe(_) => {
+                self.to_doc()
+            },
+            _ => Doc::nil().append("(").append(self.to_doc()).append(")"),
         }
-
-        fn to_doc_atomic(term: &Term) -> Doc<'_, BoxDoc<'_, ()>> {
-            match term {
-                Term::Var(VarIndex(index)) => Doc::as_string(format!("@{}", index)),
-                Term::LiteralType(literal_ty) => literal_ty.to_doc(),
-                Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
-                Term::RecordElim(record, label) => {
-                    to_doc_atomic(record.as_ref()).append(".").append(&label.0)
-                },
-                Term::Universe(UniverseLevel(level)) => {
-                    Doc::text("Type^").append(Doc::as_string(level))
-                },
-                _ => Doc::text("(").append(to_doc_term(term)).append(")"),
-            }
-        }
-
-        to_doc_term(self)
     }
 }
 

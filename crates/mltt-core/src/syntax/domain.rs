@@ -1,5 +1,6 @@
 //! The semantic domain
 
+use std::ops;
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
@@ -45,6 +46,14 @@ impl From<Value> for RcValue {
 impl AsRef<Value> for RcValue {
     fn as_ref(&self) -> &Value {
         self.inner.as_ref()
+    }
+}
+
+impl ops::Deref for RcValue {
+    type Target = Value;
+
+    fn deref(&self) -> &Value {
+        self.as_ref()
     }
 }
 

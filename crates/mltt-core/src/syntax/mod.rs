@@ -50,6 +50,12 @@ impl ops::Add<u32> for VarLevel {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VarIndex(pub u32);
 
+impl VarIndex {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(format!("@{}", self.0))
+    }
+}
+
 impl From<u32> for VarIndex {
     fn from(src: u32) -> VarIndex {
         VarIndex(src)
@@ -103,6 +109,12 @@ impl<T: Clone> Env<T> {
 /// The level of a universe
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseLevel(pub u32);
+
+impl UniverseLevel {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(&self.0)
+    }
+}
 
 impl From<u32> for UniverseLevel {
     fn from(src: u32) -> UniverseLevel {
@@ -200,6 +212,12 @@ impl LiteralIntro {
 /// A label
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);
+
+impl Label {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::text(&self.0)
+    }
+}
 
 /// The application mode of a function
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
