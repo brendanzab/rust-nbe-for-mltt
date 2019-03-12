@@ -419,7 +419,7 @@ pub fn check_term(
     log::trace!("checking term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Literal(concrete_literal) => literal::check(concrete_literal, expected_ty),
+        Term::Parens(concrete_term) => check_term(context, concrete_term, expected_ty),
         Term::Let(concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, concrete_items)?;
@@ -430,7 +430,8 @@ pub fn check_term(
                 core::RcTerm::from(core::Term::Let(item.term, acc))
             }))
         },
-        Term::Parens(concrete_term) => check_term(context, concrete_term, expected_ty),
+
+        Term::Literal(concrete_literal) => literal::check(concrete_literal, expected_ty),
 
         Term::FunIntro(params, concrete_body) => {
             check_clause(context, params, None, concrete_body, expected_ty)
@@ -516,7 +517,11 @@ pub fn synth_term(
     match concrete_term {
         Term::Var(name) => synth_var(context, name),
         Term::Hole => Err(TypeError::AmbiguousTerm(concrete_term.clone())),
-        Term::Literal(concrete_literal) => literal::synth(concrete_literal),
+
+        Term::Parens(concrete_term) => synth_term(context, concrete_term),
+        Term::Ann(concrete_term, concrete_term_ty) => {
+            synth_ann(context, concrete_term, Some(concrete_term_ty))
+        },
         Term::Let(concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, concrete_items)?;
@@ -530,10 +535,8 @@ pub fn synth_term(
                 body_ty,
             ))
         },
-        Term::Ann(concrete_term, concrete_term_ty) => {
-            synth_ann(context, concrete_term, Some(concrete_term_ty))
-        },
-        Term::Parens(concrete_term) => synth_term(context, concrete_term),
+
+        Term::Literal(concrete_literal) => literal::synth(concrete_literal),
 
         Term::FunType(concrete_params, concrete_body_ty) => {
             let mut context = context.clone();

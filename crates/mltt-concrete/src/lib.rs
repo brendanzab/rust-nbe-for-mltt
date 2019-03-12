@@ -357,14 +357,16 @@ pub enum Term {
     Var(String),
     /// Holes
     Hole,
-    /// Literals
-    Literal(Literal),
-    /// Let bindings
-    Let(Vec<Item>, Box<Term>),
-    /// A term that is explicitly annotated with a type
-    Ann(Box<Term>, Box<Term>),
+
     /// A parenthesized term
     Parens(Box<Term>),
+    /// A term that is explicitly annotated with a type
+    Ann(Box<Term>, Box<Term>),
+    /// Let bindings
+    Let(Vec<Item>, Box<Term>),
+
+    /// Literals
+    Literal(Literal),
 
     /// Dependent function type
     ///
@@ -394,7 +396,9 @@ impl Term {
     /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
+            Term::Var(name) => Doc::as_string(name),
             Term::Hole => Doc::text("?"),
+            Term::Parens(term) => Doc::text("(").append(term.to_doc()).append(")"),
             Term::Ann(term, ann) => Doc::nil()
                 .append(term.to_doc())
                 .append(Doc::space())
@@ -415,6 +419,7 @@ impl Term {
                     .append(Doc::space())
                     .append(body.to_doc())
             },
+            Term::Literal(literal) => literal.to_doc(),
             Term::FunType(params, body_ty) => Doc::nil()
                 .append("Fun")
                 .append(Doc::space())
@@ -422,6 +427,12 @@ impl Term {
                     params.iter().map(TypeParam::to_doc),
                     Doc::space(),
                 ))
+                .append(Doc::space())
+                .append("->")
+                .append(Doc::space())
+                .append(body_ty.to_doc()),
+            Term::FunArrowType(param_ty, body_ty) => Doc::nil()
+                .append(param_ty.to_doc())
                 .append(Doc::space())
                 .append("->")
                 .append(Doc::space())
@@ -437,6 +448,14 @@ impl Term {
                 .append("=>")
                 .append(Doc::space())
                 .append(body.to_doc()),
+            Term::FunElim(fun, args) => {
+                let args = Doc::intersperse(args.iter().map(Arg::to_doc), Doc::space());
+
+                Doc::nil()
+                    .append(fun.to_doc())
+                    .append(Doc::space())
+                    .append(args)
+            },
             Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
             Term::RecordType(ty_fields) => {
                 let ty_fields = Doc::intersperse(
@@ -469,23 +488,6 @@ impl Term {
                     .append(Doc::newline())
                     .append("}")
             },
-            Term::FunArrowType(param_ty, body_ty) => Doc::nil()
-                .append(param_ty.to_doc())
-                .append(Doc::space())
-                .append("->")
-                .append(Doc::space())
-                .append(body_ty.to_doc()),
-            Term::FunElim(fun, args) => {
-                let args = Doc::intersperse(args.iter().map(Arg::to_doc), Doc::space());
-
-                Doc::nil()
-                    .append(fun.to_doc())
-                    .append(Doc::space())
-                    .append(args)
-            },
-            Term::Var(name) => Doc::as_string(name),
-            Term::Literal(literal) => literal.to_doc(),
-            Term::Parens(term) => Doc::text("(").append(term.to_doc()).append(")"),
             Term::RecordElim(record, label) => record.to_doc().append(".").append(label),
             Term::Universe(None) => Doc::text("Type"),
             Term::Universe(Some(level)) => Doc::text("Type^").append(Doc::as_string(level)),

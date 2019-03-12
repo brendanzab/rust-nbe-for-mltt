@@ -13,13 +13,14 @@
 //! pattern ::= IDENTIFIER
 //!
 //! term    ::= IDENTIFIER
+//!           | "?"
+//!           | "(" term ")"
+//!           | term ":" term
+//!           | "let" item+ "in" term
 //!           | STRING_LITERAL
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
 //!           | FLOAT_LITERAL
-//!           | "let" item+ "in" term
-//!           | term ":" term
-//!           | "(" term ")"
 //!           | "Fun" type-param+ "->" term
 //!           | term "->" term
 //!           | "fun" intro-param+ "=>" term
