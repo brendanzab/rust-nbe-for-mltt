@@ -16,8 +16,6 @@
 use pretty::{BoxDoc, Doc};
 use std::fmt;
 
-pub mod resugar;
-
 /// Top-level items in a module
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {

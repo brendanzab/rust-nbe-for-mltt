@@ -42,8 +42,6 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
         let line = editor.readline(&options.prompt);
         match line {
             Ok(line) => {
-                use mltt_concrete::resugar;
-
                 let file_id = files.add("repl", line);
 
                 editor.add_history_entry(files[file_id].contents());
@@ -66,11 +64,8 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                     },
                 };
 
-                let term_nf = context.normalize(&core_term).unwrap();
-                let term = resugar::resugar(&term_nf);
-
-                let ty_nf = context.read_back(&ty).unwrap();
-                let ty = resugar::resugar(&ty_nf);
+                let term = context.normalize(&core_term).unwrap();
+                let ty = context.read_back(&ty).unwrap();
 
                 println!("{} : {}", term, ty);
             },

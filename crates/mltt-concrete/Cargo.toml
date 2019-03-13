@@ -11,6 +11,5 @@ publish = false
 im = "12.2.0"
 language-reporting = { git = "https://github.com/nikomatsakis/language-reporting", branch = "remove-codespan-dep" }
 log = "0.4"
-mltt-core = { path = "../mltt-core" }
 mltt-span = { path = "../mltt-span" }
 pretty = "0.5.2"
