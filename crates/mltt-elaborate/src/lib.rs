@@ -519,57 +519,55 @@ pub fn check_term(
             let mut expected_ty = expected_ty.clone();
 
             for concrete_intro_field in concrete_intro_fields {
-                if let domain::Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
-                    expected_ty.as_ref()
-                {
-                    let (found_label, term_span, term) = match concrete_intro_field {
-                        RecordIntroField::Punned { label } if expected_label.0 == label.value => {
-                            let (term, term_ty) = synth_var(&context, label)?;
-                            context.expect_subtype(label.span(), &term_ty, expected_term_ty)?;
+                let (expected_label, expected_term_ty, rest) = match expected_ty.as_ref() {
+                    domain::Value::RecordTypeExtend(label, ty, rest) => Ok((label, ty, rest)),
+                    _ => Err(Diagnostic::new_error("too many fields found")
+                        .with_label(DiagnosticLabel::new_primary(*span))),
+                }?;
 
-                            (label.clone(), label.span(), term)
-                        },
+                let (found_label, term_span, term) = match concrete_intro_field {
+                    RecordIntroField::Punned { label } if expected_label.0 == label.value => {
+                        let (term, term_ty) = synth_var(&context, label)?;
+                        context.expect_subtype(label.span(), &term_ty, expected_term_ty)?;
 
-                        RecordIntroField::Explicit {
-                            label,
+                        Ok((label.clone(), label.span(), term))
+                    },
+
+                    RecordIntroField::Explicit {
+                        label,
+                        params,
+                        body_ty,
+                        body,
+                    } if expected_label.0 == label.value => {
+                        let term = check_clause(
+                            &context,
                             params,
-                            body_ty,
+                            body_ty.as_ref(),
                             body,
-                        } if expected_label.0 == label.value => {
-                            let term = check_clause(
-                                &context,
-                                params,
-                                body_ty.as_ref(),
-                                body,
-                                expected_term_ty,
-                            )?;
+                            expected_term_ty,
+                        )?;
 
-                            (label.clone(), body.span(), term)
-                        },
-                        RecordIntroField::Punned { label }
-                        | RecordIntroField::Explicit { label, .. } => {
-                            let label_message = format!(
+                        Ok((label.clone(), body.span(), term))
+                    },
+
+                    RecordIntroField::Punned { label }
+                    | RecordIntroField::Explicit { label, .. } => {
+                        Err(Diagnostic::new_error("field not found").with_label(
+                            DiagnosticLabel::new_primary(label.span()).with_message(format!(
                                 "expected `{}`, but found `{}`",
                                 label.value, expected_label.0,
-                            );
+                            )),
+                        ))
+                    },
+                }?;
 
-                            return Err(Diagnostic::new_error("field not found").with_label(
-                                DiagnosticLabel::new_primary(label.span())
-                                    .with_message(label_message),
-                            ));
-                        },
-                    };
-                    let label = expected_label.clone();
-                    let term_value = context.eval(term_span, &term)?;
-                    let term_ty = expected_term_ty.clone();
+                let label = expected_label.clone();
+                let term_value = context.eval(term_span, &term)?;
+                let term_ty = expected_term_ty.clone();
 
-                    context.local_define(found_label.value, term_value.clone(), term_ty);
-                    expected_ty = do_closure_app(&rest, term_value)?;
-                    fields.push((label, term));
-                } else {
-                    return Err(Diagnostic::new_error("too many fields found")
-                        .with_label(DiagnosticLabel::new_primary(*span)));
-                }
+                context.local_define(found_label.value, term_value.clone(), term_ty);
+                expected_ty = do_closure_app(&rest, term_value)?;
+                fields.push((label, term));
             }
 
             if let domain::Value::RecordTypeEmpty = expected_ty.as_ref() {
@@ -644,17 +642,12 @@ pub fn synth_term(
                         }
                     },
                     TypeParam::Implicit(param_span, param_labels, concrete_param_ty) => {
-                        let concrete_param_ty = match concrete_param_ty {
-                            Some(concrete_param_ty) => concrete_param_ty,
-                            None => {
-                                let message = "implicit parameter is missing a type parameter";
-                                let label =
-                                    "inference of parameter annnotations is not yet supported";
-                                return Err(Diagnostic::new_error(message).with_label(
-                                    DiagnosticLabel::new_primary(*param_span).with_message(label),
-                                ));
-                            },
-                        };
+                        let concrete_param_ty = concrete_param_ty.as_ref().ok_or_else(|| {
+                            Diagnostic::new_error("implicit parameter is missing a type parameter")
+                                .with_label(DiagnosticLabel::new_primary(*param_span).with_message(
+                                    "inference of parameter annnotations is not yet supported",
+                                ))
+                        })?;
 
                         for param_label in param_labels {
                             let app_mode = AppMode::Implicit(Label(param_label.value.clone()));
@@ -710,15 +703,13 @@ pub fn synth_term(
                             AppMode::Explicit,
                             check_term(context, concrete_arg, param_ty)?,
                         ),
-                        Arg::Implicit(arg_span, label, Some(concrete_arg)) => (
+                        Arg::Implicit(arg_span, label, concrete_arg) => (
                             *arg_span,
                             AppMode::Implicit(Label(label.value.clone())),
-                            check_term(context, concrete_arg, param_ty)?,
-                        ),
-                        Arg::Implicit(arg_span, label, None) => (
-                            *arg_span,
-                            AppMode::Implicit(Label(label.value.clone())),
-                            check_term(context, &Term::Var(label.clone()), param_ty)?,
+                            match concrete_arg {
+                                Some(concrete_arg) => check_term(context, concrete_arg, param_ty)?,
+                                None => check_term(context, &Term::Var(label.clone()), param_ty)?,
+                            },
                         ),
                     };
 
