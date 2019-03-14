@@ -455,9 +455,12 @@ fn synth_clause(
     concrete_body_ty: Option<&Term>,
     concrete_body: &Term,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    if !params.is_empty() {
+    if let Some(param) = params.first() {
         // TODO: We will be able to type this once we have annotated patterns!
-        unimplemented!("type annotations needed");
+        return Err(
+            Diagnostic::new_error("unable to infer the type of parameter")
+                .with_label(DiagnosticLabel::new_primary(param.span())),
+        );
     }
 
     synth_ann(&context, concrete_body, concrete_body_ty)
@@ -685,8 +688,9 @@ pub fn synth_term(
                 domain::RcValue::from(domain::Value::Universe(cmp::max(param_level, body_level))),
             ))
         },
-        Term::FunIntro(span, _, _) => Err(Diagnostic::new_error("type annotations needed")
-            .with_label(DiagnosticLabel::new_primary(*span))),
+        Term::FunIntro(_, params, concrete_body) => {
+            synth_clause(context, params, None, concrete_body)
+        },
         Term::FunElim(concrete_fun, concrete_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
             for concrete_arg in concrete_args {
