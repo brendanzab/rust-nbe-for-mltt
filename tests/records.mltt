@@ -12,6 +12,11 @@ my-silly = record {
 };
 
 
+-- empty record introductions should not need an annotation
+test-synth-empty-record-intro = record {};
+test-synth-empty-record-intro-ty : Record {} = test-synth-empty-record-intro;
+
+
 ||| Module for defining equality between two terms
 Eq : Type -> Type;
 Eq A = Record {

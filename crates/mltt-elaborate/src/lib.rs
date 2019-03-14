@@ -757,8 +757,17 @@ pub fn synth_term(
                 domain::RcValue::from(domain::Value::Universe(max_level)),
             ))
         },
-        Term::RecordIntro(span, _) => Err(Diagnostic::new_error("type annotations needed")
-            .with_label(DiagnosticLabel::new_primary(*span))),
+        Term::RecordIntro(span, intro_fields) => {
+            if intro_fields.is_empty() {
+                Ok((
+                    core::RcTerm::from(core::Term::RecordIntro(Vec::new())),
+                    domain::RcValue::from(domain::Value::RecordTypeEmpty),
+                ))
+            } else {
+                Err(Diagnostic::new_error("type annotations needed")
+                    .with_label(DiagnosticLabel::new_primary(*span)))
+            }
+        },
         Term::RecordElim(concrete_record, label) => {
             let (record, mut record_ty) = synth_term(context, concrete_record)?;
 
