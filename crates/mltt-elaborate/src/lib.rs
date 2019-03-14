@@ -643,7 +643,19 @@ pub fn synth_term(
                             max_level = cmp::max(max_level, level);
                         }
                     },
-                    TypeParam::Implicit(_, param_labels, Some(concrete_param_ty)) => {
+                    TypeParam::Implicit(param_span, param_labels, concrete_param_ty) => {
+                        let concrete_param_ty = match concrete_param_ty {
+                            Some(concrete_param_ty) => concrete_param_ty,
+                            None => {
+                                let message = "implicit parameter is missing a type parameter";
+                                let label =
+                                    "inference of parameter annnotations is not yet supported";
+                                return Err(Diagnostic::new_error(message).with_label(
+                                    DiagnosticLabel::new_primary(*param_span).with_message(label),
+                                ));
+                            },
+                        };
+
                         for param_label in param_labels {
                             let app_mode = AppMode::Implicit(Label(param_label.value.clone()));
                             let param_ty_span = concrete_param_ty.span();
@@ -654,9 +666,6 @@ pub fn synth_term(
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
-                    },
-                    TypeParam::Implicit(_, _, None) => {
-                        unimplemented!("missing implicit annotation")
                     },
                 }
             }
