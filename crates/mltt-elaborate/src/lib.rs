@@ -11,7 +11,7 @@
 #![warn(rust_2018_idioms)]
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{Arg, IntroParam, Item, Pattern, SpannedString, Term, TypeParam};
+use mltt_concrete::{Arg, IntroParam, Item, Pattern, Term, TypeParam};
 use mltt_core::nbe;
 use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
 use mltt_span::FileSpan;
@@ -313,54 +313,6 @@ fn check_items(
     Ok(core_items)
 }
 
-/// Synthesize the type of an annotated term
-fn synth_var(
-    context: &Context,
-    name: &SpannedString,
-) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    match context.lookup_binder(&name.value) {
-        None => Err(Diagnostic::new_error("unbound variable")
-            .with_label(DiagnosticLabel::new_primary(name.span()))),
-        Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
-    }
-}
-
-/// Check that an annotated term conforms to an expected type
-fn check_ann(
-    context: &Context,
-    concrete_term: &Term,
-    concrete_term_ty: Option<&Term>,
-    expected_ty: &domain::RcType,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-    match concrete_term_ty {
-        None => check_term(context, concrete_term, &expected_ty),
-        Some(concrete_term_ty) => {
-            let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
-            let term_ty = context.eval(concrete_term_ty.span(), &term_ty)?;
-            let term = check_term(&context, concrete_term, &term_ty)?;
-            context.expect_subtype(concrete_term.span(), &term_ty, &expected_ty)?;
-            Ok(term)
-        },
-    }
-}
-
-/// Synthesize the type of an annotated term
-fn synth_ann(
-    context: &Context,
-    concrete_term: &Term,
-    concrete_term_ty: Option<&Term>,
-) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    match concrete_term_ty {
-        None => synth_term(context, concrete_term),
-        Some(concrete_term_ty) => {
-            let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
-            let term_ty = context.eval(concrete_term_ty.span(), &term_ty)?;
-            let term = check_term(context, concrete_term, &term_ty)?;
-            Ok((term, term_ty))
-        },
-    }
-}
-
 /// Check that a given clause conforms to an expected type, and elaborates
 /// it into a case tree.
 fn check_clause(
@@ -436,7 +388,16 @@ fn check_clause(
         expected_ty = do_closure_app(&body_ty, param.clone())?;
     }
 
-    let body = check_ann(&context, concrete_body, concrete_body_ty, &expected_ty)?;
+    let body = match concrete_body_ty {
+        None => check_term(&context, concrete_body, &expected_ty)?,
+        Some(concrete_body_ty) => {
+            let (term_ty, _) = synth_universe(&context, concrete_body_ty)?;
+            let term_ty = context.eval(concrete_body_ty.span(), &term_ty)?;
+            let term = check_term(&context, concrete_body, &term_ty)?;
+            context.expect_subtype(concrete_body.span(), &term_ty, &expected_ty)?;
+            term
+        },
+    };
 
     Ok(param_tys
         .into_iter()
@@ -461,7 +422,15 @@ fn synth_clause(
         );
     }
 
-    synth_ann(&context, concrete_body, concrete_body_ty)
+    match concrete_body_ty {
+        None => synth_term(context, concrete_body),
+        Some(concrete_body_ty) => {
+            let (term_ty, _) = synth_universe(context, concrete_body_ty)?;
+            let term_ty = context.eval(concrete_body_ty.span(), &term_ty)?;
+            let term = check_term(context, concrete_body, &term_ty)?;
+            Ok((term, term_ty))
+        },
+    }
 }
 
 /// Ensures that the given term is a universe, returning the level of that
@@ -570,14 +539,21 @@ pub fn synth_term(
     log::trace!("synthesizing term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Var(name) => synth_var(context, name),
+        Term::Var(name) => match context.lookup_binder(&name.value) {
+            None => Err(Diagnostic::new_error("unbound variable")
+                .with_label(DiagnosticLabel::new_primary(name.span()))),
+            Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
+        },
         Term::Hole(span) => {
             Err(Diagnostic::new_error("ambiguous term")
                 .with_label(DiagnosticLabel::new_primary(*span)))
         },
 
         Term::Ann(concrete_term, concrete_term_ty) => {
-            synth_ann(context, concrete_term, Some(concrete_term_ty))
+            let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
+            let term_ty = context.eval(concrete_term_ty.span(), &term_ty)?;
+            let term = check_term(context, concrete_term, &term_ty)?;
+            Ok((term, term_ty))
         },
         Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Let(_, concrete_items, concrete_body) => {
