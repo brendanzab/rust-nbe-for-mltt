@@ -65,18 +65,32 @@ pub fn synth(
     ))
 }
 
-// FIXME: convert panics into internal compiler errors
+fn literal_bug<T>(span: FileSpan, message: impl Into<String>) -> Result<T, Diagnostic<FileSpan>> {
+    // FIXME: improve precision of error span
+    Err(Diagnostic::new_bug(message)
+        .with_label(DiagnosticLabel::new_primary(span).with_message("buggy literal is here")))
+}
 
-fn parse_string(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+fn expect_char(
+    span: FileSpan,
+    chars: &mut impl Iterator<Item = char>,
+) -> Result<char, Diagnostic<FileSpan>> {
+    match chars.next() {
+        Some(ch) => Ok(ch),
+        None => literal_bug(span, "unexpected EOF"),
+    }
+}
+
+fn parse_string(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     let mut chars = src.chars();
     let mut string = String::new();
 
     assert_eq!(chars.next(), Some('"'));
 
     loop {
-        match chars.next().expect("unexpected EOF") {
+        match expect_char(span, &mut chars)? {
             '"' => break,
-            '\\' => string.push(parse_escape(&mut chars)),
+            '\\' => string.push(parse_escape(span, &mut chars)?),
             ch => string.push(ch),
         }
     }
@@ -86,16 +100,16 @@ fn parse_string(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<F
     Ok(LiteralIntro::String(string))
 }
 
-fn parse_char(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+fn parse_char(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     let mut chars = src.chars();
 
     assert_eq!(chars.next(), Some('\''));
 
-    let ch = match chars.next().expect("unexpected EOF") {
-        '\'' => panic!("unexpected end of character"),
-        '\\' => parse_escape(&mut chars),
-        ch => ch,
-    };
+    let ch = match expect_char(span, &mut chars)? {
+        '\'' => literal_bug(span, "unexpected end of character"),
+        '\\' => parse_escape(span, &mut chars),
+        ch => Ok(ch),
+    }?;
 
     assert_eq!(chars.next(), Some('\''));
     assert_eq!(chars.next(), None);
@@ -103,59 +117,69 @@ fn parse_char(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<Fil
     Ok(LiteralIntro::Char(ch))
 }
 
-fn parse_escape(chars: &mut std::str::Chars<'_>) -> char {
-    match chars.next().expect("unexpected EOF") {
-        '\'' => '\'',
-        '\"' => '\"',
-        '\\' => '\\',
-        'n' => '\n',
-        'r' => '\r',
-        't' => '\t',
-        '0' => '\0',
+fn parse_escape(
+    span: FileSpan,
+    chars: &mut impl Iterator<Item = char>,
+) -> Result<char, Diagnostic<FileSpan>> {
+    match expect_char(span, chars)? {
+        '\'' => Ok('\''),
+        '\"' => Ok('\"'),
+        '\\' => Ok('\\'),
+        'n' => Ok('\n'),
+        'r' => Ok('\r'),
+        't' => Ok('\t'),
+        '0' => Ok('\0'),
         'x' => {
             let mut code = 0;
 
-            match chars.next().expect("unexpected EOF") {
+            match expect_char(span, chars)? {
                 ch @ '0'..='7' => code = code * 16 + (ch as u32 - '0' as u32),
-                _ => panic!("invalid ascii escape"),
+                _ => literal_bug(span, "invalid ascii escape")?,
             };
 
-            match chars.next().expect("unexpected EOF") {
+            match expect_char(span, chars)? {
                 ch @ '0'..='9' => code = code * 16 + (ch as u32 - '0' as u32),
                 ch @ 'a'..='f' => code = code * 16 + (ch as u32 - 'a' as u32 + 10),
                 ch @ 'A'..='F' => code = code * 16 + (ch as u32 - 'A' as u32 + 10),
-                _ => panic!("invalid ascii escape"),
+                _ => literal_bug(span, "invalid ascii escape")?,
             };
 
-            std::char::from_u32(code).expect("invalid ascii escape")
+            match std::char::from_u32(code) {
+                Some(ch) => Ok(ch),
+                None => literal_bug(span, "invalid ascii escape"),
+            }
         },
         'u' => {
             let mut code = 0;
 
             assert_eq!(chars.next(), Some('{'));
             loop {
-                match chars.next().expect("unexpected EOF") {
+                match expect_char(span, chars)? {
                     ch @ '0'..='9' => code = code * 16 + (ch as u32 - '0' as u32),
                     ch @ 'a'..='f' => code = code * 16 + (ch as u32 - 'a' as u32 + 10),
                     ch @ 'A'..='F' => code = code * 16 + (ch as u32 - 'A' as u32 + 10),
                     '_' => continue,
                     '}' => break,
-                    _ => panic!("invalid unicode escape"),
+                    _ => literal_bug(span, "invalid unicode escape")?,
                 }
             }
 
-            std::char::from_u32(code).expect("invalid unicode escape")
+            match std::char::from_u32(code) {
+                Some(ch) => Ok(ch),
+                None => literal_bug(span, "invalid unicode escape"),
+            }
         },
-        _ => panic!("unknown escape code"),
+        _ => literal_bug(span, "unknown escape code"),
     }
 }
 
 // FIXME: convert to a polymorphic function?
 macro_rules! parse_int {
     ($span:expr, $T:ty, $Lit:ident, $src:ident) => {{
+        let span = $span;
         let mut chars = $src.chars();
 
-        let (base, mut number) = match chars.next().expect("unexpected EOF") {
+        let (base, mut number) = match expect_char(span, &mut chars)? {
             '0' => match chars.next() {
                 None => (10, 0),
                 Some('b') => (2, 0),
@@ -163,10 +187,10 @@ macro_rules! parse_int {
                 Some('x') => (16, 0),
                 Some('_') => (10, 0),
                 Some(ch @ '0'..='9') => (10, ch as $T - '0' as $T),
-                Some(_) => panic!("unexpected character"),
+                Some(_) => literal_bug(span, "unexpected character")?,
             },
             ch @ '0'..='9' => (10, ch as $T - '0' as $T),
-            _ => panic!("unexpected character"),
+            _ => literal_bug(span, "unexpected character")?,
         };
 
         let acc = |prev: $T, base: $T, inc: $T| {
@@ -174,7 +198,7 @@ macro_rules! parse_int {
                 .and_then(|prev| prev.checked_add(inc))
                 .ok_or_else(|| {
                     Diagnostic::new_error("overflowing literal")
-                        .with_label(DiagnosticLabel::new_primary($span))
+                        .with_label(DiagnosticLabel::new_primary(span))
                 })
         };
 
@@ -187,7 +211,7 @@ macro_rules! parse_int {
                 (16, ch @ 'a'..='f') => number = acc(number, base, ch as $T - 'a' as $T + 10)?,
                 (16, ch @ 'A'..='F') => number = acc(number, base, ch as $T - 'A' as $T + 10)?,
                 (_, '_') => continue,
-                (_, _) => panic!("unexpected character"),
+                (_, _) => literal_bug(span, "unexpected character")?,
             }
         }
 
