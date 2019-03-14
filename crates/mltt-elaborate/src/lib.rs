@@ -595,7 +595,7 @@ pub fn synth_term(
                         let concrete_param_ty = concrete_param_ty.as_ref().ok_or_else(|| {
                             Diagnostic::new_error("implicit parameter is missing a type parameter")
                                 .with_label(DiagnosticLabel::new_primary(*param_span).with_message(
-                                    "inference of parameter annnotations is not yet supported",
+                                    "inference of parameter annotations is not yet supported",
                                 ))
                         })?;
 
