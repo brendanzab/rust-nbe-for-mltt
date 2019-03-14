@@ -3,6 +3,7 @@
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
 use pretty::{BoxDoc, Doc};
+use std::fmt;
 use std::ops;
 
 pub mod core;
@@ -216,6 +217,12 @@ pub struct Label(pub String);
 impl Label {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::text(&self.0)
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

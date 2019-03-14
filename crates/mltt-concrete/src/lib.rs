@@ -15,6 +15,7 @@
 
 use mltt_span::{ByteIndex, ByteSize, FileId, FileSpan};
 use pretty::{BoxDoc, Doc};
+use std::borrow::Cow;
 use std::fmt;
 
 /// Top-level items in a module
@@ -144,6 +145,12 @@ impl SpannedString {
     /// Convert the string into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::text(&self.value)
+    }
+}
+
+impl fmt::Display for SpannedString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(f)
     }
 }
 
@@ -384,6 +391,28 @@ pub enum RecordIntroField {
 }
 
 impl RecordIntroField {
+    /// Desugar punned fields
+    pub fn desugar(
+        &self,
+    ) -> (
+        &SpannedString,
+        &[IntroParam],
+        std::option::Option<&Term>,
+        std::borrow::Cow<'_, Term>,
+    ) {
+        match self {
+            RecordIntroField::Punned { label } => {
+                (label, &[][..], None, Cow::Owned(Term::Var(label.clone())))
+            },
+            RecordIntroField::Explicit {
+                label,
+                params,
+                body_ty,
+                body,
+            } => (label, &params[..], body_ty.as_ref(), Cow::Borrowed(body)),
+        }
+    }
+
     /// Convert the field into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {

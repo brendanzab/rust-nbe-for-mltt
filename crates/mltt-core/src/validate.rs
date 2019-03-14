@@ -141,11 +141,11 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable => write!(f, "unbound variable"),
-            TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label.0),
+            TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
             TypeError::UnexpectedField { found, expected } => write!(
                 f,
                 "unexpected field, found `{}`, but expected `{}`",
-                found.0, expected.0,
+                found, expected,
             ),
             TypeError::UnexpectedAppMode { found, expected } => write!(
                 f,

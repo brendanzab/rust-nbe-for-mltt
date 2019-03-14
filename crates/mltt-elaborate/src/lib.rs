@@ -11,9 +11,7 @@
 #![warn(rust_2018_idioms)]
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{
-    Arg, IntroParam, Item, Pattern, RecordIntroField, SpannedString, Term, TypeParam,
-};
+use mltt_concrete::{Arg, IntroParam, Item, Pattern, SpannedString, Term, TypeParam};
 use mltt_core::nbe;
 use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
 use mltt_span::FileSpan;
@@ -525,49 +523,25 @@ pub fn check_term(
                         .with_label(DiagnosticLabel::new_primary(*span))),
                 }?;
 
-                let (found_label, term_span, term) = match concrete_intro_field {
-                    RecordIntroField::Punned { label } if expected_label.0 == label.value => {
-                        let (term, term_ty) = synth_var(&context, label)?;
-                        context.expect_subtype(label.span(), &term_ty, expected_term_ty)?;
+                let (found_label, params, body_ty, body) = concrete_intro_field.desugar();
 
-                        Ok((label.clone(), label.span(), term))
-                    },
+                if found_label.value == expected_label.0 {
+                    let term = check_clause(&context, params, body_ty, &body, expected_term_ty)?;
 
-                    RecordIntroField::Explicit {
-                        label,
-                        params,
-                        body_ty,
-                        body,
-                    } if expected_label.0 == label.value => {
-                        let term = check_clause(
-                            &context,
-                            params,
-                            body_ty.as_ref(),
-                            body,
-                            expected_term_ty,
-                        )?;
+                    let term_value = context.eval(body.span(), &term)?;
+                    let term_ty = expected_term_ty.clone();
 
-                        Ok((label.clone(), body.span(), term))
-                    },
-
-                    RecordIntroField::Punned { label }
-                    | RecordIntroField::Explicit { label, .. } => {
-                        Err(Diagnostic::new_error("field not found").with_label(
-                            DiagnosticLabel::new_primary(label.span()).with_message(format!(
-                                "expected `{}`, but found `{}`",
-                                label.value, expected_label.0,
-                            )),
-                        ))
-                    },
-                }?;
-
-                let label = expected_label.clone();
-                let term_value = context.eval(term_span, &term)?;
-                let term_ty = expected_term_ty.clone();
-
-                context.local_define(found_label.value, term_value.clone(), term_ty);
-                expected_ty = do_closure_app(&rest, term_value)?;
-                fields.push((label, term));
+                    fields.push((expected_label.clone(), term));
+                    context.local_define(found_label.value.clone(), term_value.clone(), term_ty);
+                    expected_ty = do_closure_app(&rest, term_value)?;
+                } else {
+                    return Err(Diagnostic::new_error("field not found").with_label(
+                        DiagnosticLabel::new_primary(found_label.span()).with_message(format!(
+                            "expected `{}`, but found `{}`",
+                            found_label, expected_label,
+                        )),
+                    ));
+                }
             }
 
             if let domain::Value::RecordTypeEmpty = expected_ty.as_ref() {
@@ -791,7 +765,7 @@ pub fn synth_term(
                 }
             }
 
-            let message = format!("field not found: `{}`", label.value);
+            let message = format!("field not found: `{}`", label);
             Err(Diagnostic::new_error(message)
                 .with_label(DiagnosticLabel::new_primary(label.span())))
         },
