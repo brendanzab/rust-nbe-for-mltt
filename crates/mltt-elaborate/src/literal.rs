@@ -18,26 +18,27 @@ pub fn check(
     concrete_literal: &Literal,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+    use mltt_concrete::LiteralKind as LKind;
     use mltt_core::syntax::domain::Value;
-    use mltt_core::syntax::LiteralType as LitType;
+    use mltt_core::syntax::LiteralType as LType;
 
     let Literal { span, kind, value } = concrete_literal;
 
     let literal_intro = match (kind, expected_ty.as_ref()) {
-        (LiteralKind::String, Value::LiteralType(LitType::String)) => parse_string(*span, value),
-        (LiteralKind::Char, Value::LiteralType(LitType::Char)) => parse_char(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::U8)) => parse_u8(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::U16)) => parse_u16(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::U32)) => parse_u32(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::U64)) => parse_u64(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::S8)) => parse_s8(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::S16)) => parse_s16(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::S32)) => parse_s32(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::S64)) => parse_s64(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::F32)) => parse_f32(*span, value),
-        (LiteralKind::Int, Value::LiteralType(LitType::F64)) => parse_f64(*span, value),
-        (LiteralKind::Float, Value::LiteralType(LitType::F32)) => parse_f32(*span, value),
-        (LiteralKind::Float, Value::LiteralType(LitType::F64)) => parse_f64(*span, value),
+        (LKind::String, Value::LiteralType(LType::String)) => parse_string(*span, value),
+        (LKind::Char, Value::LiteralType(LType::Char)) => parse_char(*span, value),
+        (LKind::Int, Value::LiteralType(LType::U8)) => parse_int::<u8>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::U16)) => parse_int::<u16>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::U32)) => parse_int::<u32>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::U64)) => parse_int::<u64>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::S8)) => parse_int::<i8>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::S16)) => parse_int::<i16>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::S32)) => parse_int::<i32>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::S64)) => parse_int::<i64>(*span, value),
+        (LKind::Int, Value::LiteralType(LType::F32)) => literal_bug(*span, "unimplemented: f32"),
+        (LKind::Int, Value::LiteralType(LType::F64)) => literal_bug(*span, "unimplemented: f64"),
+        (LKind::Float, Value::LiteralType(LType::F32)) => literal_bug(*span, "unimplemented: f32"),
+        (LKind::Float, Value::LiteralType(LType::F64)) => literal_bug(*span, "unimplemented: f64"),
         (_, _) => Err(Diagnostic::new_error("mismatched literal")
             .with_label(DiagnosticLabel::new_primary(*span))),
     }?;
@@ -67,8 +68,7 @@ pub fn synth(
 
 fn literal_bug<T>(span: FileSpan, message: impl Into<String>) -> Result<T, Diagnostic<FileSpan>> {
     // FIXME: improve precision of error span
-    Err(Diagnostic::new_bug(message)
-        .with_label(DiagnosticLabel::new_primary(span).with_message("buggy literal is here")))
+    Err(Diagnostic::new_bug(message).with_label(DiagnosticLabel::new_primary(span)))
 }
 
 fn expect_char(
@@ -173,88 +173,90 @@ fn parse_escape(
     }
 }
 
-// FIXME: convert to a polymorphic function?
-macro_rules! parse_int {
-    ($span:expr, $T:ty, $Lit:ident, $src:ident) => {{
-        let span = $span;
-        let mut chars = $src.chars();
+/// Helper trait for defining `parse_int`
+trait ParseIntLiteral: Sized {
+    fn from_u8(num: u8) -> Self;
+    fn checked_mul(self, other: Self) -> Option<Self>;
+    fn checked_add(self, other: Self) -> Option<Self>;
+    fn into_literal_intro(self) -> LiteralIntro;
+}
 
-        let (base, mut number) = match expect_char(span, &mut chars)? {
-            '0' => match chars.next() {
-                None => (10, 0),
-                Some('b') => (2, 0),
-                Some('o') => (8, 0),
-                Some('x') => (16, 0),
-                Some('_') => (10, 0),
-                Some(ch @ '0'..='9') => (10, ch as $T - '0' as $T),
-                Some(_) => literal_bug(span, "unexpected character")?,
-            },
-            ch @ '0'..='9' => (10, ch as $T - '0' as $T),
-            _ => literal_bug(span, "unexpected character")?,
-        };
+macro_rules! impl_parse_int_literal {
+    ($T:ident, $Literal:ident) => {
+        impl ParseIntLiteral for $T {
+            fn from_u8(num: u8) -> $T {
+                num as $T
+            }
 
-        let acc = |prev: $T, base: $T, inc: $T| {
-            prev.checked_mul(base)
-                .and_then(|prev| prev.checked_add(inc))
-                .ok_or_else(|| {
-                    Diagnostic::new_error("overflowing literal")
-                        .with_label(DiagnosticLabel::new_primary(span))
-                })
-        };
+            fn checked_mul(self, other: $T) -> Option<$T> {
+                $T::checked_mul(self, other)
+            }
 
-        while let Some(ch) = chars.next() {
-            match (base, ch) {
-                (2, ch @ '0'..='1') => number = acc(number, base, ch as $T - '0' as $T)?,
-                (8, ch @ '0'..='7') => number = acc(number, base, ch as $T - '0' as $T)?,
-                (10, ch @ '0'..='9') => number = acc(number, base, ch as $T - '0' as $T)?,
-                (16, ch @ '0'..='9') => number = acc(number, base, ch as $T - '0' as $T)?,
-                (16, ch @ 'a'..='f') => number = acc(number, base, ch as $T - 'a' as $T + 10)?,
-                (16, ch @ 'A'..='F') => number = acc(number, base, ch as $T - 'A' as $T + 10)?,
-                (_, '_') => continue,
-                (_, _) => literal_bug(span, "unexpected character")?,
+            fn checked_add(self, other: $T) -> Option<$T> {
+                $T::checked_add(self, other)
+            }
+
+            fn into_literal_intro(self) -> LiteralIntro {
+                LiteralIntro::$Literal(self)
             }
         }
-
-        Ok(LiteralIntro::$Lit(number))
-    }};
+    };
 }
 
-fn parse_u8(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, u8, U8, src)
-}
+impl_parse_int_literal!(u8, U8);
+impl_parse_int_literal!(u16, U16);
+impl_parse_int_literal!(u32, U32);
+impl_parse_int_literal!(u64, U64);
+impl_parse_int_literal!(i8, S8);
+impl_parse_int_literal!(i16, S16);
+impl_parse_int_literal!(i32, S32);
+impl_parse_int_literal!(i64, S64);
 
-fn parse_u16(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, u16, U16, src)
-}
+fn parse_int<T: ParseIntLiteral>(
+    span: FileSpan,
+    src: &str,
+) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
+    let mut chars = src.chars();
 
-fn parse_u32(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, u32, U32, src)
-}
+    fn from_char<T: ParseIntLiteral>(ch: char, ch_diff: char, off: u8) -> T {
+        T::from_u8(ch as u8 - ch_diff as u8 + off)
+    }
 
-fn parse_u64(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, u64, U64, src)
-}
+    let (base, mut number) = match expect_char(span, &mut chars)? {
+        '0' => match chars.next() {
+            None => (10, T::from_u8(0)),
+            Some('b') => (2, T::from_u8(0)),
+            Some('o') => (8, T::from_u8(0)),
+            Some('x') => (16, T::from_u8(0)),
+            Some('_') => (10, T::from_u8(0)),
+            Some(ch @ '0'..='9') => (10, from_char(ch, '0', 0)),
+            Some(_) => literal_bug(span, "unexpected character")?,
+        },
+        ch @ '0'..='9' => (10, T::from_u8(ch as u8 - '0' as u8)),
+        _ => literal_bug(span, "unexpected character")?,
+    };
 
-fn parse_s8(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, i8, S8, src)
-}
+    let acc = |prev: T, base: u8, inc: T| {
+        prev.checked_mul(T::from_u8(base))
+            .and_then(|prev| prev.checked_add(inc))
+            .ok_or_else(|| {
+                Diagnostic::new_error("overflowing literal")
+                    .with_label(DiagnosticLabel::new_primary(span))
+            })
+    };
 
-fn parse_s16(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, i16, S16, src)
-}
+    while let Some(ch) = chars.next() {
+        match (base, ch) {
+            (2, ch @ '0'..='1') => number = acc(number, base, from_char(ch, '0', 0))?,
+            (8, ch @ '0'..='7') => number = acc(number, base, from_char(ch, '0', 0))?,
+            (10, ch @ '0'..='9') => number = acc(number, base, from_char(ch, '0', 0))?,
+            (16, ch @ '0'..='9') => number = acc(number, base, from_char(ch, '0', 0))?,
+            (16, ch @ 'a'..='f') => number = acc(number, base, from_char(ch, 'a', 10))?,
+            (16, ch @ 'A'..='F') => number = acc(number, base, from_char(ch, 'A', 10))?,
+            (_, '_') => continue,
+            (_, _) => literal_bug(span, "unexpected character")?,
+        }
+    }
 
-fn parse_s32(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, i32, S32, src)
-}
-
-fn parse_s64(span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    parse_int!(span, i64, S64, src)
-}
-
-fn parse_f32(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    unimplemented!("f32 literals: {:?}", src)
-}
-
-fn parse_f64(_span: FileSpan, src: &str) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    unimplemented!("f64 literals: {:?}", src)
+    Ok(number.into_literal_intro())
 }
