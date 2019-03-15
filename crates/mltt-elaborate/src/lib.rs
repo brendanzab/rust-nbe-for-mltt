@@ -351,18 +351,19 @@ fn check_clause(
             },
             (_, AppMode::Implicit(label)) => {
                 let message = "inference of implicit parameter patterns is not yet supported";
-                let label_message = format!("add the explicit pattern `{{{} = ..}}` here", label);
-
                 return Err(Diagnostic::new_error(message).with_label(
-                    DiagnosticLabel::new_primary(head_param.span()).with_message(label_message),
+                    DiagnosticLabel::new_primary(head_param.span()).with_message(format!(
+                        "add the explicit pattern `{{{} = ..}}` here",
+                        label,
+                    )),
                 ));
             },
             (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
                 let message = "unexpected implicit parameter pattern";
-                let label_message = "this parameter is not needed";
-
-                return Err(Diagnostic::new_error(message)
-                    .with_label(DiagnosticLabel::new_primary(*span).with_message(label_message)));
+                return Err(Diagnostic::new_error(message).with_label(
+                    DiagnosticLabel::new_primary(*span)
+                        .with_message("this parameter is not needed"),
+                ));
             },
         };
 
@@ -429,14 +430,10 @@ fn synth_universe(
     let (term, ty) = synth_term(context, concrete_term)?;
     match ty.as_ref() {
         domain::Value::Universe(level) => Ok((term, *level)),
-        _ => {
-            let message = format!(
-                "universe expected, but found `{}`",
-                context.read_back(None, &ty)?,
-            );
-            Err(Diagnostic::new_error(message)
-                .with_label(DiagnosticLabel::new_primary(concrete_term.span())))
-        },
+        _ => Err(Diagnostic::new_error("type expected").with_label(
+            DiagnosticLabel::new_primary(concrete_term.span())
+                .with_message(format!("found `{}`", context.read_back(None, &ty)?)),
+        )),
     }
 }
 
@@ -656,13 +653,10 @@ pub fn synth_term(
                         fun = core::RcTerm::from(core::Term::FunElim(fun, arg_app_mode, arg));
                         fun_ty = do_closure_app(body_ty, arg_value)?;
                     } else {
-                        let label_message =
-                            format!("expected {:?} but found {:?}", ty_app_mode, arg_app_mode);
-
                         return Err(Diagnostic::new_error("unexpected application mode")
-                            .with_label(
-                                DiagnosticLabel::new_primary(arg_span).with_message(label_message),
-                            ));
+                            .with_label(DiagnosticLabel::new_primary(arg_span).with_message(
+                                format!("expected {:?} but found {:?}", ty_app_mode, arg_app_mode),
+                            )));
                     }
                 } else {
                     return Err(Diagnostic::new_error("expected a function").with_label(
