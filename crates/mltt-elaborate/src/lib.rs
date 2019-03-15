@@ -203,7 +203,7 @@ impl Default for Context {
 /// Check that this is a valid module
 pub fn check_module(
     context: &Context,
-    concrete_items: &[Item],
+    concrete_items: &[Item<'_>],
 ) -> Result<Vec<core::Item>, Diagnostic<FileSpan>> {
     // The local elaboration context
     let mut context = context.clone();
@@ -212,7 +212,7 @@ pub fn check_module(
 
 fn check_items(
     context: &mut Context,
-    concrete_items: &[Item],
+    concrete_items: &[Item<'_>],
 ) -> Result<Vec<core::Item>, Diagnostic<FileSpan>> {
     // Declarations that may be waiting to be defined
     let mut forward_declarations = im::HashMap::new();
@@ -227,7 +227,7 @@ fn check_items(
 
         match concrete_item {
             Item::Declaration(declaration) => {
-                let label = &declaration.label.value;
+                let label = declaration.label.value;
                 let concrete_body_ty = &declaration.body_ty;
 
                 log::trace!("checking declaration:\t\t{}\t: {}", label, concrete_body_ty);
@@ -253,7 +253,7 @@ fn check_items(
                 }
             },
             Item::Definition(definition) => {
-                let label = &definition.label.value;
+                let label = definition.label.value;
                 let params = &definition.params;
                 let body_ty = definition.body_ty.as_ref();
                 let body = &definition.body;
@@ -299,10 +299,10 @@ fn check_items(
                 log::trace!("elaborated declaration:\t{}\t: {}", label, term_ty);
                 log::trace!("elaborated definition:\t{}\t= {}", label, term);
 
-                context.local_define(label.clone(), value, ty);
+                context.local_define(label.to_owned(), value, ty);
                 core_items.push(core::Item {
                     doc,
-                    label: label.clone(),
+                    label: label.to_owned(),
                     term_ty,
                     term,
                 });
@@ -317,9 +317,9 @@ fn check_items(
 /// it into a case tree.
 fn check_clause(
     context: &Context,
-    mut params: &[IntroParam],
-    concrete_body_ty: Option<&Term>,
-    concrete_body: &Term,
+    mut params: &[IntroParam<'_>],
+    concrete_body_ty: Option<&Term<'_>>,
+    concrete_body: &Term<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
     let mut context = context.clone();
@@ -384,7 +384,7 @@ fn check_clause(
         };
 
         param_tys.push((app_mode, param_ty.clone()));
-        let param = context.local_bind(var_name.value.clone(), param_ty.clone());
+        let param = context.local_bind(var_name.value.to_owned(), param_ty.clone());
         expected_ty = do_closure_app(&body_ty, param.clone())?;
     }
 
@@ -410,9 +410,9 @@ fn check_clause(
 /// Synthesize the type of a clause, elaborating it into a case tree.
 fn synth_clause(
     context: &Context,
-    params: &[IntroParam],
-    concrete_body_ty: Option<&Term>,
-    concrete_body: &Term,
+    params: &[IntroParam<'_>],
+    concrete_body_ty: Option<&Term<'_>>,
+    concrete_body: &Term<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     if let Some(param) = params.first() {
         // TODO: We will be able to type this once we have annotated patterns!
@@ -437,7 +437,7 @@ fn synth_clause(
 /// universe and its elaborated form.
 fn synth_universe(
     context: &Context,
-    concrete_term: &Term,
+    concrete_term: &Term<'_>,
 ) -> Result<(core::RcTerm, UniverseLevel), Diagnostic<FileSpan>> {
     let (term, ty) = synth_term(context, concrete_term)?;
     match ty.as_ref() {
@@ -456,7 +456,7 @@ fn synth_universe(
 /// Check that a given term conforms to an expected type
 pub fn check_term(
     context: &Context,
-    concrete_term: &Term,
+    concrete_term: &Term<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
     log::trace!("checking term:\t\t{}", concrete_term);
@@ -501,7 +501,7 @@ pub fn check_term(
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
-                    context.local_define(found_label.value.clone(), term_value.clone(), term_ty);
+                    context.local_define(found_label.value.to_owned(), term_value.clone(), term_ty);
                     expected_ty = do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
@@ -532,7 +532,7 @@ pub fn check_term(
 /// Synthesize the type of the given term
 pub fn synth_term(
     context: &Context,
-    concrete_term: &Term,
+    concrete_term: &Term<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     use std::cmp;
 
@@ -586,7 +586,7 @@ pub fn synth_term(
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_name.value.clone(), param_ty_value);
+                            context.local_bind(param_name.value.to_owned(), param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -600,12 +600,12 @@ pub fn synth_term(
                         })?;
 
                         for param_label in param_labels {
-                            let app_mode = AppMode::Implicit(Label(param_label.value.clone()));
+                            let app_mode = AppMode::Implicit(Label(param_label.value.to_owned()));
                             let param_ty_span = concrete_param_ty.span();
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_label.value.clone(), param_ty_value);
+                            context.local_bind(param_label.value.to_owned(), param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -655,7 +655,7 @@ pub fn synth_term(
                         ),
                         Arg::Implicit(arg_span, label, concrete_arg) => (
                             *arg_span,
-                            AppMode::Implicit(Label(label.value.clone())),
+                            AppMode::Implicit(Label(label.value.to_owned())),
                             match concrete_arg {
                                 Some(concrete_arg) => check_term(context, concrete_arg, param_ty)?,
                                 None => check_term(context, &Term::Var(label.clone()), param_ty)?,
@@ -699,10 +699,10 @@ pub fn synth_term(
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
                     let ty_value = context.eval(concrete_ty_field.ann.span(), &ty)?;
 
-                    context.local_bind(concrete_ty_field.label.value.clone(), ty_value);
+                    context.local_bind(concrete_ty_field.label.value.to_owned(), ty_value);
                     max_level = cmp::max(max_level, ty_level);
 
-                    Ok((docs, Label(concrete_ty_field.label.value.clone()), ty))
+                    Ok((docs, Label(concrete_ty_field.label.value.to_owned()), ty))
                 })
                 .collect::<Result<_, Diagnostic<FileSpan>>>()?;
 

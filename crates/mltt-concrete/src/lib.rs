@@ -20,14 +20,14 @@ use std::fmt;
 
 /// Top-level items in a module
 #[derive(Debug, Clone, PartialEq)]
-pub enum Item {
+pub enum Item<'file> {
     /// Forward-declarations
-    Declaration(Declaration),
+    Declaration(Declaration<'file>),
     /// Term definitions
-    Definition(Definition),
+    Definition(Definition<'file>),
 }
 
-impl Item {
+impl<'file> Item<'file> {
     /// Returns `true` if the item is a definition
     pub fn is_definition(&self) -> bool {
         match self {
@@ -47,24 +47,24 @@ impl Item {
 
 /// Forward-declarations
 #[derive(Debug, Clone, PartialEq)]
-pub struct Declaration {
-    pub docs: Vec<SpannedString>,
-    pub label: SpannedString,
-    pub body_ty: Term,
+pub struct Declaration<'file> {
+    pub docs: Vec<SpannedString<'file>>,
+    pub label: SpannedString<'file>,
+    pub body_ty: Term<'file>,
 }
 
-impl Declaration {
+impl<'file> Declaration<'file> {
     /// Convert the declaration into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         let docs = Doc::concat(
             self.docs
                 .iter()
-                .map(|doc| Doc::text(&doc.value).append(Doc::newline())),
+                .map(|doc| Doc::text(doc.value).append(Doc::newline())),
         );
 
         Doc::nil()
             .append(docs)
-            .append(&self.label.value)
+            .append(self.label.value)
             .append(Doc::space())
             .append(":")
             .append(Doc::space())
@@ -75,21 +75,21 @@ impl Declaration {
 
 /// Term definitions
 #[derive(Debug, Clone, PartialEq)]
-pub struct Definition {
-    pub docs: Vec<SpannedString>,
-    pub label: SpannedString,
-    pub params: Vec<IntroParam>,
-    pub body_ty: Option<Term>,
-    pub body: Term,
+pub struct Definition<'file> {
+    pub docs: Vec<SpannedString<'file>>,
+    pub label: SpannedString<'file>,
+    pub params: Vec<IntroParam<'file>>,
+    pub body_ty: Option<Term<'file>>,
+    pub body: Term<'file>,
 }
 
-impl Definition {
+impl<'file> Definition<'file> {
     /// Convert the definition into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         let docs = Doc::concat(
             self.docs
                 .iter()
-                .map(|doc| Doc::text(&doc.value).append(Doc::newline())),
+                .map(|doc| Doc::text(doc.value).append(Doc::newline())),
         );
         let params = Doc::intersperse(self.params.iter().map(IntroParam::to_doc), Doc::space());
         let body_ty = self.body_ty.as_ref().map_or(Doc::nil(), |body_ty| {
@@ -102,7 +102,7 @@ impl Definition {
 
         Doc::nil()
             .append(docs)
-            .append(&self.label.value)
+            .append(self.label.value)
             .append(Doc::space())
             .append(params)
             .append(Doc::space())
@@ -115,18 +115,18 @@ impl Definition {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SpannedString {
+pub struct SpannedString<'file> {
     pub source: FileId,
     pub start: ByteIndex,
-    pub value: String,
+    pub value: &'file str,
 }
 
-impl SpannedString {
+impl<'file> SpannedString<'file> {
     pub fn new(
         source: FileId,
         start: impl Into<ByteIndex>,
-        value: impl Into<String>,
-    ) -> SpannedString {
+        value: &'file str,
+    ) -> SpannedString<'file> {
         SpannedString {
             source,
             start: start.into(),
@@ -144,11 +144,11 @@ impl SpannedString {
 
     /// Convert the string into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::text(&self.value)
+        Doc::text(self.value)
     }
 }
 
-impl fmt::Display for SpannedString {
+impl<'file> fmt::Display for SpannedString<'file> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt(f)
     }
@@ -156,19 +156,19 @@ impl fmt::Display for SpannedString {
 
 /// Concrete patterns
 #[derive(Debug, Clone, PartialEq)]
-pub enum Pattern {
+pub enum Pattern<'file> {
     /// Variable patterns
-    Var(SpannedString),
+    Var(SpannedString<'file>),
     // TODO:
     // /// Literal patterns
-    // Literal(Literal),
+    // Literal(Literal<'file>),
     // /// Patterns with an explicit type annotation
-    // Ann(Box<Pattern>, Box<Term>),
+    // Ann(Box<Pattern<'file>>, Box<Term<'file>>),
     // /// Pair patterns
-    // PairIntro(Box<Pattern>, Box<Pattern>),
+    // PairIntro(Box<Pattern<'file>>, Box<Pattern<'file>>),
 }
 
-impl Pattern {
+impl<'file> Pattern<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Pattern::Var(name) => name.span(),
@@ -183,7 +183,7 @@ impl Pattern {
     }
 }
 
-impl fmt::Display for Pattern {
+impl<'file> fmt::Display for Pattern<'file> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
@@ -216,7 +216,7 @@ impl LiteralKind {
 
 /// Concrete literals
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Literal {
+pub struct Literal<'file> {
     /// The span where this literal was introduced
     pub span: FileSpan,
     /// The kind of literal
@@ -224,28 +224,28 @@ pub struct Literal {
     /// We use a string here, because we'll be using type information to do
     /// further parsing of these. For example we need to know the size of an
     /// integer literal before we can know whether the literal is overflowing.
-    pub value: String,
+    pub value: &'file str,
 }
 
-impl Literal {
+impl<'file> Literal<'file> {
     pub fn span(&self) -> FileSpan {
         self.span
     }
 
     /// Convert the literal into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(&self.value)
+        Doc::as_string(self.value)
     }
 }
 
 /// A group of parameters to be used in a function type
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeParam {
-    Explicit(FileSpan, Vec<SpannedString>, Term),
-    Implicit(FileSpan, Vec<SpannedString>, Option<Term>),
+pub enum TypeParam<'file> {
+    Explicit(FileSpan, Vec<SpannedString<'file>>, Term<'file>),
+    Implicit(FileSpan, Vec<SpannedString<'file>>, Option<Term<'file>>),
 }
 
-impl TypeParam {
+impl<'file> TypeParam<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             TypeParam::Explicit(span, _, _) | TypeParam::Implicit(span, _, _) => *span,
@@ -290,12 +290,12 @@ impl TypeParam {
 
 /// A parameter pattern to be used in a function introduction
 #[derive(Debug, Clone, PartialEq)]
-pub enum IntroParam {
-    Explicit(Pattern),
-    Implicit(FileSpan, SpannedString, Option<Pattern>),
+pub enum IntroParam<'file> {
+    Explicit(Pattern<'file>),
+    Implicit(FileSpan, SpannedString<'file>, Option<Pattern<'file>>),
 }
 
-impl IntroParam {
+impl<'file> IntroParam<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             IntroParam::Explicit(pattern) => pattern.span(),
@@ -325,12 +325,12 @@ impl IntroParam {
 
 /// An argument passed to a function
 #[derive(Debug, Clone, PartialEq)]
-pub enum Arg {
-    Explicit(Term),
-    Implicit(FileSpan, SpannedString, Option<Term>),
+pub enum Arg<'file> {
+    Explicit(Term<'file>),
+    Implicit(FileSpan, SpannedString<'file>, Option<Term<'file>>),
 }
 
-impl Arg {
+impl<'file> Arg<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Arg::Explicit(term) => term.span(),
@@ -358,13 +358,13 @@ impl Arg {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct RecordTypeField {
-    pub docs: Vec<SpannedString>,
-    pub label: SpannedString,
-    pub ann: Term,
+pub struct RecordTypeField<'file> {
+    pub docs: Vec<SpannedString<'file>>,
+    pub label: SpannedString<'file>,
+    pub ann: Term<'file>,
 }
 
-impl RecordTypeField {
+impl<'file> RecordTypeField<'file> {
     /// Convert the field into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::nil()
@@ -378,27 +378,27 @@ impl RecordTypeField {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum RecordIntroField {
+pub enum RecordIntroField<'file> {
     Punned {
-        label: SpannedString,
+        label: SpannedString<'file>,
     },
     Explicit {
-        label: SpannedString,
-        params: Vec<IntroParam>,
-        body_ty: Option<Term>,
-        body: Term,
+        label: SpannedString<'file>,
+        params: Vec<IntroParam<'file>>,
+        body_ty: Option<Term<'file>>,
+        body: Term<'file>,
     },
 }
 
-impl RecordIntroField {
+impl<'file> RecordIntroField<'file> {
     /// Desugar punned fields
     pub fn desugar(
         &self,
     ) -> (
-        &SpannedString,
-        &[IntroParam],
-        std::option::Option<&Term>,
-        std::borrow::Cow<'_, Term>,
+        &SpannedString<'file>,
+        &[IntroParam<'file>],
+        std::option::Option<&Term<'file>>,
+        std::borrow::Cow<'_, Term<'file>>,
     ) {
         match self {
             RecordIntroField::Punned { label } => {
@@ -449,47 +449,47 @@ impl RecordIntroField {
 
 /// Concrete terms
 #[derive(Debug, Clone, PartialEq)]
-pub enum Term {
+pub enum Term<'file> {
     /// Variables
-    Var(SpannedString),
+    Var(SpannedString<'file>),
     /// Holes
     Hole(FileSpan),
 
     /// A parenthesized term
-    Parens(FileSpan, Box<Term>),
+    Parens(FileSpan, Box<Term<'file>>),
     /// A term that is explicitly annotated with a type
-    Ann(Box<Term>, Box<Term>),
+    Ann(Box<Term<'file>>, Box<Term<'file>>),
     /// Let bindings
-    Let(FileSpan, Vec<Item>, Box<Term>),
+    Let(FileSpan, Vec<Item<'file>>, Box<Term<'file>>),
 
     /// Literals
-    Literal(Literal),
+    Literal(Literal<'file>),
 
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(FileSpan, Vec<TypeParam>, Box<Term>),
+    FunType(FileSpan, Vec<TypeParam<'file>>, Box<Term<'file>>),
     /// Non-dependent function types
-    FunArrowType(Box<Term>, Box<Term>),
+    FunArrowType(Box<Term<'file>>, Box<Term<'file>>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
-    FunIntro(FileSpan, Vec<IntroParam>, Box<Term>),
+    FunIntro(FileSpan, Vec<IntroParam<'file>>, Box<Term<'file>>),
     /// Eliminate a function by applying it to an argument
-    FunElim(Box<Term>, Vec<Arg>),
+    FunElim(Box<Term<'file>>, Vec<Arg<'file>>),
 
     /// Dependent record type
-    RecordType(FileSpan, Vec<RecordTypeField>),
+    RecordType(FileSpan, Vec<RecordTypeField<'file>>),
     /// Record introduction
-    RecordIntro(FileSpan, Vec<RecordIntroField>),
+    RecordIntro(FileSpan, Vec<RecordIntroField<'file>>),
     /// Eliminate a record by projecting on it
-    RecordElim(Box<Term>, SpannedString),
+    RecordElim(Box<Term<'file>>, SpannedString<'file>),
 
     /// Universe of types
     Universe(FileSpan, Option<(FileSpan, u32)>),
 }
 
-impl Term {
+impl<'file> Term<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Term::Var(name) => name.span(),
@@ -612,14 +612,14 @@ impl Term {
                     .append(Doc::newline())
                     .append("}")
             },
-            Term::RecordElim(record, label) => record.to_doc().append(".").append(&label.value),
+            Term::RecordElim(record, label) => record.to_doc().append(".").append(label.value),
             Term::Universe(_, None) => Doc::text("Type"),
             Term::Universe(_, Some((_, level))) => Doc::text("Type^").append(Doc::as_string(level)),
         }
     }
 }
 
-impl fmt::Display for Term {
+impl<'file> fmt::Display for Term<'file> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }

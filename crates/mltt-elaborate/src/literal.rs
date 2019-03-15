@@ -15,7 +15,7 @@ use mltt_core::syntax::{core, domain, LiteralIntro, LiteralType};
 use mltt_span::FileSpan;
 
 pub fn check(
-    concrete_literal: &Literal,
+    concrete_literal: &Literal<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as LKind;
@@ -47,7 +47,7 @@ pub fn check(
 }
 
 pub fn synth(
-    concrete_literal: &Literal,
+    concrete_literal: &Literal<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     let Literal { span, kind, value } = concrete_literal;
 

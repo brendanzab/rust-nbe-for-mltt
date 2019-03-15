@@ -63,7 +63,7 @@ use crate::token::{DelimKind, Token, TokenKind};
 
 pub fn parse_module<'file>(
     tokens: impl Iterator<Item = Token<'file>> + 'file,
-) -> Result<Vec<Item>, Diagnostic<FileSpan>> {
+) -> Result<Vec<Item<'file>>, Diagnostic<FileSpan>> {
     let mut parser = Parser::new(tokens);
     let module = parser.parse_module()?;
     parser.expect_eof()?;
@@ -72,7 +72,7 @@ pub fn parse_module<'file>(
 
 pub fn parse_item<'file>(
     tokens: impl Iterator<Item = Token<'file>> + 'file,
-) -> Result<Item, Diagnostic<FileSpan>> {
+) -> Result<Item<'file>, Diagnostic<FileSpan>> {
     let mut parser = Parser::new(tokens);
     let item = parser.parse_item()?;
     parser.expect_eof()?;
@@ -81,7 +81,7 @@ pub fn parse_item<'file>(
 
 pub fn parse_term<'file>(
     tokens: impl Iterator<Item = Token<'file>> + 'file,
-) -> Result<Term, Diagnostic<FileSpan>> {
+) -> Result<Term<'file>, Diagnostic<FileSpan>> {
     let mut parser = Parser::new(tokens);
     let term = parser.parse_term(Prec(0))?;
     parser.expect_eof()?;
@@ -242,21 +242,21 @@ where
         })
     }
 
-    fn try_identifier(&mut self) -> Option<SpannedString> {
+    fn try_identifier(&mut self) -> Option<SpannedString<'file>> {
         let token = self.try_match(TokenKind::Identifier)?;
         Some(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
-            value: token.slice.to_owned(),
+            value: token.slice,
         })
     }
 
-    fn expect_identifier(&mut self) -> Result<SpannedString, Diagnostic<FileSpan>> {
+    fn expect_identifier(&mut self) -> Result<SpannedString<'file>, Diagnostic<FileSpan>> {
         let token = self.expect_match(TokenKind::Identifier)?;
         Ok(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
-            value: token.slice.to_owned(),
+            value: token.slice,
         })
     }
 
@@ -271,13 +271,13 @@ where
         }
     }
 
-    fn expect_doc_comments(&mut self) -> Vec<SpannedString> {
+    fn expect_doc_comments(&mut self) -> Vec<SpannedString<'file>> {
         let mut docs = Vec::new();
         while let Some(doc_token) = self.try_match(TokenKind::LineDoc) {
             docs.push(SpannedString {
                 source: doc_token.span.source(),
                 start: doc_token.span.start(),
-                value: doc_token.slice.to_owned(),
+                value: doc_token.slice,
             });
         }
         docs
@@ -288,7 +288,7 @@ where
     /// ```text
     /// module ::= item*
     /// ```
-    fn parse_module(&mut self) -> Result<Vec<Item>, Diagnostic<FileSpan>> {
+    fn parse_module(&mut self) -> Result<Vec<Item<'file>>, Diagnostic<FileSpan>> {
         let mut items = Vec::new();
         while self.peek().is_some() {
             items.push(self.parse_item()?);
@@ -302,7 +302,7 @@ where
     /// item ::= DOC_COMMENT* IDENTIFIER ":" term(0) ";"
     ///        | DOC_COMMENT* IDENTIFIER intro-param* (":" term(0))? "=" term(0) ";"
     /// ```
-    fn parse_item(&mut self) -> Result<Item, Diagnostic<FileSpan>> {
+    fn parse_item(&mut self) -> Result<Item<'file>, Diagnostic<FileSpan>> {
         log::trace!("expecting item");
 
         let docs = self.expect_doc_comments();
@@ -359,7 +359,7 @@ where
     /// ```text
     /// intro-params ::= intro-param*
     /// ```
-    fn parse_intro_params(&mut self) -> Result<Vec<IntroParam>, Diagnostic<FileSpan>> {
+    fn parse_intro_params(&mut self) -> Result<Vec<IntroParam<'file>>, Diagnostic<FileSpan>> {
         let mut params = Vec::new();
         while self.is_peek_match(ArgParamStart) {
             params.push(self.parse_intro_param()?);
@@ -374,7 +374,7 @@ where
     ///               | "{" IDENTIFIER "}"
     ///               | "{" IDENTIFIER "=" pattern "}"
     /// ```
-    fn parse_intro_param(&mut self) -> Result<IntroParam, Diagnostic<FileSpan>> {
+    fn parse_intro_param(&mut self) -> Result<IntroParam<'file>, Diagnostic<FileSpan>> {
         if let Some(start_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
             let label = self.expect_identifier()?;
             let term = if self.try_match(TokenKind::Equals).is_some() {
@@ -396,7 +396,7 @@ where
     /// ```text
     /// pattern ::= IDENTIFIER
     /// ```
-    fn parse_pattern(&mut self) -> Result<Pattern, Diagnostic<FileSpan>> {
+    fn parse_pattern(&mut self) -> Result<Pattern<'file>, Diagnostic<FileSpan>> {
         Ok(Pattern::Var(self.expect_identifier()?))
     }
 
@@ -423,7 +423,7 @@ where
     ///     infixr  "->"            50  ::= fun-arrow-type
     /// }
     /// ```
-    fn parse_term(&mut self, right_prec: Prec) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_term(&mut self, right_prec: Prec) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         // Use Top-Down Operator Precedence Parsing (a.k.a. Pratt Parsing) to
         // recognise the term syntax. This is not yet abstracted out into a more
         // general form.
@@ -499,7 +499,7 @@ where
     ///     infixr  "."             80  ::= record-elim
     /// }
     /// ```
-    fn parse_arg_term(&mut self, right_prec: Prec) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_arg_term(&mut self, right_prec: Prec) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         // Use Top-Down Operator Precedence Parsing (a.k.a. Pratt Parsing) to
         // recognise the term syntax. This is not yet abstracted out into a more
         // general form.
@@ -537,52 +537,64 @@ where
     }
 
     /// Parse the trailing part of a variable
-    fn parse_var(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_var(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Var(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
-            value: token.slice.to_owned(),
+            value: token.slice,
         }))
     }
 
     /// Parse the trailing part of a hole
-    fn parse_hole(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_hole(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Hole(token.span))
     }
 
     /// Parse the trailing part of a string literal
-    fn parse_string_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_string_literal(
+        &mut self,
+        token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::String,
-            value: token.slice.to_owned(),
+            value: token.slice,
         }))
     }
 
     /// Parse the trailing part of a character literal
-    fn parse_char_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_char_literal(
+        &mut self,
+        token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::Char,
-            value: token.slice.to_owned(),
+            value: token.slice,
         }))
     }
 
     /// Parse the trailing part of a integer literal
-    fn parse_int_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_int_literal(
+        &mut self,
+        token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::Int,
-            value: token.slice.to_owned(),
+            value: token.slice,
         }))
     }
 
     /// Parse the trailing part of a floating point literal
-    fn parse_float_literal(&mut self, token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_float_literal(
+        &mut self,
+        token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::Float,
-            value: token.slice.to_owned(),
+            value: token.slice,
         }))
     }
 
@@ -595,7 +607,10 @@ where
     ///               | "{" IDENTIFIER+ "}"
     ///               | "{" IDENTIFIER+ ":" term(0) "}"
     /// ```
-    fn parse_fun_ty(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_fun_ty(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut params = Vec::new();
 
         loop {
@@ -666,7 +681,10 @@ where
     /// ```text
     /// fun-intro ::= intro-param+ "=>" term(0)
     /// ```
-    fn parse_fun_intro(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_fun_intro(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let params = self.parse_intro_params()?;
         if params.is_empty() {
             return Err(
@@ -688,7 +706,10 @@ where
     /// ```text
     /// parens ::= term(0) ")"
     /// ```
-    fn parse_parens(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_parens(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let term = self.parse_term(Prec(0))?;
         let end_token = self.expect_match(TokenKind::Close(DelimKind::Paren))?;
         let span = FileSpan::merge(start_token.span, end_token.span);
@@ -702,7 +723,10 @@ where
     /// record-type         ::= "{" (record-type-field ";")* record-type-field? "}"
     /// record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term(0)
     /// ```
-    fn parse_record_ty(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_record_ty(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut fields = Vec::new();
 
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
@@ -745,7 +769,7 @@ where
     fn parse_record_intro(
         &mut self,
         start_token: Token<'file>,
-    ) -> Result<Term, Diagnostic<FileSpan>> {
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut fields = Vec::new();
 
         self.expect_match(TokenKind::Open(DelimKind::Brace))?;
@@ -791,7 +815,10 @@ where
     /// ```text
     /// let ::= item+ "in" term(0)
     /// ```
-    fn parse_let(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_let(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut items = Vec::new();
         while self.is_peek_match(ItemStart) {
             items.push(self.parse_item()?);
@@ -818,7 +845,10 @@ where
     /// ```text
     /// universe ::= ("^" INT_LITERAL)?
     /// ```
-    fn parse_universe(&mut self, start_token: Token<'file>) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_universe(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         if self.try_match(TokenKind::Caret).is_some() {
             let integer_token = self.expect_match(TokenKind::IntLiteral)?;
             // FIXME: if prefixed integer
@@ -839,9 +869,9 @@ where
     /// ```
     fn parse_record_elim(
         &mut self,
-        lhs: Term,
-        _token: Token<'file>,
-    ) -> Result<Term, Diagnostic<FileSpan>> {
+        lhs: Term<'file>,
+        _start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let label = self.expect_identifier()?;
         Ok(Term::RecordElim(Box::new(lhs), label))
     }
@@ -853,9 +883,9 @@ where
     /// ```
     fn parse_ann(
         &mut self,
-        lhs: Term,
+        lhs: Term<'file>,
         _start_token: Token<'file>,
-    ) -> Result<Term, Diagnostic<FileSpan>> {
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let rhs = self.parse_term(Prec(20 - 1))?;
 
         Ok(Term::Ann(Box::new(lhs), Box::new(rhs)))
@@ -868,9 +898,9 @@ where
     /// ```
     fn parse_fun_arrow_type(
         &mut self,
-        lhs: Term,
-        _token: Token<'file>,
-    ) -> Result<Term, Diagnostic<FileSpan>> {
+        lhs: Term<'file>,
+        _start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let rhs = self.parse_term(Prec(50 - 1))?;
 
         Ok(Term::FunArrowType(Box::new(lhs), Box::new(rhs)))
@@ -884,7 +914,7 @@ where
     ///               | "{" IDENTIFIER "}"
     ///               | "{" IDENTIFIER "=" term(0) "}"
     /// ```
-    fn parse_fun_elim(&mut self, lhs: Term) -> Result<Term, Diagnostic<FileSpan>> {
+    fn parse_fun_elim(&mut self, lhs: Term<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut args = Vec::new();
 
         while self.is_peek_match(ArgParamStart) {
@@ -966,7 +996,7 @@ mod tests {
         test_term!("\"value\"", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 7),
             kind: LiteralKind::String,
-            value: "\"value\"".to_owned(),
+            value: "\"value\"",
         }));
     }
 
@@ -975,7 +1005,7 @@ mod tests {
         test_term!("'\\n'", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 4),
             kind: LiteralKind::Char,
-            value: "'\\n'".to_owned(),
+            value: "'\\n'",
         }));
     }
 
@@ -984,7 +1014,7 @@ mod tests {
         test_term!("0xA_F00", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 7),
             kind: LiteralKind::Int,
-            value: "0xA_F00".to_owned(),
+            value: "0xA_F00",
         }));
     }
 
@@ -993,7 +1023,7 @@ mod tests {
         test_term!("0.3_46e_23", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 10),
             kind: LiteralKind::Float,
-            value: "0.3_46e_23".to_owned(),
+            value: "0.3_46e_23",
         }));
     }
 
