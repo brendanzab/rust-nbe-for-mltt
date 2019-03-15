@@ -494,10 +494,10 @@ impl<'file> Term<'file> {
         match self {
             Term::Var(name) => name.span(),
             Term::Hole(span) => *span,
-            Term::Literal(literal) => literal.span(),
-            Term::Let(span, _, _) => *span,
-            Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
             Term::Parens(span, _) => *span,
+            Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
+            Term::Let(span, _, _) => *span,
+            Term::Literal(literal) => literal.span(),
             Term::FunType(span, _, _) => *span,
             Term::FunArrowType(param_ty, body_ty) => {
                 FileSpan::merge(param_ty.span(), body_ty.span())

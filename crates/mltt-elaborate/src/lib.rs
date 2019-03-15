@@ -549,13 +549,13 @@ pub fn synth_term(
                 .with_label(DiagnosticLabel::new_primary(*span)))
         },
 
+        Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
             let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
             let term_ty = context.eval(concrete_term_ty.span(), &term_ty)?;
             let term = check_term(context, concrete_term, &term_ty)?;
             Ok((term, term_ty))
         },
-        Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, concrete_items)?;
