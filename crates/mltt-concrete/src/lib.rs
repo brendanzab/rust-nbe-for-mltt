@@ -59,12 +59,12 @@ impl<'file> Declaration<'file> {
         let docs = Doc::concat(
             self.docs
                 .iter()
-                .map(|doc| Doc::text(doc.value).append(Doc::newline())),
+                .map(|doc| doc.to_doc().append(Doc::newline())),
         );
 
         Doc::nil()
             .append(docs)
-            .append(self.label.value)
+            .append(self.label.to_doc())
             .append(Doc::space())
             .append(":")
             .append(Doc::space())
@@ -89,7 +89,7 @@ impl<'file> Definition<'file> {
         let docs = Doc::concat(
             self.docs
                 .iter()
-                .map(|doc| Doc::text(doc.value).append(Doc::newline())),
+                .map(|doc| doc.to_doc().append(Doc::newline())),
         );
         let params = Doc::intersperse(self.params.iter().map(IntroParam::to_doc), Doc::space());
         let body_ty = self.body_ty.as_ref().map_or(Doc::nil(), |body_ty| {
@@ -102,7 +102,7 @@ impl<'file> Definition<'file> {
 
         Doc::nil()
             .append(docs)
-            .append(self.label.value)
+            .append(self.label.to_doc())
             .append(Doc::space())
             .append(params)
             .append(Doc::space())
@@ -118,19 +118,19 @@ impl<'file> Definition<'file> {
 pub struct SpannedString<'file> {
     pub source: FileId,
     pub start: ByteIndex,
-    pub value: &'file str,
+    pub slice: &'file str,
 }
 
 impl<'file> SpannedString<'file> {
     pub fn new(
         source: FileId,
         start: impl Into<ByteIndex>,
-        value: &'file str,
+        slice: &'file str,
     ) -> SpannedString<'file> {
         SpannedString {
             source,
             start: start.into(),
-            value: value.into(),
+            slice,
         }
     }
 
@@ -138,19 +138,19 @@ impl<'file> SpannedString<'file> {
         FileSpan::new(
             self.source,
             self.start,
-            self.start + ByteSize::from_str_len_utf8(&self.value),
+            self.start + ByteSize::from_str_len_utf8(&self.slice),
         )
     }
 
     /// Convert the string into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::text(self.value)
+        Doc::text(self.slice)
     }
 }
 
 impl<'file> fmt::Display for SpannedString<'file> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)
+        self.slice.fmt(f)
     }
 }
 
@@ -224,7 +224,7 @@ pub struct Literal<'file> {
     /// We use a string here, because we'll be using type information to do
     /// further parsing of these. For example we need to know the size of an
     /// integer literal before we can know whether the literal is overflowing.
-    pub value: &'file str,
+    pub slice: &'file str,
 }
 
 impl<'file> Literal<'file> {
@@ -234,7 +234,7 @@ impl<'file> Literal<'file> {
 
     /// Convert the literal into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(self.value)
+        Doc::as_string(self.slice)
     }
 }
 
@@ -520,7 +520,7 @@ impl<'file> Term<'file> {
     /// Convert the term into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
-            Term::Var(name) => Doc::as_string(&name.value),
+            Term::Var(name) => name.to_doc(),
             Term::Hole(_) => Doc::text("?"),
             Term::Parens(_, term) => Doc::text("(").append(term.to_doc()).append(")"),
             Term::Ann(term, ann) => Doc::nil()
@@ -612,7 +612,7 @@ impl<'file> Term<'file> {
                     .append(Doc::newline())
                     .append("}")
             },
-            Term::RecordElim(record, label) => record.to_doc().append(".").append(label.value),
+            Term::RecordElim(record, label) => record.to_doc().append(".").append(label.to_doc()),
             Term::Universe(_, None) => Doc::text("Type"),
             Term::Universe(_, Some((_, level))) => Doc::text("Type^").append(Doc::as_string(level)),
         }

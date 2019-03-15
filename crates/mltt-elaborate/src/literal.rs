@@ -22,19 +22,19 @@ pub fn check(
     use mltt_core::syntax::domain::Value;
     use mltt_core::syntax::LiteralType as LType;
 
-    let Literal { span, kind, value } = concrete_literal;
+    let Literal { span, kind, slice } = concrete_literal;
 
     let literal_intro = match (kind, expected_ty.as_ref()) {
-        (LKind::String, Value::LiteralType(LType::String)) => parse_string(*span, value),
-        (LKind::Char, Value::LiteralType(LType::Char)) => parse_char(*span, value),
-        (LKind::Int, Value::LiteralType(LType::U8)) => parse_int::<u8>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::U16)) => parse_int::<u16>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::U32)) => parse_int::<u32>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::U64)) => parse_int::<u64>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::S8)) => parse_int::<i8>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::S16)) => parse_int::<i16>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::S32)) => parse_int::<i32>(*span, value),
-        (LKind::Int, Value::LiteralType(LType::S64)) => parse_int::<i64>(*span, value),
+        (LKind::String, Value::LiteralType(LType::String)) => parse_string(*span, slice),
+        (LKind::Char, Value::LiteralType(LType::Char)) => parse_char(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::U8)) => parse_int::<u8>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::U16)) => parse_int::<u16>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::U32)) => parse_int::<u32>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::U64)) => parse_int::<u64>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::S8)) => parse_int::<i8>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::S16)) => parse_int::<i16>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::S32)) => parse_int::<i32>(*span, slice),
+        (LKind::Int, Value::LiteralType(LType::S64)) => parse_int::<i64>(*span, slice),
         (LKind::Int, Value::LiteralType(LType::F32)) => literal_bug(*span, "unimplemented: f32"),
         (LKind::Int, Value::LiteralType(LType::F64)) => literal_bug(*span, "unimplemented: f64"),
         (LKind::Float, Value::LiteralType(LType::F32)) => literal_bug(*span, "unimplemented: f32"),
@@ -49,11 +49,11 @@ pub fn check(
 pub fn synth(
     concrete_literal: &Literal<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    let Literal { span, kind, value } = concrete_literal;
+    let Literal { span, kind, slice } = concrete_literal;
 
     let (literal_intro, literal_ty) = match kind {
-        LiteralKind::String => (parse_string(*span, value)?, LiteralType::String),
-        LiteralKind::Char => (parse_char(*span, value)?, LiteralType::Char),
+        LiteralKind::String => (parse_string(*span, slice)?, LiteralType::String),
+        LiteralKind::Char => (parse_char(*span, slice)?, LiteralType::Char),
         LiteralKind::Int | LiteralKind::Float => {
             return Err(Diagnostic::new_error("ambiguous literal")
                 .with_label(DiagnosticLabel::new_primary(*span)));

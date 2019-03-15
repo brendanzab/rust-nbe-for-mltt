@@ -247,7 +247,7 @@ where
         Some(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
-            value: token.slice,
+            slice: token.slice,
         })
     }
 
@@ -256,7 +256,7 @@ where
         Ok(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
-            value: token.slice,
+            slice: token.slice,
         })
     }
 
@@ -277,7 +277,7 @@ where
             docs.push(SpannedString {
                 source: doc_token.span.source(),
                 start: doc_token.span.start(),
-                value: doc_token.slice,
+                slice: doc_token.slice,
             });
         }
         docs
@@ -541,7 +541,7 @@ where
         Ok(Term::Var(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
-            value: token.slice,
+            slice: token.slice,
         }))
     }
 
@@ -558,7 +558,7 @@ where
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::String,
-            value: token.slice,
+            slice: token.slice,
         }))
     }
 
@@ -570,7 +570,7 @@ where
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::Char,
-            value: token.slice,
+            slice: token.slice,
         }))
     }
 
@@ -582,7 +582,7 @@ where
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::Int,
-            value: token.slice,
+            slice: token.slice,
         }))
     }
 
@@ -594,7 +594,7 @@ where
         Ok(Term::Literal(Literal {
             span: token.span,
             kind: LiteralKind::Float,
-            value: token.slice,
+            slice: token.slice,
         }))
     }
 
@@ -996,7 +996,7 @@ mod tests {
         test_term!("\"value\"", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 7),
             kind: LiteralKind::String,
-            value: "\"value\"",
+            slice: "\"value\"",
         }));
     }
 
@@ -1005,7 +1005,7 @@ mod tests {
         test_term!("'\\n'", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 4),
             kind: LiteralKind::Char,
-            value: "'\\n'",
+            slice: "'\\n'",
         }));
     }
 
@@ -1014,7 +1014,7 @@ mod tests {
         test_term!("0xA_F00", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 7),
             kind: LiteralKind::Int,
-            value: "0xA_F00",
+            slice: "0xA_F00",
         }));
     }
 
@@ -1023,7 +1023,7 @@ mod tests {
         test_term!("0.3_46e_23", |file_id| Term::Literal(Literal {
             span: FileSpan::new(file_id, 0, 10),
             kind: LiteralKind::Float,
-            value: "0.3_46e_23",
+            slice: "0.3_46e_23",
         }));
     }
 

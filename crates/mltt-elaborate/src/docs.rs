@@ -9,7 +9,7 @@ pub fn concat(doc_lines: &[SpannedString<'_>]) -> String {
     for doc_line in doc_lines {
         // Strip the `||| ` or `|||` prefix left over from tokenization
         // We assume that each line of documentation has a trailing new line
-        doc.push_str(match doc_line.value {
+        doc.push_str(match doc_line.slice {
             doc_line if doc_line.starts_with("||| ") => &doc_line["||| ".len()..],
             doc_line if doc_line.starts_with("|||") => &doc_line["|||".len()..],
             doc_line => &doc_line[..],
@@ -30,7 +30,7 @@ pub fn merge(
         (docs, []) => Ok(concat(docs)),
         ([], docs) => Ok(concat(docs)),
         (_, _) => Err(
-            Diagnostic::new_error(format!("`{}` is already documented!", name.value))
+            Diagnostic::new_error(format!("`{}` is already documented!", name))
                 .with_label(
                     DiagnosticLabel::new_primary(doc_span(decl_docs).unwrap())
                         .with_message("the definition's documentation"),

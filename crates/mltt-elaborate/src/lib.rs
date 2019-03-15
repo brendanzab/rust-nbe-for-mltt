@@ -227,7 +227,7 @@ fn check_items(
 
         match concrete_item {
             Item::Declaration(declaration) => {
-                let label = declaration.label.value;
+                let label = declaration.label.slice;
                 let concrete_body_ty = &declaration.body_ty;
 
                 log::trace!("checking declaration:\t\t{}\t: {}", label, concrete_body_ty);
@@ -253,7 +253,7 @@ fn check_items(
                 }
             },
             Item::Definition(definition) => {
-                let label = definition.label.value;
+                let label = definition.label.slice;
                 let params = &definition.params;
                 let body_ty = definition.body_ty.as_ref();
                 let body = &definition.body;
@@ -353,7 +353,7 @@ fn check_clause(
                 IntroParam::Implicit(span, intro_label, pattern),
                 domain::Value::FunType(app_mode, param_ty, body_ty),
             ) => match app_mode {
-                AppMode::Implicit(ty_label) if intro_label.value == ty_label.0 => match pattern {
+                AppMode::Implicit(ty_label) if intro_label.slice == ty_label.0 => match pattern {
                     None => (app_mode.clone(), intro_label, param_ty, body_ty),
                     Some(Pattern::Var(var_name)) => (app_mode.clone(), var_name, param_ty, body_ty),
                 },
@@ -384,7 +384,7 @@ fn check_clause(
         };
 
         param_tys.push((app_mode, param_ty.clone()));
-        let param = context.local_bind(var_name.value.to_owned(), param_ty.clone());
+        let param = context.local_bind(var_name.slice.to_owned(), param_ty.clone());
         expected_ty = do_closure_app(&body_ty, param.clone())?;
     }
 
@@ -494,14 +494,14 @@ pub fn check_term(
 
                 let (found_label, params, body_ty, body) = concrete_intro_field.desugar();
 
-                if found_label.value == expected_label.0 {
+                if found_label.slice == expected_label.0 {
                     let term = check_clause(&context, params, body_ty, &body, expected_term_ty)?;
 
                     let term_value = context.eval(body.span(), &term)?;
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
-                    context.local_define(found_label.value.to_owned(), term_value.clone(), term_ty);
+                    context.local_define(found_label.slice.to_owned(), term_value.clone(), term_ty);
                     expected_ty = do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
@@ -539,7 +539,7 @@ pub fn synth_term(
     log::trace!("synthesizing term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Var(name) => match context.lookup_binder(&name.value) {
+        Term::Var(name) => match context.lookup_binder(&name.slice) {
             None => Err(Diagnostic::new_error("unbound variable")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
@@ -586,7 +586,7 @@ pub fn synth_term(
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_name.value.to_owned(), param_ty_value);
+                            context.local_bind(param_name.slice.to_owned(), param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -600,12 +600,12 @@ pub fn synth_term(
                         })?;
 
                         for param_label in param_labels {
-                            let app_mode = AppMode::Implicit(Label(param_label.value.to_owned()));
+                            let app_mode = AppMode::Implicit(Label(param_label.slice.to_owned()));
                             let param_ty_span = concrete_param_ty.span();
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_label.value.to_owned(), param_ty_value);
+                            context.local_bind(param_label.slice.to_owned(), param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -655,7 +655,7 @@ pub fn synth_term(
                         ),
                         Arg::Implicit(arg_span, label, concrete_arg) => (
                             *arg_span,
-                            AppMode::Implicit(Label(label.value.to_owned())),
+                            AppMode::Implicit(Label(label.slice.to_owned())),
                             match concrete_arg {
                                 Some(concrete_arg) => check_term(context, concrete_arg, param_ty)?,
                                 None => check_term(context, &Term::Var(label.clone()), param_ty)?,
@@ -699,10 +699,10 @@ pub fn synth_term(
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
                     let ty_value = context.eval(concrete_ty_field.ann.span(), &ty)?;
 
-                    context.local_bind(concrete_ty_field.label.value.to_owned(), ty_value);
+                    context.local_bind(concrete_ty_field.label.slice.to_owned(), ty_value);
                     max_level = cmp::max(max_level, ty_level);
 
-                    Ok((docs, Label(concrete_ty_field.label.value.to_owned()), ty))
+                    Ok((docs, Label(concrete_ty_field.label.slice.to_owned()), ty))
                 })
                 .collect::<Result<_, Diagnostic<FileSpan>>>()?;
 
@@ -733,7 +733,7 @@ pub fn synth_term(
                     current_label.clone(),
                 ));
 
-                if current_label.0 == label.value {
+                if current_label.0 == label.slice {
                     return Ok((expr, current_ty.clone()));
                 } else {
                     let expr = context.eval(None, &expr)?;
