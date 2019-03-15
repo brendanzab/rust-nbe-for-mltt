@@ -322,6 +322,8 @@ fn check_clause(
     concrete_body: &Term<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+    use std::borrow::Cow;
+
     let mut context = context.clone();
     let mut param_tys = Vec::new();
     let mut expected_ty = expected_ty.clone();
@@ -329,61 +331,46 @@ fn check_clause(
     while let Some((head_param, rest_params)) = params.split_first() {
         params = rest_params;
 
-        let (app_mode, var_name, param_ty, body_ty) = match (head_param, expected_ty.as_ref()) {
-            // INTRO: If it is a variable a pattern, and we're expecting a
-            // function type, then we'll elaborate to a function.
-            (
-                IntroParam::Explicit(pattern),
-                domain::Value::FunType(app_mode, param_ty, body_ty),
-            ) => match app_mode {
-                AppMode::Explicit => match pattern {
-                    Pattern::Var(var_name) => (app_mode.clone(), var_name, param_ty, body_ty),
-                },
-                AppMode::Implicit(label) => {
-                    let message = "inference of implicit parameter patterns is not yet supported";
-                    let label_message =
-                        format!("add the explicit pattern `{{{} = ..}}` here", label.0);
+        let (app_mode, param_ty, body_ty) = match expected_ty.as_ref() {
+            domain::Value::FunType(app_mode, param_t, body_ty) => Ok((app_mode, param_t, body_ty)),
+            _ => Err(Diagnostic::new_error("expected a function").with_label(
+                DiagnosticLabel::new_primary(concrete_body.span())
+                    .with_message(format!("found: {}", context.read_back(None, &expected_ty)?)),
+            )),
+        }?;
 
-                    return Err(Diagnostic::new_error(message).with_label(
-                        DiagnosticLabel::new_primary(pattern.span()).with_message(label_message),
-                    ));
-                },
+        let pattern = match (head_param, app_mode) {
+            (IntroParam::Explicit(pattern), AppMode::Explicit) => Cow::Borrowed(pattern),
+            (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
+                if intro_label.slice == ty_label.0 =>
+            {
+                match pattern {
+                    None => Cow::Owned(Pattern::Var(intro_label.clone())),
+                    Some(pattern) => Cow::Borrowed(pattern),
+                }
             },
-            (
-                IntroParam::Implicit(span, intro_label, pattern),
-                domain::Value::FunType(app_mode, param_ty, body_ty),
-            ) => match app_mode {
-                AppMode::Implicit(ty_label) if intro_label.slice == ty_label.0 => match pattern {
-                    None => (app_mode.clone(), intro_label, param_ty, body_ty),
-                    Some(Pattern::Var(var_name)) => (app_mode.clone(), var_name, param_ty, body_ty),
-                },
-                AppMode::Implicit(ty_label) => {
-                    let message = "inference of implicit parameter patterns is not yet supported";
-                    let label_message =
-                        format!("add the explicit pattern `{{{} = ..}}` here", ty_label.0);
+            (_, AppMode::Implicit(label)) => {
+                let message = "inference of implicit parameter patterns is not yet supported";
+                let label_message = format!("add the explicit pattern `{{{} = ..}}` here", label);
 
-                    return Err(Diagnostic::new_error(message).with_label(
-                        DiagnosticLabel::new_primary(*span).with_message(label_message),
-                    ));
-                },
-                AppMode::Explicit => {
-                    let message = "unexpected implicit parameter pattern";
-                    let label_message = "this parameter is not needed";
-
-                    return Err(Diagnostic::new_error(message).with_label(
-                        DiagnosticLabel::new_primary(*span).with_message(label_message),
-                    ));
-                },
-            },
-            _ => {
-                return Err(Diagnostic::new_error("expected a function").with_label(
-                    DiagnosticLabel::new_primary(concrete_body.span())
-                        .with_message(format!("found: {}", context.read_back(None, &expected_ty)?)),
+                return Err(Diagnostic::new_error(message).with_label(
+                    DiagnosticLabel::new_primary(head_param.span()).with_message(label_message),
                 ));
+            },
+            (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
+                let message = "unexpected implicit parameter pattern";
+                let label_message = "this parameter is not needed";
+
+                return Err(Diagnostic::new_error(message)
+                    .with_label(DiagnosticLabel::new_primary(*span).with_message(label_message)));
             },
         };
 
-        param_tys.push((app_mode, param_ty.clone()));
+        let var_name = match pattern.as_ref() {
+            Pattern::Var(var_name) => var_name,
+        };
+
+        param_tys.push((app_mode.clone(), param_ty.clone()));
         let param = context.local_bind(var_name.slice.to_owned(), param_ty.clone());
         expected_ty = do_closure_app(&body_ty, param.clone())?;
     }
