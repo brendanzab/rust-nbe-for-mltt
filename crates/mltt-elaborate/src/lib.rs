@@ -15,6 +15,7 @@ use mltt_concrete::{Arg, IntroParam, Item, Pattern, Term, TypeParam};
 use mltt_core::nbe;
 use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
 use mltt_span::FileSpan;
+use std::borrow::Cow;
 
 mod docs;
 mod literal;
@@ -313,6 +314,74 @@ fn check_items(
     Ok(core_items)
 }
 
+/// Check that a given parameter matches the expected application mode, and
+/// return the pattern inside it.
+fn check_param_app_mode<'param, 'file>(
+    param: &'param IntroParam<'file>,
+    expected_app_mode: &AppMode,
+) -> Result<Cow<'param, Pattern<'file>>, Diagnostic<FileSpan>> {
+    match (param, expected_app_mode) {
+        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(Cow::Borrowed(pattern)),
+        (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
+            if intro_label.slice == ty_label.0 =>
+        {
+            match pattern {
+                None => Ok(Cow::Owned(Pattern::Var(intro_label.clone()))),
+                Some(pattern) => Ok(Cow::Borrowed(pattern)),
+            }
+        },
+        (_, AppMode::Implicit(label)) => {
+            let message = "inference of implicit parameter patterns is not yet supported";
+            Err(Diagnostic::new_error(message).with_label(
+                DiagnosticLabel::new_primary(param.span()).with_message(format!(
+                    "add the explicit pattern `{{{} = ..}}` here",
+                    label,
+                )),
+            ))
+        },
+        (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
+            let message = "unexpected implicit parameter pattern";
+            Err(Diagnostic::new_error(message).with_label(
+                DiagnosticLabel::new_primary(*span).with_message("this parameter is not needed"),
+            ))
+        },
+    }
+}
+
+/// Check that a given argument matches the expected application mode, and
+/// return the term inside it.
+fn check_arg_app_mode<'arg, 'file>(
+    concrete_arg: &'arg Arg<'file>,
+    expected_app_mode: &AppMode,
+) -> Result<Cow<'arg, Term<'file>>, Diagnostic<FileSpan>> {
+    match (concrete_arg, expected_app_mode) {
+        (Arg::Explicit(concrete_arg), AppMode::Explicit) => Ok(Cow::Borrowed(concrete_arg)),
+        (Arg::Implicit(_, intro_label, concrete_arg), AppMode::Implicit(ty_label))
+            if intro_label.slice == ty_label.0 =>
+        {
+            match concrete_arg {
+                None => Ok(Cow::Owned(Term::Var(intro_label.clone()))),
+                Some(concrete_arg) => Ok(Cow::Borrowed(concrete_arg)),
+            }
+        },
+        (_, AppMode::Implicit(label)) => {
+            let message = "inference of implicit arguments is not yet supported";
+            Err(Diagnostic::new_error(message).with_label(
+                DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
+                    "add the explicit argument `{{{} = ..}}` here",
+                    label,
+                )),
+            ))
+        },
+        (Arg::Implicit(span, _, _), AppMode::Explicit) => {
+            let message = "unexpected implicit argument";
+            Err(Diagnostic::new_error(message).with_label(
+                DiagnosticLabel::new_primary(*span).with_message("this argument is not needed"),
+            ))
+        },
+    }
+}
+
 /// Check that a given clause conforms to an expected type, and elaborates
 /// it into a case tree.
 fn check_clause(
@@ -322,8 +391,6 @@ fn check_clause(
     concrete_body: &Term<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-    use std::borrow::Cow;
-
     let mut context = context.clone();
     let mut param_tys = Vec::new();
     let mut expected_ty = expected_ty.clone();
@@ -339,34 +406,7 @@ fn check_clause(
             )),
         }?;
 
-        let pattern = match (head_param, app_mode) {
-            (IntroParam::Explicit(pattern), AppMode::Explicit) => Cow::Borrowed(pattern),
-            (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
-                if intro_label.slice == ty_label.0 =>
-            {
-                match pattern {
-                    None => Cow::Owned(Pattern::Var(intro_label.clone())),
-                    Some(pattern) => Cow::Borrowed(pattern),
-                }
-            },
-            (_, AppMode::Implicit(label)) => {
-                let message = "inference of implicit parameter patterns is not yet supported";
-                return Err(Diagnostic::new_error(message).with_label(
-                    DiagnosticLabel::new_primary(head_param.span()).with_message(format!(
-                        "add the explicit pattern `{{{} = ..}}` here",
-                        label,
-                    )),
-                ));
-            },
-            (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
-                let message = "unexpected implicit parameter pattern";
-                return Err(Diagnostic::new_error(message).with_label(
-                    DiagnosticLabel::new_primary(*span)
-                        .with_message("this parameter is not needed"),
-                ));
-            },
-        };
-
+        let pattern = check_param_app_mode(head_param, app_mode)?;
         let var_name = match pattern.as_ref() {
             Pattern::Var(var_name) => var_name,
         };
@@ -630,40 +670,22 @@ pub fn synth_term(
         Term::FunElim(concrete_fun, concrete_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
             for concrete_arg in concrete_args {
-                if let domain::Value::FunType(ty_app_mode, param_ty, body_ty) = fun_ty.as_ref() {
-                    let (arg_span, arg_app_mode, arg) = match concrete_arg {
-                        Arg::Explicit(concrete_arg) => (
-                            concrete_arg.span(),
-                            AppMode::Explicit,
-                            check_term(context, concrete_arg, param_ty)?,
-                        ),
-                        Arg::Implicit(arg_span, label, concrete_arg) => (
-                            *arg_span,
-                            AppMode::Implicit(Label(label.slice.to_owned())),
-                            match concrete_arg {
-                                Some(concrete_arg) => check_term(context, concrete_arg, param_ty)?,
-                                None => check_term(context, &Term::Var(label.clone()), param_ty)?,
-                            },
-                        ),
-                    };
-
-                    if arg_app_mode == *ty_app_mode {
-                        let arg_value = context.eval(arg_span, &arg)?;
-
-                        fun = core::RcTerm::from(core::Term::FunElim(fun, arg_app_mode, arg));
-                        fun_ty = do_closure_app(body_ty, arg_value)?;
-                    } else {
-                        return Err(Diagnostic::new_error("unexpected application mode")
-                            .with_label(DiagnosticLabel::new_primary(arg_span).with_message(
-                                format!("expected {:?} but found {:?}", ty_app_mode, arg_app_mode),
-                            )));
-                    }
-                } else {
-                    return Err(Diagnostic::new_error("expected a function").with_label(
+                let (ty_app_mode, param_ty, body_ty) = match fun_ty.as_ref() {
+                    domain::Value::FunType(ty_app_mode, param_ty, body_ty) => {
+                        Ok((ty_app_mode, param_ty, body_ty))
+                    },
+                    _ => Err(Diagnostic::new_error("expected a function").with_label(
                         DiagnosticLabel::new_primary(concrete_fun.span())
                             .with_message(format!("found: {}", context.read_back(None, &fun_ty)?)),
-                    ));
-                }
+                    )),
+                }?;
+
+                let concrete_arg = check_arg_app_mode(concrete_arg, ty_app_mode)?;
+                let arg = check_term(context, concrete_arg.as_ref(), param_ty)?;
+                let arg_value = context.eval(concrete_arg.span(), &arg)?;
+
+                fun = core::RcTerm::from(core::Term::FunElim(fun, ty_app_mode.clone(), arg));
+                fun_ty = do_closure_app(body_ty, arg_value)?;
             }
 
             Ok((fun, fun_ty))
