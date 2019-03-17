@@ -65,7 +65,7 @@ impl Context {
     /// Add a bound variable the context, returning a variable that points to
     /// the correct binder.
     pub fn local_bind(&mut self, ty: RcType) -> RcValue {
-        let param = RcValue::var(self.level());
+        let param = RcValue::var(self.level(), None);
         self.local_define(param.clone(), ty);
         param
     }
@@ -397,9 +397,9 @@ mod test {
         let param2 = context.local_bind(ty2.clone());
         let param3 = context.local_bind(ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0), None)));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
         assert_eq!(context.tys().lookup_entry(VarIndex(2)).unwrap(), &ty1);
         assert_eq!(context.tys().lookup_entry(VarIndex(1)).unwrap(), &ty2);

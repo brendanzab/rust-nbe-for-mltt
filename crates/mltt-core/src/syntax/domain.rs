@@ -66,8 +66,8 @@ impl ops::Deref for RcValue {
 
 impl RcValue {
     /// Construct a variable
-    pub fn var(level: impl Into<VarLevel>) -> RcValue {
-        RcValue::from(Value::var(level))
+    pub fn var(level: VarLevel, shift: Option<UniverseShift>) -> RcValue {
+        RcValue::from(Value::var(level, shift))
     }
 
     pub fn lift(&mut self, shift: UniverseShift) {
@@ -87,7 +87,7 @@ pub enum Value {
     /// evaluate a variable.
     ///
     /// These are known as _neutral values_ or _accumulators_.
-    Neutral(Head, Spine),
+    Neutral(Head, Option<UniverseShift>, Spine),
 
     /// Literal types
     LiteralType(LiteralType),
@@ -112,13 +112,16 @@ pub enum Value {
 
 impl Value {
     /// Construct a variable
-    pub fn var(level: impl Into<VarLevel>) -> Value {
-        Value::Neutral(Head::Var(level.into()), Vec::new())
+    pub fn var(level: VarLevel, shift: Option<UniverseShift>) -> Value {
+        Value::Neutral(Head::Var(level.into()), shift, Vec::new())
     }
 
     pub fn lift(&mut self, shift: UniverseShift) {
         match self {
-            Value::Neutral(_, spine) => {
+            Value::Neutral(_, head_shift, spine) => {
+                if let Some(ref mut head_shift) = head_shift {
+                    *head_shift += shift;
+                }
                 for elim in spine {
                     elim.lift(shift);
                 }

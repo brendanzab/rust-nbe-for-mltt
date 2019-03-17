@@ -107,7 +107,7 @@ impl Context {
         name: impl Into<Option<String>>,
         ty: domain::RcType,
     ) -> domain::RcValue {
-        let param = domain::RcValue::var(self.level());
+        let param = domain::RcValue::var(self.level(), None);
         self.local_define(name, param.clone(), ty);
         param
     }
@@ -809,9 +809,9 @@ mod test {
         let param2 = context.local_bind("y".to_owned(), ty2.clone());
         let param3 = context.local_bind("z".to_owned(), ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0), None)));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
         assert_eq!(context.lookup_binder("y").unwrap().1, &ty2);
@@ -832,9 +832,9 @@ mod test {
         let param2 = context.local_bind("x".to_owned(), ty2.clone());
         let param3 = context.local_bind("x".to_owned(), ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0), None)));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty3);
     }
@@ -853,9 +853,9 @@ mod test {
         let param2 = context.local_bind(None, ty2.clone());
         let param3 = context.local_bind(None, ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0), None)));
+        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
+        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
     }

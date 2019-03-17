@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{Closure, Elim, Head, RcType, RcValue, Spine, Value};
-use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
+use crate::syntax::{AppMode, Env, Label, UniverseShift, VarIndex, VarLevel};
 
 /// An error produced during normalization
 ///
@@ -46,10 +46,10 @@ fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> 
                 label.0,
             ))),
         },
-        Value::Neutral(head, spine) => {
+        Value::Neutral(head, shift, spine) => {
             let mut spine = spine.clone();
             spine.push(Elim::Record(label.clone()));
-            Ok(RcValue::from(Value::Neutral(*head, spine)))
+            Ok(RcValue::from(Value::Neutral(*head, *shift, spine)))
         },
         _ => Err(NbeError::new("do_record_elim: not a record")),
     }
@@ -75,10 +75,10 @@ pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcV
                 )))
             }
         },
-        Value::Neutral(head, spine) => {
+        Value::Neutral(head, shift, spine) => {
             let mut spine = spine.clone();
             spine.push(Elim::Fun(app_mode, arg));
-            Ok(RcValue::from(Value::Neutral(*head, spine)))
+            Ok(RcValue::from(Value::Neutral(*head, *shift, spine)))
         },
         _ => Err(NbeError::new("do_ap: not a function")),
     }
@@ -167,7 +167,7 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
 /// Read a value back into the core syntax, normalizing as required.
 pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeError> {
     match term.as_ref() {
-        Value::Neutral(head, spine) => read_back_neutral(level, *head, spine),
+        Value::Neutral(head, shift, spine) => read_back_neutral(level, *head, *shift, spine),
 
         // Literals
         Value::LiteralType(literal_ty) => Ok(RcTerm::from(Term::LiteralType(literal_ty.clone()))),
@@ -178,7 +178,7 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let param = RcValue::var(level);
+            let param = RcValue::var(level, None);
             let param_ty = read_back_term(level, param_ty)?;
             let body_ty = read_back_term(level + 1, &do_closure_app(body_ty, param)?)?;
 
@@ -186,7 +186,7 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
-            let param = RcValue::var(level);
+            let param = RcValue::var(level, None);
             let body = read_back_term(level + 1, &do_closure_app(body, param)?)?;
 
             Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
@@ -196,7 +196,7 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
         Value::RecordTypeExtend(label, term_ty, rest_ty) => {
             let mut level = level;
 
-            let term = RcValue::var(level);
+            let term = RcValue::var(level, None);
             let term_ty = read_back_term(level, term_ty)?;
 
             let mut rest_ty = do_closure_app(rest_ty, term)?;
@@ -206,7 +206,7 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
                 rest_ty.as_ref()
             {
                 level += 1;
-                let next_term = RcValue::var(level);
+                let next_term = RcValue::var(level, None);
 
                 field_tys.push((
                     String::new(),
@@ -234,10 +234,19 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
 }
 
 /// Read a neutral value back into the core syntax, normalizing as required.
-pub fn read_back_neutral(level: VarLevel, head: Head, spine: &Spine) -> Result<RcTerm, NbeError> {
-    let head = match head {
+pub fn read_back_neutral(
+    level: VarLevel,
+    head: Head,
+    shift: Option<UniverseShift>,
+    spine: &Spine,
+) -> Result<RcTerm, NbeError> {
+    let mut head = match head {
         Head::Var(var_level) => RcTerm::from(Term::Var(VarIndex(level.0 - (var_level.0 + 1)))),
     };
+
+    if let Some(shift) = shift {
+        head = RcTerm::from(Term::Lift(head, shift));
+    }
 
     spine.iter().fold(Ok(head), |acc, elim| match elim {
         Elim::Fun(app_mode, arg) => Ok(RcTerm::from(Term::FunElim(
@@ -252,12 +261,14 @@ pub fn read_back_neutral(level: VarLevel, head: Head, spine: &Spine) -> Result<R
 /// Check whether a semantic type is a subtype of another
 pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool, NbeError> {
     match (&ty1.as_ref(), &ty2.as_ref()) {
-        (&Value::Neutral(head1, spine1), &Value::Neutral(head2, spine2)) => {
-            let term1 = read_back_neutral(level, *head1, spine1)?;
-            let term2 = read_back_neutral(level, *head2, spine2)?;
+        (&Value::Neutral(head1, shift1, spine1), &Value::Neutral(head2, shift2, spine2))
+            if shift1 == shift2 =>
+        {
+            let term1 = read_back_neutral(level, *head1, *shift1, spine1)?;
+            let term2 = read_back_neutral(level, *head2, *shift2, spine2)?;
 
             Ok(term1 == term2)
-        },
+        }
         (&Value::LiteralType(literal_ty1), &Value::LiteralType(literal_ty2)) => {
             Ok(literal_ty1 == literal_ty2)
         },
@@ -265,7 +276,7 @@ pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool
             &Value::FunType(app_mode1, param_ty1, body_ty1),
             &Value::FunType(app_mode2, param_ty2, body_ty2),
         ) if app_mode1 == app_mode2 => {
-            let param = RcValue::var(level);
+            let param = RcValue::var(level, None);
 
             Ok(check_subtype(level, param_ty2, param_ty1)? && {
                 let body_ty1 = do_closure_app(body_ty1, param.clone())?;
@@ -277,7 +288,7 @@ pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool
             &Value::RecordTypeExtend(label1, term_ty1, rest_ty1),
             &Value::RecordTypeExtend(label2, term_ty2, rest_ty2),
         ) => {
-            let term = RcValue::var(level);
+            let term = RcValue::var(level, None);
 
             Ok(
                 // FIXME: Could stack overflow here?
