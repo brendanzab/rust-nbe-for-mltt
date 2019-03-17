@@ -426,11 +426,12 @@ fn check_clause(
     let body = match concrete_body_ty {
         None => check_term(&context, concrete_body, &expected_ty)?,
         Some(concrete_body_ty) => {
-            let (term_ty, _) = synth_universe(&context, concrete_body_ty)?;
-            let term_ty = context.eval(concrete_body_ty.span(), &term_ty)?;
-            let term = check_term(&context, concrete_body, &term_ty)?;
-            context.expect_subtype(concrete_body.span(), &term_ty, &expected_ty)?;
-            term
+            let (body_ty, _) = synth_universe(&context, concrete_body_ty)?;
+            let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
+            let body = check_term(&context, concrete_body, &body_ty)?;
+            // TODO: Ensure that this is respecting variance correctly!
+            context.expect_subtype(concrete_body.span(), &body_ty, &expected_ty)?;
+            body
         },
     };
 
@@ -462,10 +463,10 @@ fn synth_clause(
     match concrete_body_ty {
         None => synth_term(context, concrete_body),
         Some(concrete_body_ty) => {
-            let (term_ty, _) = synth_universe(context, concrete_body_ty)?;
-            let term_ty = context.eval(concrete_body_ty.span(), &term_ty)?;
-            let term = check_term(context, concrete_body, &term_ty)?;
-            Ok((term, term_ty))
+            let (body_ty, _) = synth_universe(context, concrete_body_ty)?;
+            let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
+            let body = check_term(context, concrete_body, &body_ty)?;
+            Ok((body, body_ty))
         },
     }
 }
