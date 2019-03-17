@@ -335,12 +335,12 @@ fn check_param_app_mode<'param, 'file>(
                 Some(pattern) => Ok(Cow::Borrowed(pattern)),
             }
         },
-        (_, AppMode::Implicit(label)) => {
+        (_, AppMode::Implicit(ty_label)) => {
             let message = "inference of implicit parameter patterns is not yet supported";
             Err(Diagnostic::new_error(message).with_label(
                 DiagnosticLabel::new_primary(param.span()).with_message(format!(
                     "add the explicit pattern `{{{} = ..}}` here",
-                    label,
+                    ty_label,
                 )),
             ))
         },
@@ -369,12 +369,12 @@ fn check_arg_app_mode<'arg, 'file>(
                 Some(concrete_arg) => Ok(Cow::Borrowed(concrete_arg)),
             }
         },
-        (_, AppMode::Implicit(label)) => {
+        (_, AppMode::Implicit(ty_label)) => {
             let message = "inference of implicit arguments is not yet supported";
             Err(Diagnostic::new_error(message).with_label(
                 DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
                     "add the explicit argument `{{{} = ..}}` here",
-                    label,
+                    ty_label,
                 )),
             ))
         },
