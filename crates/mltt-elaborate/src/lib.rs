@@ -201,7 +201,9 @@ impl Default for Context {
     }
 }
 
-/// Check that this is a valid module
+/// Check that this is a valid module.
+///
+/// Returns the elaborated items.
 pub fn check_module(
     context: &Context,
     concrete_items: &[Item<'_>],
@@ -211,6 +213,9 @@ pub fn check_module(
     check_items(&mut context, concrete_items)
 }
 
+/// Check the given items and add them to the context.
+///
+/// Returns the elaborated items.
 fn check_items(
     context: &mut Context,
     concrete_items: &[Item<'_>],
@@ -384,6 +389,8 @@ fn check_arg_app_mode<'arg, 'file>(
 
 /// Check that a given clause conforms to an expected type, and elaborates
 /// it into a case tree.
+///
+/// Returns the elaborated term.
 fn check_clause(
     context: &Context,
     mut params: &[IntroParam<'_>],
@@ -436,6 +443,8 @@ fn check_clause(
 }
 
 /// Synthesize the type of a clause, elaborating it into a case tree.
+///
+/// Returns the elaborated term and its synthesized type.
 fn synth_clause(
     context: &Context,
     params: &[IntroParam<'_>],
@@ -477,7 +486,9 @@ fn synth_universe(
     }
 }
 
-/// Check that a given term conforms to an expected type
+/// Check that a given term conforms to an expected type.
+///
+/// Returns the elaborated term.
 pub fn check_term(
     context: &Context,
     concrete_term: &Term<'_>,
@@ -553,7 +564,9 @@ pub fn check_term(
     }
 }
 
-/// Synthesize the type of the given term
+/// Synthesize the type of the given term.
+///
+/// Returns the elaborated term and its synthesized type.
 pub fn synth_term(
     context: &Context,
     concrete_term: &Term<'_>,
