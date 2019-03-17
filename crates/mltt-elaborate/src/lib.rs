@@ -22,6 +22,12 @@ use std::borrow::Cow;
 mod docs;
 mod literal;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeEntry {
+    Bound(domain::RcType),
+    Definition(domain::RcType),
+}
+
 /// Local elaboration context.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Context {
@@ -30,7 +36,7 @@ pub struct Context {
     /// Values to be used during evaluation.
     values: Env<domain::RcValue>,
     /// Type annotations of the binders we have passed over.
-    tys: Env<domain::RcType>,
+    tys: Env<TypeEntry>,
     /// A mapping from the user-defined names to the level in which they were
     /// bound.
     ///
@@ -77,16 +83,16 @@ impl Context {
     }
 
     /// Types of the entries in the context
-    pub fn tys(&self) -> &Env<domain::RcType> {
+    pub fn tys(&self) -> &Env<TypeEntry> {
         &self.tys
     }
 
-    /// Add a local definition to the context.
-    pub fn local_define(
+    /// Add a local entry.
+    pub fn local_entry(
         &mut self,
         name: impl Into<Option<String>>,
         value: domain::RcValue,
-        ty: domain::RcType,
+        ty_entry: TypeEntry,
     ) {
         match name.into() {
             None => log::trace!("insert fresh local"),
@@ -97,7 +103,17 @@ impl Context {
         }
         self.level += 1;
         self.values.add_entry(value);
-        self.tys.add_entry(ty);
+        self.tys.add_entry(ty_entry);
+    }
+
+    /// Add a local definition to the context.
+    pub fn local_define(
+        &mut self,
+        name: impl Into<Option<String>>,
+        value: domain::RcValue,
+        ty: domain::RcType,
+    ) {
+        self.local_entry(name, value, TypeEntry::Definition(ty))
     }
 
     /// Add a bound variable the context, returning a variable that points to
@@ -108,13 +124,13 @@ impl Context {
         ty: domain::RcType,
     ) -> domain::RcValue {
         let param = domain::RcValue::var(self.level(), None);
-        self.local_define(name, param.clone(), ty);
+        self.local_entry(name, param.clone(), TypeEntry::Bound(ty));
         param
     }
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
-    pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
+    pub fn lookup_ty_entry(&self, name: &str) -> Option<(VarIndex, &TypeEntry)> {
         let level = self.names.get(name)?;
         let index = VarIndex(self.level.0 - (level.0 + 1));
         log::trace!("lookup binder: {} -> @{}", name, index.0);
@@ -584,10 +600,21 @@ pub fn synth_term(
     log::trace!("synthesizing term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Var(name) => match context.lookup_binder(&name.slice) {
+        Term::Var(name) => match context.lookup_ty_entry(&name.slice) {
             None => Err(Diagnostic::new_error("unbound variable")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
-            Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
+            Some((index, ty_entry)) => {
+                let ty = match ty_entry {
+                    TypeEntry::Bound(ty) => ty.clone(),
+                    TypeEntry::Definition(ty) => {
+                        let mut ty = ty.clone();
+                        ty.lift(context.values.shift());
+                        ty
+                    },
+                };
+
+                Ok((core::RcTerm::from(core::Term::Var(index)), ty.clone()))
+            },
         },
         Term::Hole(span) => {
             Err(Diagnostic::new_error("ambiguous term")
@@ -793,6 +820,7 @@ pub fn synth_term(
 
 #[cfg(test)]
 mod test {
+    use super::TypeEntry::Bound;
     use super::*;
 
     #[test]
@@ -813,9 +841,9 @@ mod test {
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
         assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
-        assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
-        assert_eq!(context.lookup_binder("y").unwrap().1, &ty2);
-        assert_eq!(context.lookup_binder("z").unwrap().1, &ty3);
+        assert_eq!(context.lookup_ty_entry("x").unwrap().1, &Bound(ty1));
+        assert_eq!(context.lookup_ty_entry("y").unwrap().1, &Bound(ty2));
+        assert_eq!(context.lookup_ty_entry("z").unwrap().1, &Bound(ty3));
     }
 
     #[test]
@@ -836,7 +864,7 @@ mod test {
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
         assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
-        assert_eq!(context.lookup_binder("x").unwrap().1, &ty3);
+        assert_eq!(context.lookup_ty_entry("x").unwrap().1, &Bound(ty3));
     }
 
     #[test]
@@ -857,6 +885,6 @@ mod test {
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1), None)));
         assert_eq!(param3, RcValue::from(Value::var(VarLevel(2), None)));
 
-        assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
+        assert_eq!(context.lookup_ty_entry("x").unwrap().1, &Bound(ty1));
     }
 }
