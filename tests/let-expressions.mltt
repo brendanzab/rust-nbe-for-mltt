@@ -1,0 +1,14 @@
+test-let : Record {};
+test-let =
+    let
+        Unit = Record {};
+
+        unit : Unit;
+        unit = record {};
+
+        -- FIXME:
+        -- id : Fun {A : Type} -> A -> A;
+        -- id {A} a = a;
+    in
+        -- id {A = Unit}
+            unit;
