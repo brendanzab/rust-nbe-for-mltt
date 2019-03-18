@@ -1,4 +1,4 @@
-//! The command line interface for the MLTT language
+//! The command line interface for the MLTT language.
 
 #![warn(rust_2018_idioms)]
 

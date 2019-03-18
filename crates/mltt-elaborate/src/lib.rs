@@ -1,4 +1,4 @@
-//! Elaboration of the concrete syntax into the core syntax.
+//! Elaboration of the MLTT language's concrete syntax into its core syntax.
 //!
 //! Performs the following:
 //!

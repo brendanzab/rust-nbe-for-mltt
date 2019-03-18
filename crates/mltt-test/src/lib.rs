@@ -1,4 +1,4 @@
-//! Integration tests for the MLTT language
+//! Integration tests for the MLTT language.
 
 macro_rules! run_test {
     ($name:ident, $path:literal) => {

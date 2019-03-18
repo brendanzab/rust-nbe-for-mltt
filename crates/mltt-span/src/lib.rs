@@ -1,4 +1,4 @@
-//! Data structures for tracking source positions in the MLTT language
+//! Data structures for tracking source positions in the MLTT language.
 
 #![warn(rust_2018_idioms)]
 

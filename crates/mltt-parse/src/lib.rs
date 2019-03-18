@@ -1,4 +1,4 @@
-//! The parser for the MLTT language
+//! The parser for the MLTT language.
 
 #![warn(rust_2018_idioms)]
 
