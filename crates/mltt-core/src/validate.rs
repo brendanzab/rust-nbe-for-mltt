@@ -337,7 +337,13 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
             Ok(RcValue::from(Value::Universe(max_level)))
         },
-        Term::RecordIntro(_) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::RecordIntro(intro_fields) => {
+            if intro_fields.is_empty() {
+                Ok(RcValue::from(Value::RecordTypeEmpty))
+            } else {
+                Err(TypeError::AmbiguousTerm(term.clone()))
+            }
+        },
         Term::RecordElim(record, label) => {
             let mut record_ty = synth_term(context, record)?;
 
