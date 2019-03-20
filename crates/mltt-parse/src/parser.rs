@@ -27,6 +27,7 @@
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
 //!           | FLOAT_LITERAL
+//!           | "primitive" FLOAT_LITERAL
 //!           | "Fun" type-param+ "->" term
 //!           | term "->" term
 //!           | "fun" intro-param+ "=>" term
@@ -502,6 +503,7 @@ where
     ///     prefix  "Record"            ::= record-type
     ///     prefix  "record"            ::= record-intro
     ///     prefix  "Type"              ::= universe
+    ///     prefix  "primitive"         ::= primitive
     ///     prefix  IDENTIFIER          ::= fun-elim
     ///     nilfix  "?"                 ::= hole fun-elim
     ///     nilfix  STRING_LITERAL
@@ -549,6 +551,7 @@ where
             (TokenKind::Keyword, "if") => self.parse_if_expr(token),
             (TokenKind::Keyword, "case") => self.parse_case_expr(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
+            (TokenKind::Keyword, "primitive") => self.parse_prim(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
                 .with_label(Label::new_primary(token.span).with_message("term expected here"))),
         }?;
@@ -1032,6 +1035,26 @@ where
         } else {
             Ok(Term::Universe(start_token.span, None))
         }
+    }
+
+    /// Parse the trailing part of a primitive
+    ///
+    /// ```text
+    /// primitive ::= STRING_LITERAL
+    /// ```
+    fn parse_prim(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
+        let name_token = self.expect_match(TokenKind::StringLiteral)?;
+        let span = FileSpan::merge(start_token.span, name_token.span);
+        let name = SpannedString {
+            source: name_token.span.source(),
+            start: name_token.span.start(),
+            slice: name_token.slice,
+        };
+
+        Ok(Term::Prim(span, name))
     }
 
     /// Parse the trailing part of a record elimination

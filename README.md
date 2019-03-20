@@ -34,7 +34,7 @@ DeBruijn levels in the syntax of the semantic domain.
 - [x] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
 - [x] Dependent record types
-- [ ] Primitive operations
+- [x] Primitive operations
 - [ ] Add eta rules to normalizer
 - [ ] Metavariable solving
 - [ ] Integration tests

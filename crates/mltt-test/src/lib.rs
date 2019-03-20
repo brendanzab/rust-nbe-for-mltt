@@ -54,4 +54,5 @@ run_test!(forward_declarations, "tests/forward-declarations.mltt");
 run_test!(if_expressions, "tests/if-expressions.mltt");
 run_test!(literals, "tests/literals.mltt");
 run_test!(let_expressions, "tests/let-expressions.mltt");
+run_test!(primitives, "tests/primitives.mltt");
 run_test!(records, "tests/records.mltt");

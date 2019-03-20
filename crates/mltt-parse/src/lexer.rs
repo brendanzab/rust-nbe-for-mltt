@@ -6,7 +6,18 @@ use crate::token::{DelimKind, Token, TokenKind};
 
 /// The keywords used in the language
 pub const KEYWORDS: &[&str] = &[
-    "case", "else", "if", "in", "let", "then", "Type", "Fun", "fun", "Record", "record",
+    "case",
+    "else",
+    "if",
+    "in",
+    "let",
+    "then",
+    "Type",
+    "Fun",
+    "fun",
+    "primitive",
+    "Record",
+    "record",
 ];
 
 fn is_whitespace(ch: char) -> bool {

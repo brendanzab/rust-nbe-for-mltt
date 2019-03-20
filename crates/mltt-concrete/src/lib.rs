@@ -550,6 +550,8 @@ impl<'file> fmt::Display for RecordIntroField<'file> {
 pub enum Term<'file> {
     /// Variables
     Var(SpannedString<'file>),
+    /// Primitives
+    Prim(FileSpan, SpannedString<'file>),
     /// Holes
     Hole(FileSpan),
 
@@ -604,6 +606,7 @@ impl<'file> Term<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Term::Var(name) => name.span(),
+            Term::Prim(span, _) => *span,
             Term::Hole(span) => *span,
             Term::Parens(span, _) => *span,
             Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
@@ -634,6 +637,10 @@ impl<'file> Term<'file> {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Term::Var(name) => name.to_doc(),
+            Term::Prim(_, name) => Doc::nil()
+                .append("primitive")
+                .append(Doc::space())
+                .append(name.to_doc()),
             Term::Hole(_) => Doc::text("?"),
             Term::Parens(_, term) => Doc::text("(").append(term.to_doc()).append(")"),
             Term::Ann(term, ann) => Doc::nil()

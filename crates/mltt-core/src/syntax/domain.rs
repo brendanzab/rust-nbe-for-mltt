@@ -88,9 +88,14 @@ impl ops::Deref for RcValue {
 }
 
 impl RcValue {
-    /// Construct a variable
+    /// Construct a variable.
     pub fn var(level: impl Into<VarLevel>) -> RcValue {
         RcValue::from(Value::var(level))
+    }
+
+    /// Construct a primitive.
+    pub fn prim(name: String) -> RcValue {
+        RcValue::from(Value::prim(name))
     }
 }
 
@@ -130,9 +135,14 @@ pub enum Value {
 }
 
 impl Value {
-    /// Construct a variable
+    /// Construct a variable.
     pub fn var(level: impl Into<VarLevel>) -> Value {
         Value::Neutral(Head::Var(level.into()), Vec::new())
+    }
+
+    /// Construct a primitive.
+    pub fn prim(name: String) -> Value {
+        Value::Neutral(Head::Prim(name), Vec::new())
     }
 }
 
@@ -145,10 +155,12 @@ pub type Type = Value;
 pub type RcType = RcValue;
 
 /// The head of a neutral term
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Head {
     /// Variables
     Var(VarLevel),
+    /// Primitives
+    Prim(String),
 }
 
 /// A spine of eliminators

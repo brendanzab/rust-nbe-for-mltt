@@ -12,10 +12,12 @@ use crate::syntax::domain::{RcType, RcValue, Value};
 use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
 
 /// Local type checking context.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Context {
     /// Number of local entries.
     level: VarLevel,
+    /// Primitive entries.
+    prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
     values: Env<RcValue>,
     /// Types of the entries in the context.
@@ -27,6 +29,7 @@ impl Context {
     pub fn new() -> Context {
         Context {
             level: VarLevel(0),
+            prims: nbe::PrimEnv::new(),
             values: Env::new(),
             tys: Env::new(),
         }
@@ -35,6 +38,11 @@ impl Context {
     /// Number of local entries in the context.
     pub fn level(&self) -> VarLevel {
         self.level
+    }
+
+    /// Primitive entries.
+    pub fn prims(&self) -> &nbe::PrimEnv {
+        &self.prims
     }
 
     /// Values to be used during evaluation.
@@ -65,12 +73,12 @@ impl Context {
 
     /// Evaluate a term using the evaluation environment.
     pub fn eval(&self, term: &RcTerm) -> Result<RcValue, NbeError> {
-        nbe::eval(term, self.values())
+        nbe::eval(self.prims(), self.values(), term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.level(), ty1, ty2)? {
+        if nbe::check_subtype(self.prims(), self.level(), ty1, ty2)? {
             Ok(())
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))
@@ -102,6 +110,8 @@ impl Default for Context {
         context.local_define(lit_ty(LiteralType::F32), u0.clone());
         context.local_define(lit_ty(LiteralType::F64), u0.clone());
 
+        context.prims = nbe::PrimEnv::default();
+
         context
     }
 }
@@ -115,6 +125,7 @@ pub enum TypeError {
     ExpectedSubtype(RcType, RcType),
     AmbiguousTerm(RcTerm),
     UnboundVariable,
+    UnknownPrim(String),
     NoFieldInType(Label),
     UnexpectedField { found: Label, expected: Label },
     UnexpectedAppMode { found: AppMode, expected: AppMode },
@@ -147,6 +158,7 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable => write!(f, "unbound variable"),
+            TypeError::UnknownPrim(name) => write!(f, "unbound primitive: {:?}", name),
             TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
             TypeError::UnexpectedField { found, expected } => write!(
                 f,
@@ -229,6 +241,10 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
     log::trace!("checking term:\t\t{}", term);
 
     match term.as_ref() {
+        Term::Prim(name) => match context.prims().lookup_entry(name) {
+            None => Err(TypeError::UnknownPrim(name.clone())),
+            Some(_) => Ok(()),
+        },
         Term::Let(def, body) => {
             let mut body_context = context.clone();
             body_context.local_define(context.eval(def)?, synth_term(context, def)?);
@@ -254,7 +270,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
                 let param = body_context.local_bind(param_ty.clone());
-                let body_ty = nbe::do_closure_app(body_ty, param)?;
+                let body_ty = nbe::do_closure_app(context.prims(), body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
             },
@@ -286,7 +302,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                     let term_value = context.eval(term)?;
 
                     context.local_define(term_value.clone(), expected_term_ty.clone());
-                    expected_ty = nbe::do_closure_app(&rest, term_value)?;
+                    expected_ty = nbe::do_closure_app(context.prims(), &rest, term_value)?;
                 } else {
                     return Err(TypeError::TooManyFieldsFound);
                 }
@@ -314,10 +330,9 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
-        Term::PrimitiveAbort(ty, _) => {
-            synth_universe(context, ty)?;
-            let ty = context.eval(ty)?;
-            Ok(ty)
+        Term::Prim(name) => match context.prims().lookup_entry(name) {
+            None => Err(TypeError::UnknownPrim(name.clone())),
+            Some(_) => Err(TypeError::AmbiguousTerm(term.clone())),
         },
         Term::Let(def, body) => {
             let mut body_context = context.clone();
@@ -353,7 +368,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
                     check_term(context, arg, arg_ty)?;
                     let arg_value = context.eval(arg)?;
-                    Ok(nbe::do_closure_app(body_ty, arg_value)?)
+                    Ok(nbe::do_closure_app(context.prims(), body_ty, arg_value)?)
                 },
                 Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
                     found: arg_app_mode.clone(),
@@ -395,7 +410,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 } else {
                     let label = current_label.clone();
                     let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
-                    record_ty = nbe::do_closure_app(rest, context.eval(&expr)?)?;
+                    record_ty = nbe::do_closure_app(context.prims(), rest, context.eval(&expr)?)?;
                 }
             }
 

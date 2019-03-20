@@ -27,10 +27,12 @@ mod docs;
 mod literal;
 
 /// Local elaboration context.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Context {
     /// Number of local entries.
     level: VarLevel,
+    /// Primitive entries.
+    prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
     values: Env<domain::RcValue>,
     /// Type annotations of the binders we have passed over.
@@ -46,10 +48,11 @@ pub struct Context {
 }
 
 fn do_closure_app(
+    prims: &nbe::PrimEnv,
     closure: &domain::AppClosure,
     arg: domain::RcValue,
 ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-    nbe::do_closure_app(closure, arg)
+    nbe::do_closure_app(prims, closure, arg)
         .map_err(|error| Diagnostic::new_bug(format!("failed closure application: {}", error)))
 }
 
@@ -58,6 +61,7 @@ impl Context {
     pub fn new() -> Context {
         Context {
             level: VarLevel(0),
+            prims: nbe::PrimEnv::new(),
             values: Env::new(),
             tys: Env::new(),
             names: im::HashMap::new(),
@@ -67,6 +71,11 @@ impl Context {
     /// Number of local entries in the context
     pub fn level(&self) -> VarLevel {
         self.level
+    }
+
+    /// Primitive entries.
+    pub fn prims(&self) -> &nbe::PrimEnv {
+        &self.prims
     }
 
     /// Values to be used during evaluation
@@ -126,7 +135,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::eval(term, self.values()).map_err(|error| match span.into() {
+        nbe::eval(self.prims(), self.values(), term).map_err(|error| match span.into() {
             None => Diagnostic::new_bug(format!("failed to evaluate term: {}", error)),
             Some(span) => Diagnostic::new_bug("failed to evaluate term")
                 .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
@@ -139,7 +148,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        nbe::read_back_term(self.level(), value).map_err(|error| match span.into() {
+        nbe::read_back_term(self.prims(), self.level(), value).map_err(|error| match span.into() {
             None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
             Some(span) => Diagnostic::new_bug("failed to read-back value")
                 .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
@@ -164,7 +173,7 @@ impl Context {
         ty1: &domain::RcType,
         ty2: &domain::RcType,
     ) -> Result<(), Diagnostic<FileSpan>> {
-        match nbe::check_subtype(self.level(), ty1, ty2) {
+        match nbe::check_subtype(self.prims(), self.level(), ty1, ty2) {
             Ok(true) => Ok(()),
             Ok(false) => Err(Diagnostic::new_error("not a subtype").with_label(
                 DiagnosticLabel::new_primary(span).with_message(format!(
@@ -207,6 +216,8 @@ impl Default for Context {
         context.local_define("S64".to_owned(), lit_ty(LiteralType::S64), u0.clone());
         context.local_define("F32".to_owned(), lit_ty(LiteralType::F32), u0.clone());
         context.local_define("F64".to_owned(), lit_ty(LiteralType::F64), u0.clone());
+
+        context.prims = nbe::PrimEnv::default();
 
         context
     }
@@ -407,6 +418,14 @@ pub fn check_term(
     log::trace!("checking term:\t\t{}", concrete_term);
 
     match concrete_term {
+        Term::Prim(_, name) => {
+            let parsed_name = literal::parse_string(name.span(), name.slice)?;
+            match context.prims().lookup_entry(&parsed_name) {
+                None => Err(Diagnostic::new_error("unknown primitive")
+                    .with_label(DiagnosticLabel::new_primary(name.span()))),
+                Some(_) => Ok(core::RcTerm::from(core::Term::Prim(parsed_name))),
+            }
+        },
         Term::Parens(_, concrete_term) => check_term(context, concrete_term, expected_ty),
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
@@ -472,7 +491,7 @@ pub fn check_term(
 
                     fields.push((expected_label.clone(), term));
                     context.local_define(found_label.to_string(), term_value.clone(), term_ty);
-                    expected_ty = do_closure_app(&rest, term_value)?;
+                    expected_ty = do_closure_app(context.prims(), &rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
                         DiagnosticLabel::new_primary(found_label.span()).with_message(format!(
@@ -511,10 +530,20 @@ pub fn synth_term(
     log::trace!("synthesizing term:\t\t{}", concrete_term);
 
     match concrete_term {
-        Term::Var(name) => match context.lookup_binder(&name.slice) {
+        Term::Var(name) => match context.lookup_binder(name.slice) {
             None => Err(Diagnostic::new_error("unbound variable")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
+        },
+        Term::Prim(span, name) => match context
+            .prims()
+            .lookup_entry(&literal::parse_string(name.span(), name.slice)?)
+        {
+            None => Err(Diagnostic::new_error("unknown primitive")
+                .with_label(DiagnosticLabel::new_primary(name.span()))),
+            Some(_) => Err(Diagnostic::new_error("ambiguous primitive").with_label(
+                DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+            )),
         },
         Term::Hole(span) => Err(Diagnostic::new_error("ambiguous term").with_label(
             DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
@@ -654,7 +683,7 @@ pub fn synth_term(
                 let arg_value = context.eval(concrete_arg.span(), &arg)?;
 
                 fun = core::RcTerm::from(core::Term::FunElim(fun, ty_app_mode.clone(), arg));
-                fun_ty = do_closure_app(body_ty, arg_value)?;
+                fun_ty = do_closure_app(context.prims(), body_ty, arg_value)?;
             }
 
             Ok((fun, fun_ty))
@@ -711,7 +740,7 @@ pub fn synth_term(
                     return Ok((expr, current_ty.clone()));
                 } else {
                     let expr = context.eval(None, &expr)?;
-                    record_ty = do_closure_app(rest, expr)?;
+                    record_ty = do_closure_app(context.prims(), rest, expr)?;
                 }
             }
 

@@ -64,13 +64,9 @@ impl fmt::Display for RcTerm {
 pub enum Term {
     /// Variables
     Var(VarIndex),
-    /// Primitive abort function
-    // TODO: implement a more general primitive mechanism - perhaps something like:
-    //
-    // ```
-    // primitive "abort" : Fun {A : Type} -> String -> A
-    // ```
-    PrimitiveAbort(RcTerm, String),
+    /// Primitives
+    Prim(String),
+
     /// Let bindings
     Let(RcTerm, RcTerm),
 
@@ -124,10 +120,8 @@ impl Term {
         // variables using regular equality, while avoiding the comparison of
         // metadata, such as variable name hints and doc strings.
         match (self, other) {
-            (Term::Var(var_index1), Term::Var(var_index2)) => var_index1 == var_index2,
-            (Term::PrimitiveAbort(ty1, message1), Term::PrimitiveAbort(ty2, message2)) => {
-                Term::alpha_eq(ty1, ty2) && message1 == message2
-            },
+            (Term::Var(index1), Term::Var(index2)) => index1 == index2,
+            (Term::Prim(name1), Term::Prim(name2)) => name1 == name2,
             (Term::Let(def1, body1), Term::Let(def2, body2)) => {
                 Term::alpha_eq(def1, def2) && Term::alpha_eq(body1, body2)
             },
@@ -188,18 +182,10 @@ impl Term {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             Term::Var(index) => index.to_doc(),
-            Term::PrimitiveAbort(ty, message) => Doc::nil()
-                .append("(primitive \"abort\")")
+            Term::Prim(name) => Doc::nil()
+                .append("primitive")
                 .append(Doc::space())
-                .append("{")
-                .append("A")
-                .append(Doc::space())
-                .append("=")
-                .append(Doc::space())
-                .append(ty.to_doc())
-                .append("}")
-                .append(Doc::space())
-                .append(format!("{:?}", message)),
+                .append(format!("{:?}", name)),
             Term::Let(def, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
@@ -483,18 +469,10 @@ impl Term {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             Term::Var(index) => Doc::as_string(env.lookup_name(*index)),
-            Term::PrimitiveAbort(ty, message) => Doc::nil()
-                .append("(primitive \"abort\")")
+            Term::Prim(name) => Doc::nil()
+                .append("primitive")
                 .append(Doc::space())
-                .append("{")
-                .append("A")
-                .append(Doc::space())
-                .append("=")
-                .append(Doc::space())
-                .append(ty.to_doc())
-                .append("}")
-                .append(Doc::space())
-                .append(format!("{:?}", message)),
+                .append(format!("{:?}", name)),
             Term::Let(def, body) => {
                 let def_doc = def.to_display_doc(env);
                 let def_name = env.fresh_name(None);

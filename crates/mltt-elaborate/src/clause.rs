@@ -72,7 +72,7 @@ pub fn check_clause(
 
         param_app_modes.push(app_mode);
         let param_var = context.local_bind(var_name, param_ty.clone());
-        expected_ty = do_closure_app(next_body_ty, param_var)?;
+        expected_ty = do_closure_app(context.prims(), next_body_ty, param_var)?;
     }
 
     let body = check_clause_body(&context, &clause, &expected_ty)?;
