@@ -324,26 +324,18 @@ fn check_items(
 fn check_param_app_mode<'param, 'file>(
     param: &'param IntroParam<'file>,
     expected_app_mode: &AppMode,
-) -> Result<Cow<'param, Pattern<'file>>, Diagnostic<FileSpan>> {
+) -> Result<Option<Cow<'param, Pattern<'file>>>, Diagnostic<FileSpan>> {
     match (param, expected_app_mode) {
-        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(Cow::Borrowed(pattern)),
+        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(Some(Cow::Borrowed(pattern))),
         (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
             if intro_label.slice == ty_label.0 =>
         {
             match pattern {
-                None => Ok(Cow::Owned(Pattern::Var(intro_label.clone()))),
-                Some(pattern) => Ok(Cow::Borrowed(pattern)),
+                None => Ok(Some(Cow::Owned(Pattern::Var(intro_label.clone())))),
+                Some(pattern) => Ok(Some(Cow::Borrowed(pattern))),
             }
         },
-        (_, AppMode::Implicit(ty_label)) => {
-            let message = "inference of implicit parameter patterns is not yet supported";
-            Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(param.span()).with_message(format!(
-                    "add the explicit pattern `{{{} = ..}}` here",
-                    ty_label,
-                )),
-            ))
-        },
+        (_, AppMode::Implicit(_)) => Ok(None),
         (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
             let message = "unexpected implicit parameter pattern";
             Err(Diagnostic::new_error(message).with_label(
@@ -399,28 +391,38 @@ fn check_clause(
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
     let mut context = context.clone();
-    let mut param_tys = Vec::new();
+    let mut param_app_modes = Vec::new();
     let mut expected_ty = expected_ty.clone();
 
     while let Some((head_param, rest_params)) = params.split_first() {
         params = rest_params;
 
-        let (app_mode, param_ty, body_ty) = match expected_ty.as_ref() {
-            domain::Value::FunType(app_mode, param_t, body_ty) => Ok((app_mode, param_t, body_ty)),
-            _ => Err(Diagnostic::new_error("expected a function").with_label(
-                DiagnosticLabel::new_primary(concrete_body.span())
-                    .with_message(format!("found: {}", context.read_back(None, &expected_ty)?)),
-            )),
-        }?;
+        loop {
+            let (app_mode, param_ty, body_ty) = match expected_ty.as_ref() {
+                domain::Value::FunType(app_mode, param_t, body_ty) => {
+                    Ok((app_mode, param_t, body_ty))
+                },
+                _ => Err(
+                    Diagnostic::new_error("too many parameters provided").with_label(
+                        DiagnosticLabel::new_primary(head_param.span())
+                            .with_message("try removing this parameter"),
+                    ),
+                ),
+            }?;
 
-        let pattern = check_param_app_mode(head_param, app_mode)?;
-        let var_name = match pattern.as_ref() {
-            Pattern::Var(var_name) => var_name,
-        };
+            let pattern = check_param_app_mode(head_param, app_mode)?;
+            let var_name = pattern.as_ref().map(|pattern| match pattern.as_ref() {
+                Pattern::Var(var_name) => var_name.slice.to_owned(),
+            });
 
-        param_tys.push((app_mode.clone(), param_ty.clone()));
-        let param = context.local_bind(var_name.slice.to_owned(), param_ty.clone());
-        expected_ty = do_closure_app(&body_ty, param.clone())?;
+            param_app_modes.push(app_mode.clone());
+            let param_var = context.local_bind(var_name, param_ty.clone());
+            expected_ty = do_closure_app(&body_ty, param_var)?;
+
+            if pattern.is_some() {
+                break;
+            }
+        }
     }
 
     let body = match concrete_body_ty {
@@ -435,10 +437,10 @@ fn check_clause(
         },
     };
 
-    Ok(param_tys
+    Ok(param_app_modes
         .into_iter()
         .rev()
-        .fold(body, |acc, (app_mode, _)| {
+        .fold(body, |acc, app_mode| {
             core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
         }))
 }

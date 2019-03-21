@@ -11,7 +11,7 @@ unit = record {};
 
 ||| The polymorphic identity function
 id : Fun {A : Type} -> A -> A;
-id {A} a = a;
+id a = a;
 
 test-id : Unit;
 test-id = id {A = Unit} unit;
@@ -23,7 +23,7 @@ test-id = id {A = Unit} unit;
 |||
 ||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
 const : Fun {A B : Type} -> A -> B -> A;
-const {A} {B} a =
+const a =
     fun b => a;
 
 test-const : Unit;
@@ -50,7 +50,7 @@ d-subst :
         (f : Fun (a : A) (b : B a) -> C a b)
         (g : Fun (a : A) -> B a) ->
         (Fun (a : A) -> C a (g a));
-d-subst {A} {B} {C} f g =
+d-subst f g =
     fun a => f a (g a);
 
 ||| Substitution
@@ -65,7 +65,7 @@ d-compose :
         (f : Fun {a : A} (b : B a) -> C {a} b)
         (g : Fun (a : A) -> B a) ->
         (Fun (a : A) -> C {a} (g a));
-d-compose {A} {B} {C} f g =
+d-compose f g =
     fun a => f {a} (g a);
 
 ||| Function composition
@@ -79,7 +79,7 @@ d-flip :
     Fun {A B : Type} {C : A -> B -> Type} ->
         (Fun (a : A) (b : B) -> C a b) ->
         (Fun (b : B) (a : A) -> C a b);
-d-flip {A} {B} {C} f =
+d-flip f =
     fun a b => f b a;
 
 ||| Flip the order of the first two arguments to a function
