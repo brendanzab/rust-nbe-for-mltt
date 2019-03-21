@@ -21,9 +21,26 @@ test-synth-empty-record-intro-ty : Record {} = test-synth-empty-record-intro;
 Eq : Type -> Type;
 Eq A = Record {
     ||| Compare two terms for equality
-    eq : A -> A -> A;
+    eq : A -> A -> A; -- TODO: return `Bool`
 };
 
 ||| Compare two terms for equality
 eq : Fun {A : Type} (eq-A : Eq A) -> A -> A -> A;
 eq eq-A a1 a2 = eq-A.eq a1 a2;
+
+
+Map = Record {
+    Key : Type;
+    Map : Type -> Type;
+
+    empty : Fun {A : Type} -> Map A;
+    add : Fun {A : Type} -> A -> Map A -> Map A;
+    lookup : Fun {A : Type} -> Key -> A -> Map A -> A; -- TODO: return `Option A`
+};
+
+
+Shape = Record {
+    T : Type;
+    area : T -> F32;
+    value : T;
+};
