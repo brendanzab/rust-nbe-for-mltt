@@ -1,4 +1,4 @@
-//! Normalization by evaluation
+//! Normalization by evaluation.
 //!
 //! Here we implement a full normalization algorithm by first implementing
 //! evaluation to `Value`s in weak-head-normal-form, and then reading it back
@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
-use crate::syntax::domain::{Closure, Elim, Head, RcType, RcValue, Spine, Value};
+use crate::syntax::domain::{AppClosure, ClauseClosure, Elim, Head, RcType, RcValue, Spine, Value};
 use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
 
 /// An error produced during normalization
@@ -36,6 +36,26 @@ impl fmt::Display for NbeError {
     }
 }
 
+/// Case split on a literal
+fn do_literal_elim(
+    scrutinee: RcValue,
+    clauses: ClauseClosure,
+    default_body: AppClosure,
+) -> Result<RcValue, NbeError> {
+    match scrutinee.as_ref() {
+        Value::LiteralIntro(literal_intro) => match clauses.match_literal(literal_intro) {
+            Some(body) => eval(body, &clauses.env),
+            None => do_closure_app(&default_body, scrutinee),
+        },
+        Value::Neutral(head, spine) => {
+            let mut spine = spine.clone();
+            spine.push(Elim::Literal(clauses, default_body));
+            Ok(RcValue::from(Value::Neutral(*head, spine)))
+        },
+        _ => Err(NbeError::new("do_record_elim: not a literal")),
+    }
+}
+
 /// Return the field in from a record
 fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> {
     match record.as_ref() {
@@ -56,7 +76,7 @@ fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> 
 }
 
 /// Apply a closure to an argument
-pub fn do_closure_app(closure: &Closure, arg: RcValue) -> Result<RcValue, NbeError> {
+pub fn do_closure_app(closure: &AppClosure, arg: RcValue) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
     env.add_entry(arg);
     eval(&closure.term, &env)
@@ -93,10 +113,6 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             None => Err(NbeError::new("eval: variable not found")),
         },
         Term::PrimitiveAbort(_, message) => Err(NbeError::new(format!("abort: {}", message))),
-        Term::LiteralType(literal_ty) => Ok(RcValue::from(Value::LiteralType(literal_ty.clone()))),
-        Term::LiteralIntro(literal_intro) => {
-            Ok(RcValue::from(Value::LiteralIntro(literal_intro.clone())))
-        },
         Term::Let(def, body) => {
             let def = eval(def, env)?;
             let mut env = env.clone();
@@ -104,17 +120,30 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             eval(body, &env)
         },
 
+        // Literals
+        Term::LiteralType(literal_ty) => Ok(RcValue::from(Value::LiteralType(literal_ty.clone()))),
+        Term::LiteralIntro(literal_intro) => {
+            Ok(RcValue::from(Value::LiteralIntro(literal_intro.clone())))
+        },
+        Term::LiteralElim(scrutinee, clauses, default_body) => {
+            let scrutinee = eval(scrutinee, env)?;
+            let clauses = ClauseClosure::new(clauses.clone(), env.clone());
+            let default_body = AppClosure::new(default_body.clone(), env.clone());
+
+            do_literal_elim(scrutinee, clauses, default_body)
+        },
+
         // Functions
         Term::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
             let param_ty = eval(param_ty, env)?;
-            let body_ty = Closure::new(body_ty.clone(), env.clone());
+            let body_ty = AppClosure::new(body_ty.clone(), env.clone());
 
             Ok(RcValue::from(Value::FunType(app_mode, param_ty, body_ty)))
         },
         Term::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
-            let body = Closure::new(body.clone(), env.clone());
+            let body = AppClosure::new(body.clone(), env.clone());
 
             Ok(RcValue::from(Value::FunIntro(app_mode, body)))
         },
@@ -133,7 +162,8 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
                 let label = label.clone();
                 let ty = eval(ty, env)?;
                 let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
-                let rest = Closure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
+                let rest =
+                    AppClosure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
 
                 Ok(RcValue::from(Value::RecordTypeExtend(label, ty, rest)))
             },
@@ -229,6 +259,25 @@ pub fn read_back_neutral(level: VarLevel, head: Head, spine: &Spine) -> Result<R
     };
 
     spine.iter().fold(Ok(head), |acc, elim| match elim {
+        Elim::Literal(clauses, default_body) => {
+            let clauses = clauses
+                .clauses
+                .iter()
+                .map(|(literal_intro, body)| {
+                    let body = read_back_term(level, &eval(body, &clauses.env)?)?;
+                    Ok((literal_intro.clone(), body))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let default_param = RcValue::var(level);
+            let default_body =
+                read_back_term(level + 1, &do_closure_app(default_body, default_param)?)?;
+
+            Ok(RcTerm::from(Term::LiteralElim(
+                acc?,
+                clauses.into(),
+                default_body,
+            )))
+        },
         Elim::Fun(app_mode, arg) => Ok(RcTerm::from(Term::FunElim(
             acc?,
             app_mode.clone(),

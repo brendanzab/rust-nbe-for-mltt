@@ -40,7 +40,7 @@ pub struct Context {
 }
 
 fn do_closure_app(
-    closure: &domain::Closure,
+    closure: &domain::AppClosure,
     arg: domain::RcValue,
 ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
     nbe::do_closure_app(closure, arg)

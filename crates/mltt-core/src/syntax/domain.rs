@@ -1,4 +1,4 @@
-//! The semantic domain
+//! The semantic domain.
 
 use std::ops;
 use std::rc::Rc;
@@ -14,7 +14,7 @@ use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLeve
 ///
 /// [_explicit substitutions_]: https://en.wikipedia.org/wiki/Explicit_substitution
 #[derive(Debug, Clone, PartialEq)]
-pub struct Closure {
+pub struct AppClosure {
     /// The term that the argument will be applied to.
     pub term: RcTerm,
     /// The environment in which we'll run the term in.
@@ -24,9 +24,40 @@ pub struct Closure {
     pub env: Env<RcValue>,
 }
 
-impl Closure {
-    pub fn new(term: RcTerm, env: Env<RcValue>) -> Closure {
-        Closure { term, env }
+impl AppClosure {
+    pub fn new(term: RcTerm, env: Env<RcValue>) -> AppClosure {
+        AppClosure { term, env }
+    }
+}
+
+/// A closure that stores a list of clauses.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClauseClosure {
+    /// The clauses
+    pub clauses: Rc<[(LiteralIntro, RcTerm)]>,
+    /// The environment in which we'll run the clauses in.
+    ///
+    /// At the moment this captures the _entire_ environment - would it be
+    /// better to only capture what the `term` needs?
+    pub env: Env<RcValue>,
+}
+
+impl ClauseClosure {
+    pub fn new(clauses: Rc<[(LiteralIntro, RcTerm)]>, env: Env<RcValue>) -> ClauseClosure {
+        ClauseClosure { clauses, env }
+    }
+
+    pub fn match_literal(&self, literal_intro: &LiteralIntro) -> Option<&RcTerm> {
+        use std::cmp::Ordering;
+
+        let index = self.clauses.binary_search_by(|(l, _)| {
+            l.partial_cmp(literal_intro).unwrap_or(Ordering::Greater) // NaN?
+        });
+
+        match index {
+            Ok(index) => self.clauses.get(index).map(|(_, body)| body),
+            Err(_) => None,
+        }
     }
 }
 
@@ -84,12 +115,12 @@ pub enum Value {
     LiteralIntro(LiteralIntro),
 
     /// Dependent function types
-    FunType(AppMode, RcType, Closure),
+    FunType(AppMode, RcType, AppClosure),
     /// Introduce a function
-    FunIntro(AppMode, Closure),
+    FunIntro(AppMode, AppClosure),
 
     /// Dependent record type extension
-    RecordTypeExtend(Label, RcType, Closure),
+    RecordTypeExtend(Label, RcType, AppClosure),
     /// Empty record type
     RecordTypeEmpty,
     /// Introduce a record
@@ -127,6 +158,8 @@ pub type Spine = Vec<Elim>;
 /// An eliminator
 #[derive(Debug, Clone, PartialEq)]
 pub enum Elim {
+    /// Literal elimination (case split)
+    Literal(ClauseClosure, AppClosure),
     /// Function elimination (application)
     Fun(AppMode, RcValue),
     /// Record elimination (projection)

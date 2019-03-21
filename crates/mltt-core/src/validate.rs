@@ -1,4 +1,4 @@
-//! Bidirectional type checking of the core syntax
+//! Bidirectional type checking of the core syntax.
 //!
 //! This is used to verify that the core syntax is correctly formed, for
 //! debugging purposes.
@@ -23,7 +23,7 @@ pub struct Context {
 }
 
 impl Context {
-    /// Create a new, empty context
+    /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
             level: VarLevel(0),
@@ -32,17 +32,17 @@ impl Context {
         }
     }
 
-    /// Number of local entries in the context
+    /// Number of local entries in the context.
     pub fn level(&self) -> VarLevel {
         self.level
     }
 
-    /// Values to be used during evaluation
+    /// Values to be used during evaluation.
     pub fn values(&self) -> &Env<RcValue> {
         &self.values
     }
 
-    /// Types of the entries in the context
+    /// Types of the entries in the context.
     pub fn tys(&self) -> &Env<RcType> {
         &self.tys
     }
@@ -62,12 +62,12 @@ impl Context {
         param
     }
 
-    /// Evaluate a term using the evaluation environment
+    /// Evaluate a term using the evaluation environment.
     pub fn eval(&self, term: &RcTerm) -> Result<RcValue, NbeError> {
         nbe::eval(term, self.values())
     }
 
-    /// Expect that `ty1` is a subtype of `ty2` in the current context
+    /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
         if nbe::check_subtype(self.level(), ty1, ty2)? {
             Ok(())
@@ -100,7 +100,7 @@ impl Default for Context {
     }
 }
 
-/// An error produced during type checking
+/// An error produced during type checking.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
     ExpectedFunType { found: RcType },
@@ -159,7 +159,7 @@ impl fmt::Display for TypeError {
     }
 }
 
-/// Check that this is a valid module
+/// Check that this is a valid module.
 pub fn check_module(context: &Context, items: &[Item]) -> Result<(), TypeError> {
     let mut context = context.clone();
 
@@ -181,8 +181,35 @@ pub fn check_module(context: &Context, items: &[Item]) -> Result<(), TypeError> 
     Ok(())
 }
 
-/// Ensures that the given term is a universe, returning the level of that universe
-fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, TypeError> {
+/// Check that a literal conforms to a given type.
+pub fn check_literal(
+    context: &Context,
+    literal_intro: &LiteralIntro,
+    expected_ty: &RcType,
+) -> Result<(), TypeError> {
+    context.expect_subtype(&synth_literal(literal_intro), expected_ty)
+}
+
+/// Synthesize the type of the literal.
+pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
+    RcValue::from(Value::LiteralType(match literal_intro {
+        LiteralIntro::String(_) => LiteralType::String,
+        LiteralIntro::Char(_) => LiteralType::Char,
+        LiteralIntro::U8(_) => LiteralType::U8,
+        LiteralIntro::U16(_) => LiteralType::U16,
+        LiteralIntro::U32(_) => LiteralType::U32,
+        LiteralIntro::U64(_) => LiteralType::U64,
+        LiteralIntro::S8(_) => LiteralType::S8,
+        LiteralIntro::S16(_) => LiteralType::S16,
+        LiteralIntro::S32(_) => LiteralType::S32,
+        LiteralIntro::S64(_) => LiteralType::S64,
+        LiteralIntro::F32(_) => LiteralType::F32,
+        LiteralIntro::F64(_) => LiteralType::F64,
+    }))
+}
+
+/// Ensures that the given term is a universe, returning the level of that universe.
+pub fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, TypeError> {
     let ty = synth_term(context, term)?;
     match ty.as_ref() {
         Value::Universe(level) => Ok(*level),
@@ -190,7 +217,7 @@ fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, Typ
     }
 }
 
-/// Check that a term conforms to a given type
+/// Check that a term conforms to a given type.
 pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
     log::trace!("checking term:\t\t{}", term);
 
@@ -200,6 +227,22 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             body_context.local_define(context.eval(def)?, synth_term(context, def)?);
 
             check_term(&body_context, body, expected_ty)
+        },
+
+        Term::LiteralElim(scrutinee, clauses, default_body) => {
+            let scrutinee_ty = synth_term(context, scrutinee)?;
+
+            // TODO: check that clauses are sorted by patterns
+            // TODO: check that patterns aren't duplicated
+
+            for (literal_intro, body) in clauses.iter() {
+                check_literal(context, literal_intro, &scrutinee_ty)?;
+                check_term(context, body, &expected_ty)?;
+            }
+
+            let mut default_body_context = context.clone();
+            default_body_context.local_bind(scrutinee_ty.clone());
+            check_term(&default_body_context, default_body, expected_ty)
         },
 
         Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
@@ -255,7 +298,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
     }
 }
 
-/// Synthesize the type of the term
+/// Synthesize the type of the term.
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
     use std::cmp;
 
@@ -280,22 +323,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         },
 
         Term::LiteralType(_) => Ok(RcValue::from(Value::Universe(UniverseLevel(0)))),
-        Term::LiteralIntro(literal_intro) => {
-            Ok(RcValue::from(Value::LiteralType(match literal_intro {
-                LiteralIntro::String(_) => LiteralType::String,
-                LiteralIntro::Char(_) => LiteralType::Char,
-                LiteralIntro::U8(_) => LiteralType::U8,
-                LiteralIntro::U16(_) => LiteralType::U16,
-                LiteralIntro::U32(_) => LiteralType::U32,
-                LiteralIntro::U64(_) => LiteralType::U64,
-                LiteralIntro::S8(_) => LiteralType::S8,
-                LiteralIntro::S16(_) => LiteralType::S16,
-                LiteralIntro::S32(_) => LiteralType::S32,
-                LiteralIntro::S64(_) => LiteralType::S64,
-                LiteralIntro::F32(_) => LiteralType::F32,
-                LiteralIntro::F64(_) => LiteralType::F64,
-            })))
-        },
+        Term::LiteralIntro(literal_intro) => Ok(synth_literal(literal_intro)),
+        Term::LiteralElim(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
         Term::FunType(_app_mode, param_ty, body_ty) => {
             let param_level = synth_universe(context, param_ty)?;

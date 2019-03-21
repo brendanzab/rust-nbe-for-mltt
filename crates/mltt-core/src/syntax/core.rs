@@ -1,4 +1,4 @@
-//! The checked core syntax
+//! The checked core syntax.
 
 use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
@@ -76,6 +76,12 @@ pub enum Term {
     LiteralType(LiteralType),
     /// Literal introductions
     LiteralIntro(LiteralIntro),
+    /// Eliminate a literal (case split on literals)
+    ///
+    /// We include a scrutinee, a list of clauses, and a default term. The
+    /// clauses are sorted in ascending order by the literal to allow for
+    /// efficient binary searching during evaluation.
+    LiteralElim(RcTerm, Rc<[(LiteralIntro, RcTerm)]>, RcTerm),
 
     /// Dependent function types
     FunType(AppMode, RcTerm, RcTerm),
@@ -128,6 +134,36 @@ impl Term {
 
             Term::LiteralType(literal_ty) => literal_ty.to_doc(),
             Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
+            Term::LiteralElim(scrutinee, clauses, default_body) => {
+                let clauses = Doc::intersperse(
+                    clauses.iter().map(|(literal_intro, body)| {
+                        Doc::nil()
+                            .append(literal_intro.to_doc())
+                            .append(Doc::space())
+                            .append("=>")
+                            .append(Doc::space())
+                            .append(body.to_doc())
+                    }),
+                    Doc::text(";").append(Doc::space()),
+                );
+
+                Doc::nil()
+                    .append("case")
+                    .append(Doc::space())
+                    .append(scrutinee.to_arg_doc())
+                    .append("{")
+                    .append(Doc::space())
+                    .append(clauses)
+                    .append(";")
+                    .append(Doc::space())
+                    .append("_")
+                    .append(Doc::space())
+                    .append("=>")
+                    .append(Doc::space())
+                    .append(default_body.to_doc())
+                    .append(Doc::space())
+                    .append("}")
+            },
 
             Term::FunType(app_mode, param_ty, body_ty) => {
                 let param = match app_mode {
@@ -373,6 +409,40 @@ impl Term {
 
             Term::LiteralType(literal_ty) => literal_ty.to_doc(),
             Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
+            Term::LiteralElim(scrutinee, clauses, default_body) => {
+                let scrutinee = scrutinee.to_display_arg_doc(env);
+                let clauses = Doc::intersperse(
+                    clauses.iter().map(|(literal_intro, body)| {
+                        Doc::nil()
+                            .append(literal_intro.to_doc())
+                            .append(Doc::space())
+                            .append("=>")
+                            .append(Doc::space())
+                            .append(body.to_display_doc(env))
+                    }),
+                    Doc::text(";").append(Doc::space()),
+                );
+                let default_param_name = env.fresh_name(None);
+                let default_body = default_body.to_display_doc(env);
+                env.pop_name();
+
+                Doc::nil()
+                    .append("case")
+                    .append(Doc::space())
+                    .append(scrutinee)
+                    .append("{")
+                    .append(Doc::space())
+                    .append(clauses)
+                    .append(";")
+                    .append(Doc::space())
+                    .append(default_param_name)
+                    .append(Doc::space())
+                    .append("=>")
+                    .append(Doc::space())
+                    .append(default_body)
+                    .append(Doc::space())
+                    .append("}")
+            },
 
             Term::FunType(app_mode, param_ty, body_ty) => {
                 let param_ty_doc = param_ty.to_display_doc(env);

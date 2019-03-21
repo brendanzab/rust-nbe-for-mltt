@@ -1,4 +1,4 @@
-//! The various syntaxes of the language
+//! The various syntaxes of the language.
 //!
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
