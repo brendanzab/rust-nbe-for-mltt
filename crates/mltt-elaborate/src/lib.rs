@@ -11,12 +11,15 @@
 #![warn(rust_2018_idioms)]
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{Arg, IntroParam, Item, Pattern, Term, TypeParam};
+use mltt_concrete::{Arg, Item, Term, TypeParam};
 use mltt_core::nbe;
 use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
 
+use crate::clause::Clause;
+
+mod clause;
 mod docs;
 mod literal;
 
@@ -271,8 +274,11 @@ fn check_items(
                     // its type instead
                     Entry::Vacant(entry) => {
                         let docs = docs::concat(&definition.docs);
-                        let (term, ty) = synth_clause(&context, params, body_ty, body)?;
+                        let clause = Clause::new(params, body_ty, body);
+                        let (term, ty) = clause::synth_clause(&context, clause)?;
+
                         entry.insert(None);
+
                         (docs, term, body.span(), ty)
                     },
                     // Something has happened with this declaration, let's
@@ -282,7 +288,9 @@ fn check_items(
                         // basis for checking the definition
                         Some((decl_docs, ty)) => {
                             let docs = docs::merge(&definition.label, decl_docs, &definition.docs)?;
-                            let term = check_clause(&context, params, body_ty, body, &ty)?;
+                            let clause = Clause::new(params, body_ty, body);
+                            let term = clause::check_clause(&context, clause, &ty)?;
+
                             (docs, term, body.span(), ty)
                         },
                         // This declaration was already given a definition, so
@@ -319,32 +327,6 @@ fn check_items(
     Ok(core_items)
 }
 
-/// Check that a given parameter matches the expected application mode, and
-/// return the pattern inside it.
-fn check_param_app_mode<'param, 'file>(
-    param: &'param IntroParam<'file>,
-    expected_app_mode: &AppMode,
-) -> Result<Option<Cow<'param, Pattern<'file>>>, Diagnostic<FileSpan>> {
-    match (param, expected_app_mode) {
-        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(Some(Cow::Borrowed(pattern))),
-        (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
-            if intro_label.slice == ty_label.0 =>
-        {
-            match pattern {
-                None => Ok(Some(Cow::Owned(Pattern::Var(intro_label.clone())))),
-                Some(pattern) => Ok(Some(Cow::Borrowed(pattern))),
-            }
-        },
-        (_, AppMode::Implicit(_)) => Ok(None),
-        (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
-            let message = "unexpected implicit parameter pattern";
-            Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(*span).with_message("this parameter is not needed"),
-            ))
-        },
-    }
-}
-
 /// Check that a given argument matches the expected application mode, and
 /// return the term inside it.
 fn check_arg_app_mode<'arg, 'file>(
@@ -375,100 +357,6 @@ fn check_arg_app_mode<'arg, 'file>(
             Err(Diagnostic::new_error(message).with_label(
                 DiagnosticLabel::new_primary(*span).with_message("this argument is not needed"),
             ))
-        },
-    }
-}
-
-/// Check that a given clause conforms to an expected type, and elaborates
-/// it into a case tree.
-///
-/// Returns the elaborated term.
-fn check_clause(
-    context: &Context,
-    mut params: &[IntroParam<'_>],
-    concrete_body_ty: Option<&Term<'_>>,
-    concrete_body: &Term<'_>,
-    expected_ty: &domain::RcType,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-    let mut context = context.clone();
-    let mut param_app_modes = Vec::new();
-    let mut expected_ty = expected_ty.clone();
-
-    while let Some((head_param, rest_params)) = params.split_first() {
-        params = rest_params;
-
-        loop {
-            let (app_mode, param_ty, body_ty) = match expected_ty.as_ref() {
-                domain::Value::FunType(app_mode, param_t, body_ty) => {
-                    Ok((app_mode, param_t, body_ty))
-                },
-                _ => Err(
-                    Diagnostic::new_error("too many parameters provided").with_label(
-                        DiagnosticLabel::new_primary(head_param.span())
-                            .with_message("try removing this parameter"),
-                    ),
-                ),
-            }?;
-
-            let pattern = check_param_app_mode(head_param, app_mode)?;
-            let var_name = pattern.as_ref().map(|pattern| match pattern.as_ref() {
-                Pattern::Var(var_name) => var_name.slice.to_owned(),
-            });
-
-            param_app_modes.push(app_mode.clone());
-            let param_var = context.local_bind(var_name, param_ty.clone());
-            expected_ty = do_closure_app(&body_ty, param_var)?;
-
-            if pattern.is_some() {
-                break;
-            }
-        }
-    }
-
-    let body = match concrete_body_ty {
-        None => check_term(&context, concrete_body, &expected_ty)?,
-        Some(concrete_body_ty) => {
-            let (body_ty, _) = synth_universe(&context, concrete_body_ty)?;
-            let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
-            let body = check_term(&context, concrete_body, &body_ty)?;
-            // TODO: Ensure that this is respecting variance correctly!
-            context.expect_subtype(concrete_body.span(), &body_ty, &expected_ty)?;
-            body
-        },
-    };
-
-    Ok(param_app_modes
-        .into_iter()
-        .rev()
-        .fold(body, |acc, app_mode| {
-            core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
-        }))
-}
-
-/// Synthesize the type of a clause, elaborating it into a case tree.
-///
-/// Returns the elaborated term and its synthesized type.
-fn synth_clause(
-    context: &Context,
-    params: &[IntroParam<'_>],
-    concrete_body_ty: Option<&Term<'_>>,
-    concrete_body: &Term<'_>,
-) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    if let Some(param) = params.first() {
-        // TODO: We will be able to type this once we have annotated patterns!
-        return Err(
-            Diagnostic::new_error("unable to infer the type of parameter")
-                .with_label(DiagnosticLabel::new_primary(param.span())),
-        );
-    }
-
-    match concrete_body_ty {
-        None => synth_term(context, concrete_body),
-        Some(concrete_body_ty) => {
-            let (body_ty, _) = synth_universe(context, concrete_body_ty)?;
-            let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
-            let body = check_term(context, concrete_body, &body_ty)?;
-            Ok((body, body_ty))
         },
     }
 }
@@ -514,8 +402,9 @@ pub fn check_term(
 
         Term::Literal(concrete_literal) => literal::check(concrete_literal, expected_ty),
 
-        Term::FunIntro(_, params, concrete_body) => {
-            check_clause(context, params, None, concrete_body, expected_ty)
+        Term::FunIntro(_, concrete_params, concrete_body) => {
+            let clause = Clause::new(concrete_params, None, concrete_body);
+            clause::check_clause(context, clause, expected_ty)
         },
 
         Term::RecordIntro(span, concrete_intro_fields) => {
@@ -533,7 +422,8 @@ pub fn check_term(
                 let (found_label, params, body_ty, body) = concrete_intro_field.desugar();
 
                 if found_label.slice == expected_label.0 {
-                    let term = check_clause(&context, params, body_ty, &body, expected_term_ty)?;
+                    let clause = Clause::new(params, body_ty, &body);
+                    let term = clause::check_clause(&context, clause, expected_term_ty)?;
 
                     let term_value = context.eval(body.span(), &term)?;
                     let term_ty = expected_term_ty.clone();
@@ -680,8 +570,9 @@ pub fn synth_term(
                 domain::RcValue::from(domain::Value::Universe(cmp::max(param_level, body_level))),
             ))
         },
-        Term::FunIntro(_, params, concrete_body) => {
-            synth_clause(context, params, None, concrete_body)
+        Term::FunIntro(_, concrete_params, concrete_body) => {
+            let clause = Clause::new(concrete_params, None, concrete_body);
+            clause::synth_clause(context, clause)
         },
         Term::FunElim(concrete_fun, concrete_args) => {
             let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
