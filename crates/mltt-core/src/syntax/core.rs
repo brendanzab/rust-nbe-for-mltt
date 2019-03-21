@@ -62,6 +62,13 @@ impl fmt::Display for RcTerm {
 pub enum Term {
     /// Variables
     Var(VarIndex),
+    /// Primitive abort function
+    // TODO: implement a more general primitive mechanism - perhaps something like:
+    //
+    // ```
+    // primitive "abort" : Fun {A : Type} -> String -> A
+    // ```
+    PrimitiveAbort(RcTerm, String),
     /// Let bindings
     Let(RcTerm, RcTerm),
 
@@ -93,6 +100,18 @@ impl Term {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             Term::Var(index) => index.to_doc(),
+            Term::PrimitiveAbort(ty, message) => Doc::nil()
+                .append("(primitive \"abort\")")
+                .append(Doc::space())
+                .append("{")
+                .append("A")
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(ty.to_doc())
+                .append("}")
+                .append(Doc::space())
+                .append(format!("{:?}", message)),
             Term::Let(def, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
@@ -318,6 +337,18 @@ impl Term {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             Term::Var(index) => Doc::as_string(env.lookup_name(*index)),
+            Term::PrimitiveAbort(ty, message) => Doc::nil()
+                .append("(primitive \"abort\")")
+                .append(Doc::space())
+                .append("{")
+                .append("A")
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(ty.to_doc())
+                .append("}")
+                .append(Doc::space())
+                .append(format!("{:?}", message)),
             Term::Let(def, body) => {
                 let def_doc = def.to_display_doc(env);
                 let def_name = env.fresh_name(None);

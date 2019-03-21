@@ -92,6 +92,7 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
+        Term::PrimitiveAbort(_, message) => Err(NbeError::new(format!("abort: {}", message))),
         Term::LiteralType(literal_ty) => Ok(RcValue::from(Value::LiteralType(literal_ty.clone()))),
         Term::LiteralIntro(literal_intro) => {
             Ok(RcValue::from(Value::LiteralIntro(literal_intro.clone())))

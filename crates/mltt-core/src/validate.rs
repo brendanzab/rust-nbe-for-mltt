@@ -266,6 +266,19 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
+        Term::PrimitiveAbort(ty, _) => {
+            synth_universe(context, ty)?;
+            let ty = context.eval(ty)?;
+            Ok(ty)
+        },
+        Term::Let(def, body) => {
+            let mut body_context = context.clone();
+            let def_ty = synth_term(context, def)?;
+            body_context.local_define(context.eval(def)?, def_ty);
+
+            synth_term(&body_context, body)
+        },
+
         Term::LiteralType(_) => Ok(RcValue::from(Value::Universe(UniverseLevel(0)))),
         Term::LiteralIntro(literal_intro) => {
             Ok(RcValue::from(Value::LiteralType(match literal_intro {
@@ -282,13 +295,6 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 LiteralIntro::F32(_) => LiteralType::F32,
                 LiteralIntro::F64(_) => LiteralType::F64,
             })))
-        },
-        Term::Let(def, body) => {
-            let mut body_context = context.clone();
-            let def_ty = synth_term(context, def)?;
-            body_context.local_define(context.eval(def)?, def_ty);
-
-            synth_term(&body_context, body)
         },
 
         Term::FunType(_app_mode, param_ty, body_ty) => {
