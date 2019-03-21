@@ -60,7 +60,7 @@ pub fn check_clause(
             let var_name = match pattern.as_ref() {
                 None => None,
                 Some(pattern) => match pattern.as_ref() {
-                    Pattern::Var(var_name) => Some(var_name.slice.to_owned()),
+                    Pattern::Var(var_name) => Some(var_name.to_string()),
                 },
             };
 

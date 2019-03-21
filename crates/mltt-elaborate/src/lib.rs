@@ -429,7 +429,7 @@ pub fn check_term(
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
-                    context.local_define(found_label.slice.to_owned(), term_value.clone(), term_ty);
+                    context.local_define(found_label.to_string(), term_value.clone(), term_ty);
                     expected_ty = do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
@@ -516,7 +516,7 @@ pub fn synth_term(
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_name.slice.to_owned(), param_ty_value);
+                            context.local_bind(param_name.to_string(), param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -530,12 +530,12 @@ pub fn synth_term(
                         })?;
 
                         for param_label in param_labels {
-                            let app_mode = AppMode::Implicit(Label(param_label.slice.to_owned()));
+                            let app_mode = AppMode::Implicit(Label(param_label.to_string()));
                             let param_ty_span = concrete_param_ty.span();
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_label.slice.to_owned(), param_ty_value);
+                            context.local_bind(param_label.to_string(), param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -609,10 +609,10 @@ pub fn synth_term(
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
                     let ty_value = context.eval(concrete_ty_field.ann.span(), &ty)?;
 
-                    context.local_bind(concrete_ty_field.label.slice.to_owned(), ty_value);
+                    context.local_bind(concrete_ty_field.label.to_string(), ty_value);
                     max_level = cmp::max(max_level, ty_level);
 
-                    Ok((docs, Label(concrete_ty_field.label.slice.to_owned()), ty))
+                    Ok((docs, Label(concrete_ty_field.label.to_string()), ty))
                 })
                 .collect::<Result<_, Diagnostic<FileSpan>>>()?;
 
