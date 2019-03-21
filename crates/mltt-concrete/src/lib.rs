@@ -36,6 +36,13 @@ impl<'file> Item<'file> {
         }
     }
 
+    pub fn span(&self) -> FileSpan {
+        match self {
+            Item::Declaration(declaration) => declaration.span(),
+            Item::Definition(definition) => definition.span(),
+        }
+    }
+
     /// Convert the item into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
@@ -54,6 +61,10 @@ pub struct Declaration<'file> {
 }
 
 impl<'file> Declaration<'file> {
+    pub fn span(&self) -> FileSpan {
+        FileSpan::merge(self.label.span(), self.body_ty.span())
+    }
+
     /// Convert the declaration into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         let docs = Doc::concat(
@@ -84,6 +95,10 @@ pub struct Definition<'file> {
 }
 
 impl<'file> Definition<'file> {
+    pub fn span(&self) -> FileSpan {
+        FileSpan::merge(self.label.span(), self.body.span())
+    }
+
     /// Convert the definition into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         let docs = Doc::concat(
