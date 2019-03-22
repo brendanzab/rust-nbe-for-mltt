@@ -30,6 +30,9 @@ test-char-escape-carriage-return  : Char = '\r';
 test-char-escape-tab : Char = '\t';
 test-char-escape-null : Char = '\0';
 
+test-bool-true : Bool = true;
+test-bool-false : Bool = false;
+
 test-u8-bin-0 : U8 = 0b0;
 test-u8-bin-1 : U8 = 0b1;
 test-u8-bin-11 : U8 = 0b11;

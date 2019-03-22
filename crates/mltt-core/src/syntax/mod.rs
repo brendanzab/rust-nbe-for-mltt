@@ -143,6 +143,7 @@ impl ops::Add<u32> for UniverseLevel {
 pub enum LiteralType {
     String,
     Char,
+    Bool,
     U8,
     U16,
     U32,
@@ -160,6 +161,7 @@ impl LiteralType {
         match self {
             LiteralType::String => Doc::text("String"),
             LiteralType::Char => Doc::text("Char"),
+            LiteralType::Bool => Doc::text("Bool"),
             LiteralType::U8 => Doc::text("U8"),
             LiteralType::U16 => Doc::text("U16"),
             LiteralType::U32 => Doc::text("U32"),
@@ -179,6 +181,7 @@ impl LiteralType {
 pub enum LiteralIntro {
     String(String),
     Char(char),
+    Bool(bool),
     U8(u8),
     U16(u16),
     U32(u32),
@@ -196,6 +199,8 @@ impl LiteralIntro {
         match self {
             LiteralIntro::String(value) => Doc::text(format!("{:?}", value)),
             LiteralIntro::Char(value) => Doc::text(format!("{:?}", value)),
+            LiteralIntro::Bool(true) => Doc::text("true"),
+            LiteralIntro::Bool(false) => Doc::text("false"),
             LiteralIntro::U8(value) => Doc::as_string(&value),
             LiteralIntro::U16(value) => Doc::as_string(&value),
             LiteralIntro::U32(value) => Doc::as_string(&value),

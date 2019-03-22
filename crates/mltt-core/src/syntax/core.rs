@@ -320,6 +320,9 @@ impl Default for DisplayEnv {
             names: vec![
                 "String".to_owned(),
                 "Char".to_owned(),
+                "bool".to_owned(),
+                "true".to_owned(),
+                "false".to_owned(),
                 "U8".to_owned(),
                 "U16".to_owned(),
                 "U32".to_owned(),

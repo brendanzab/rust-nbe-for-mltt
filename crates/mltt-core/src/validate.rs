@@ -80,11 +80,16 @@ impl Context {
 impl Default for Context {
     fn default() -> Context {
         let mut context = Context::new();
-        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
+        let lit_intro = |lit| RcValue::from(Value::LiteralIntro(lit));
+        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let bool = lit_ty(LiteralType::Bool);
 
         context.local_define(lit_ty(LiteralType::String), u0.clone());
         context.local_define(lit_ty(LiteralType::Char), u0.clone());
+        context.local_define(bool.clone(), u0.clone());
+        context.local_define(lit_intro(LiteralIntro::Bool(true)), bool.clone());
+        context.local_define(lit_intro(LiteralIntro::Bool(false)), bool.clone());
         context.local_define(lit_ty(LiteralType::U8), u0.clone());
         context.local_define(lit_ty(LiteralType::U16), u0.clone());
         context.local_define(lit_ty(LiteralType::U32), u0.clone());
@@ -195,6 +200,7 @@ pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
     RcValue::from(Value::LiteralType(match literal_intro {
         LiteralIntro::String(_) => LiteralType::String,
         LiteralIntro::Char(_) => LiteralType::Char,
+        LiteralIntro::Bool(_) => LiteralType::Bool,
         LiteralIntro::U8(_) => LiteralType::U8,
         LiteralIntro::U16(_) => LiteralType::U16,
         LiteralIntro::U32(_) => LiteralType::U32,

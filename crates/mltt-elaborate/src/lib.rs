@@ -181,14 +181,20 @@ impl Context {
 impl Default for Context {
     fn default() -> Context {
         use mltt_core::syntax::domain::{RcValue, Value};
-        use mltt_core::syntax::LiteralType;
+        use mltt_core::syntax::{LiteralIntro, LiteralType};
 
         let mut context = Context::new();
-        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
+        let lit_intro = |lit| RcValue::from(Value::LiteralIntro(lit));
+        let bool_intro = |lit| lit_intro(LiteralIntro::Bool(lit));
+        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let bool = lit_ty(LiteralType::Bool);
 
         context.local_define("String".to_owned(), lit_ty(LiteralType::String), u0.clone());
         context.local_define("Char".to_owned(), lit_ty(LiteralType::Char), u0.clone());
+        context.local_define("Bool".to_owned(), bool.clone(), u0.clone());
+        context.local_define("true".to_owned(), bool_intro(true), bool.clone());
+        context.local_define("false".to_owned(), bool_intro(false), bool.clone());
         context.local_define("U8".to_owned(), lit_ty(LiteralType::U8), u0.clone());
         context.local_define("U16".to_owned(), lit_ty(LiteralType::U16), u0.clone());
         context.local_define("U32".to_owned(), lit_ty(LiteralType::U32), u0.clone());
