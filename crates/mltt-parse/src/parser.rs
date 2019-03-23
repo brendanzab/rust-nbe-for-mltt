@@ -1105,7 +1105,7 @@ mod tests {
     }
 
     #[test]
-    fn fun_ty_implict() {
+    fn fun_ty_implicit() {
         test_term!(r"Fun {x y : Type} {z} -> x", |file_id| Term::FunType(
             FileSpan::new(file_id, 0, 25),
             vec![
