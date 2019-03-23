@@ -5,7 +5,9 @@ use std::str::Chars;
 use crate::token::{DelimKind, Token, TokenKind};
 
 /// The keywords used in the language
-pub const KEYWORDS: [&str; 7] = ["in", "let", "Type", "Fun", "fun", "Record", "record"];
+pub const KEYWORDS: &[&str] = &[
+    "else", "if", "in", "let", "then", "Type", "Fun", "fun", "Record", "record",
+];
 
 fn is_whitespace(ch: char) -> bool {
     match ch {
@@ -660,9 +662,9 @@ mod tests {
             "    ~                                                          " => (TokenKind::Whitespace, " "),
             "     ~~~~                                                      " => (TokenKind::Identifier, "case"),
             "         ~                                                     " => (TokenKind::Whitespace, " "),
-            "          ~~~~                                                 " => (TokenKind::Identifier, "else"),
+            "          ~~~~                                                 " => (TokenKind::Keyword, "else"),
             "              ~                                                " => (TokenKind::Whitespace, " "),
-            "               ~~                                              " => (TokenKind::Identifier, "if"),
+            "               ~~                                              " => (TokenKind::Keyword, "if"),
             "                 ~                                             " => (TokenKind::Whitespace, " "),
             "                  ~~~~~~                                       " => (TokenKind::Identifier, "import"),
             "                        ~                                      " => (TokenKind::Whitespace, " "),
@@ -674,7 +676,7 @@ mod tests {
             "                                      ~                        " => (TokenKind::Whitespace, " "),
             "                                       ~~~~~~                  " => (TokenKind::Keyword, "Record"),
             "                                             ~                 " => (TokenKind::Whitespace, " "),
-            "                                              ~~~~             " => (TokenKind::Identifier, "then"),
+            "                                              ~~~~             " => (TokenKind::Keyword, "then"),
             "                                                  ~            " => (TokenKind::Whitespace, " "),
             "                                                   ~~~~        " => (TokenKind::Keyword, "Type"),
             "                                                       ~       " => (TokenKind::Whitespace, " "),

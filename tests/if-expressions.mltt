@@ -1,0 +1,13 @@
+String-S32 : Bool -> Type;
+String-S32 flag =
+    if flag then String else S32;
+
+test-true : String-S32 true;
+test-true = "hello";
+
+test-false : String-S32 false;
+test-false = 0;
+
+make-greeting : Bool -> String;
+make-greeting flag =
+    if flag then "hello" else "bye";

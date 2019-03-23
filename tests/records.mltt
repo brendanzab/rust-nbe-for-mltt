@@ -28,6 +28,15 @@ Eq A = Record {
 eq : Fun {A : Type} (eq-A : Eq A) -> A -> A -> Bool;
 eq eq-A a1 a2 = eq-A.eq a1 a2;
 
+bool-eq : Eq Bool;
+bool-eq = record {
+    eq lhs rhs =
+        if lhs then
+            rhs
+        else
+            if rhs then false else true;
+};
+
 
 Map = Record {
     Key : Type;

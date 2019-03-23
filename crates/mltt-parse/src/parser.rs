@@ -17,6 +17,7 @@
 //!           | "(" term ")"
 //!           | term ":" term
 //!           | "let" item+ "in" term
+//!           | "if" term "then" term "else" term
 //!           | STRING_LITERAL
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
@@ -404,7 +405,8 @@ where
     ///
     /// ```text
     /// term(prec) ::= operators(prec) {
-    ///     prefix  "let"               ::= let
+    ///     prefix  "let"               ::= let-expr
+    ///     prefix  "if"                ::= if-expr
     ///     prefix  "("                 ::= parens fun-elim
     ///     prefix  "Fun"               ::= fun-type
     ///     prefix  "fun"               ::= fun-intro
@@ -454,7 +456,8 @@ where
             (TokenKind::Keyword, "fun") => self.parse_fun_intro(token),
             (TokenKind::Keyword, "Record") => self.parse_record_ty(token),
             (TokenKind::Keyword, "record") => self.parse_record_intro(token),
-            (TokenKind::Keyword, "let") => self.parse_let(token),
+            (TokenKind::Keyword, "let") => self.parse_let_expr(token),
+            (TokenKind::Keyword, "if") => self.parse_if_expr(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
                 .with_label(Label::new_primary(token.span).with_message("term expected here"))),
@@ -813,9 +816,9 @@ where
     /// Parse the trailing part of a let expression
     ///
     /// ```text
-    /// let ::= item+ "in" term(0)
+    /// let-expr ::= item+ "in" term(0)
     /// ```
-    fn parse_let(
+    fn parse_let_expr(
         &mut self,
         start_token: Token<'file>,
     ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
@@ -838,6 +841,31 @@ where
         let span = FileSpan::merge(start_token.span, body_term.span());
 
         Ok(Term::Let(span, items, Box::new(body_term)))
+    }
+
+    /// Parse the trailing part of an if expression
+    ///
+    /// ```text
+    /// if-expr ::= term(0) "then" term(0) "else" term(0)
+    /// ```
+    fn parse_if_expr(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
+        let condition = self.parse_term(Prec(0))?;
+        self.expect_match(Keyword("then"))?;
+        let consequent = self.parse_term(Prec(0))?;
+        self.expect_match(Keyword("else"))?;
+        let alternative = self.parse_term(Prec(0))?;
+
+        let span = FileSpan::merge(start_token.span, alternative.span());
+
+        Ok(Term::If(
+            span,
+            Box::new(condition),
+            Box::new(consequent),
+            Box::new(alternative),
+        ))
     }
 
     /// Parse the trailing part of a universe

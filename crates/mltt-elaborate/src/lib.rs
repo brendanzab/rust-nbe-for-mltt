@@ -13,9 +13,12 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, Term, TypeParam};
 use mltt_core::nbe;
-use mltt_core::syntax::{core, domain, AppMode, Env, Label, UniverseLevel, VarIndex, VarLevel};
+use mltt_core::syntax::{
+    core, domain, AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
+};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
+use std::rc::Rc;
 
 use crate::clause::Clause;
 
@@ -181,7 +184,6 @@ impl Context {
 impl Default for Context {
     fn default() -> Context {
         use mltt_core::syntax::domain::{RcValue, Value};
-        use mltt_core::syntax::{LiteralIntro, LiteralType};
 
         let mut context = Context::new();
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
@@ -405,8 +407,24 @@ pub fn check_term(
                 core::RcTerm::from(core::Term::Let(item.term, acc))
             }))
         },
+        Term::If(_, condition, consequent, alternative) => {
+            let bool_ty = domain::RcValue::from(domain::Value::LiteralType(LiteralType::Bool));
+            let condition = check_term(context, condition, &bool_ty)?;
+            let consequent = check_term(context, consequent, expected_ty)?;
+            let alternative = {
+                let mut inner_context = context.clone();
+                inner_context.local_bind(None, bool_ty);
+                check_term(&inner_context, alternative, expected_ty)?
+            };
 
-        Term::Literal(concrete_literal) => literal::check(concrete_literal, expected_ty),
+            Ok(core::RcTerm::from(core::Term::LiteralElim(
+                condition,
+                Rc::from(vec![(LiteralIntro::Bool(true), consequent)]),
+                alternative,
+            )))
+        },
+
+        Term::Literal(concrete_literal) => literal::check(context, concrete_literal, expected_ty),
 
         Term::FunIntro(_, concrete_params, concrete_body) => {
             let clause = Clause::new(concrete_params, None, concrete_body);
@@ -480,10 +498,9 @@ pub fn synth_term(
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
         },
-        Term::Hole(span) => {
-            Err(Diagnostic::new_error("ambiguous term")
-                .with_label(DiagnosticLabel::new_primary(*span)))
-        },
+        Term::Hole(span) => Err(Diagnostic::new_error("ambiguous term").with_label(
+            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+        )),
 
         Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
@@ -505,6 +522,9 @@ pub fn synth_term(
                 body_ty,
             ))
         },
+        Term::If(span, _, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
+            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+        )),
 
         Term::Literal(concrete_literal) => literal::synth(concrete_literal),
 
@@ -634,8 +654,10 @@ pub fn synth_term(
                     domain::RcValue::from(domain::Value::RecordTypeEmpty),
                 ))
             } else {
-                Err(Diagnostic::new_error("type annotations needed")
-                    .with_label(DiagnosticLabel::new_primary(*span)))
+                Err(Diagnostic::new_error("ambiguous term").with_label(
+                    DiagnosticLabel::new_primary(*span)
+                        .with_message("type annotations needed here"),
+                ))
             }
         },
         Term::RecordElim(concrete_record, label) => {

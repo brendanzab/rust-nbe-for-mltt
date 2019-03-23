@@ -476,6 +476,13 @@ pub enum Term<'file> {
     Ann(Box<Term<'file>>, Box<Term<'file>>),
     /// Let bindings
     Let(FileSpan, Vec<Item<'file>>, Box<Term<'file>>),
+    /// If expressions
+    If(
+        FileSpan,
+        Box<Term<'file>>,
+        Box<Term<'file>>,
+        Box<Term<'file>>,
+    ),
 
     /// Literals
     Literal(Literal<'file>),
@@ -512,6 +519,7 @@ impl<'file> Term<'file> {
             Term::Parens(span, _) => *span,
             Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
             Term::Let(span, _, _) => *span,
+            Term::If(span, _, _, _) => *span,
             Term::Literal(literal) => literal.span(),
             Term::FunType(span, _, _) => *span,
             Term::FunArrowType(param_ty, body_ty) => {
@@ -558,6 +566,18 @@ impl<'file> Term<'file> {
                     .append(Doc::space())
                     .append(body.to_doc())
             },
+            Term::If(_, condition, consequent, alternative) => Doc::nil()
+                .append("if")
+                .append(Doc::space())
+                .append(condition.to_doc())
+                .append(Doc::space())
+                .append("then")
+                .append(Doc::space())
+                .append(consequent.to_doc())
+                .append(Doc::space())
+                .append("else")
+                .append(Doc::space())
+                .append(alternative.to_doc()),
             Term::Literal(literal) => literal.to_doc(),
             Term::FunType(_, params, body_ty) => Doc::nil()
                 .append("Fun")

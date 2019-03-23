@@ -14,7 +14,10 @@ use mltt_concrete::{Literal, LiteralKind};
 use mltt_core::syntax::{core, domain, LiteralIntro, LiteralType};
 use mltt_span::FileSpan;
 
+use super::Context;
+
 pub fn check(
+    context: &Context,
     concrete_literal: &Literal<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
@@ -39,8 +42,12 @@ pub fn check(
         (LKind::Int, Value::LiteralType(LType::F64)) => literal_bug(*span, "unimplemented: f64"),
         (LKind::Float, Value::LiteralType(LType::F32)) => literal_bug(*span, "unimplemented: f32"),
         (LKind::Float, Value::LiteralType(LType::F64)) => literal_bug(*span, "unimplemented: f64"),
-        (_, _) => Err(Diagnostic::new_error("mismatched literal")
-            .with_label(DiagnosticLabel::new_primary(*span))),
+        (_, _) => Err(Diagnostic::new_error("mismatched literal").with_label(
+            DiagnosticLabel::new_primary(*span).with_message(format!(
+                "expected: {}",
+                context.read_back(None, expected_ty)?,
+            )),
+        )),
     }?;
 
     Ok(core::RcTerm::from(core::Term::LiteralIntro(literal_intro)))
