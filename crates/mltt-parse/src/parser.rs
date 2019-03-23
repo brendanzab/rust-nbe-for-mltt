@@ -1071,6 +1071,16 @@ mod tests {
     }
 
     #[test]
+    fn if_expr() {
+        test_term!("if foo then bar else baz", |file_id| Term::If(
+            FileSpan::new(file_id, 0, 24),
+            Box::new(Term::Var(SpannedString::new(file_id, 3, "foo"))),
+            Box::new(Term::Var(SpannedString::new(file_id, 12, "bar"))),
+            Box::new(Term::Var(SpannedString::new(file_id, 21, "baz"))),
+        ),);
+    }
+
+    #[test]
     fn parens() {
         test_term!("(foo)", |file_id| Term::Parens(
             FileSpan::new(file_id, 0, 5),
