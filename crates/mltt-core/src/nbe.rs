@@ -57,7 +57,7 @@ fn do_literal_elim(
 }
 
 /// Return the field in from a record
-fn do_record_elim(record: &RcValue, label: &Label) -> Result<RcValue, NbeError> {
+fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
             Some((_, term)) => Ok(term.clone()),
@@ -83,7 +83,7 @@ pub fn do_closure_app(closure: &AppClosure, arg: RcValue) -> Result<RcValue, Nbe
 }
 
 /// Apply a function to an argument
-pub fn do_fun_elim(fun: &RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcValue, NbeError> {
+pub fn do_fun_elim(fun: RcValue, app_mode: AppMode, arg: RcValue) -> Result<RcValue, NbeError> {
     match fun.as_ref() {
         Value::FunIntro(fun_app_mode, body) => {
             if *fun_app_mode == app_mode {
@@ -152,7 +152,7 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
             let app_mode = app_mode.clone();
             let arg = eval(arg, env)?;
 
-            do_fun_elim(&fun, app_mode, arg)
+            do_fun_elim(fun, app_mode, arg)
         },
 
         // Records
@@ -177,7 +177,7 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
 
             Ok(RcValue::from(Value::RecordIntro(fields)))
         },
-        Term::RecordElim(record, label) => do_record_elim(&eval(record, env)?, label),
+        Term::RecordElim(record, label) => do_record_elim(eval(record, env)?, label),
 
         // Universes
         Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
