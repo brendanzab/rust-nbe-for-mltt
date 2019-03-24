@@ -133,10 +133,10 @@ impl Term {
             },
 
             (Term::LiteralType(literal_ty1), Term::LiteralType(literal_ty2)) => {
-                literal_ty1 == literal_ty2
+                LiteralType::alpha_eq(literal_ty1, literal_ty2)
             },
             (Term::LiteralIntro(literal_intro1), Term::LiteralIntro(literal_intro2)) => {
-                literal_intro1 == literal_intro2
+                LiteralIntro::alpha_eq(literal_intro1, literal_intro2)
             },
             (
                 Term::LiteralElim(scrutinee1, clauses1, default1),

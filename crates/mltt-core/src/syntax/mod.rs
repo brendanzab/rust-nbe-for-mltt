@@ -161,6 +161,10 @@ pub enum LiteralType {
 }
 
 impl LiteralType {
+    pub fn alpha_eq(&self, other: &LiteralType) -> bool {
+        self == other
+    }
+
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             LiteralType::String => Doc::text("String"),
@@ -199,6 +203,44 @@ pub enum LiteralIntro {
 }
 
 impl LiteralIntro {
+    pub fn alpha_eq(&self, other: &LiteralIntro) -> bool {
+        match (self, other) {
+            (LiteralIntro::String(v1), LiteralIntro::String(v2)) => v1 == v2,
+            (LiteralIntro::Char(v1), LiteralIntro::Char(v2)) => v1 == v2,
+            (LiteralIntro::Bool(v1), LiteralIntro::Bool(v2)) => v1 == v2,
+            (LiteralIntro::U8(v1), LiteralIntro::U8(v2)) => v1 == v2,
+            (LiteralIntro::U16(v1), LiteralIntro::U16(v2)) => v1 == v2,
+            (LiteralIntro::U32(v1), LiteralIntro::U32(v2)) => v1 == v2,
+            (LiteralIntro::U64(v1), LiteralIntro::U64(v2)) => v1 == v2,
+            (LiteralIntro::S8(v1), LiteralIntro::S8(v2)) => v1 == v2,
+            (LiteralIntro::S16(v1), LiteralIntro::S16(v2)) => v1 == v2,
+            (LiteralIntro::S32(v1), LiteralIntro::S32(v2)) => v1 == v2,
+            (LiteralIntro::S64(v1), LiteralIntro::S64(v2)) => v1 == v2,
+            // Use bitwise equality, combined with a NaN check to provide a
+            // logically consistent equality comparison of floating point
+            // numbers. This means that the following weirdness (from an
+            // IEEE-754 perspective) happens at the type level:
+            //
+            // - 0.0 != -0.0
+            // - NaN == NaN
+            // - NaN == -NaN
+            //
+            // # References
+            //
+            // - https://github.com/idris-lang/Idris-dev/issues/2609
+            // - https://github.com/dhall-lang/dhall-lang/issues/425
+            // - https://github.com/agda/agda/issues/2169
+            // - https://agda.readthedocs.io/en/v2.5.4.2/language/built-ins.html#floats
+            (LiteralIntro::F32(v1), LiteralIntro::F32(v2)) => {
+                v1.to_bits() == v2.to_bits() || v1.is_nan() && v2.is_nan()
+            },
+            (LiteralIntro::F64(v1), LiteralIntro::F64(v2)) => {
+                v1.to_bits() == v2.to_bits() || v1.is_nan() && v2.is_nan()
+            },
+            (_, _) => false,
+        }
+    }
+
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             LiteralIntro::String(value) => Doc::text(format!("{:?}", value)),
@@ -244,4 +286,93 @@ pub enum AppMode {
     Implicit(Label),
     /// Instance application mode
     Instance(Label),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{f32, f64};
+
+    use super::*;
+
+    use self::LiteralIntro::{F32, F64};
+
+    #[test]
+    fn alpha_eq_f32_nan_nan() {
+        assert!(LiteralIntro::alpha_eq(&F32(f32::NAN), &F32(f32::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_neg_nan_nan() {
+        assert!(LiteralIntro::alpha_eq(&F32(-f32::NAN), &F32(f32::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_nan_neg_nan() {
+        assert!(LiteralIntro::alpha_eq(&F32(f32::NAN), &F32(-f32::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_neg_nan_neg_nan() {
+        assert!(LiteralIntro::alpha_eq(&F32(-f32::NAN), &F32(-f32::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_zero_zero() {
+        assert!(LiteralIntro::alpha_eq(&F32(0.0), &F32(0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_neg_zero_zero() {
+        assert!(!LiteralIntro::alpha_eq(&F32(-0.0), &F32(0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_zero_neg_zero() {
+        assert!(!LiteralIntro::alpha_eq(&F32(0.0), &F32(-0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f32_neg_zero_neg_zero() {
+        assert!(LiteralIntro::alpha_eq(&F32(-0.0), &F32(-0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_nan_nan() {
+        assert!(LiteralIntro::alpha_eq(&F64(f64::NAN), &F64(f64::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_neg_nan_nan() {
+        assert!(LiteralIntro::alpha_eq(&F64(-f64::NAN), &F64(f64::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_nan_neg_nan() {
+        assert!(LiteralIntro::alpha_eq(&F64(f64::NAN), &F64(-f64::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_neg_nan_neg_nan() {
+        assert!(LiteralIntro::alpha_eq(&F64(-f64::NAN), &F64(-f64::NAN)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_zero_zero() {
+        assert!(LiteralIntro::alpha_eq(&F64(0.0), &F64(0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_neg_zero_zero() {
+        assert!(!LiteralIntro::alpha_eq(&F64(-0.0), &F64(0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_zero_neg_zero() {
+        assert!(!LiteralIntro::alpha_eq(&F64(0.0), &F64(-0.0)));
+    }
+
+    #[test]
+    fn alpha_eq_f64_neg_zero_neg_zero() {
+        assert!(LiteralIntro::alpha_eq(&F64(-0.0), &F64(-0.0)));
+    }
 }
