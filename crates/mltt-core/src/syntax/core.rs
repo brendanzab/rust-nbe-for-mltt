@@ -104,6 +104,86 @@ pub enum Term {
 }
 
 impl Term {
+    /// Checks if a term is _alpha equivalent_ to another term.
+    ///
+    /// This means that the two terms share the same binding structure, while
+    /// disregarding the actual names used for those binders. For example, we
+    /// consider the following terms to be alpha equivalent:
+    ///
+    /// - `fun x => x` and `fun y => y`
+    /// - `Fun (A : Type) -> A -> A` and `Fun (B : Type) -> B -> B`
+    ///
+    /// # References
+    ///
+    /// - https://en.wikipedia.org/wiki/Lambda_calculus#Alpha_equivalence
+    /// - http://wiki.c2.com/?AlphaEquivalence
+    /// - http://www.twelf.org/wiki/Alpha-equivalence
+    pub fn alpha_eq(&self, other: &Term) -> bool {
+        // The implementation of this is pretty straightforward, because we
+        // are already using De Bruijn indices, so we just need to compare
+        // variables using regular equality, while avoiding the comparison of
+        // metadata, such as variable name hints and doc strings.
+        match (self, other) {
+            (Term::Var(var_index1), Term::Var(var_index2)) => var_index1 == var_index2,
+            (Term::PrimitiveAbort(ty1, message1), Term::PrimitiveAbort(ty2, message2)) => {
+                Term::alpha_eq(ty1, ty2) && message1 == message2
+            },
+            (Term::Let(def1, body1), Term::Let(def2, body2)) => {
+                Term::alpha_eq(def1, def2) && Term::alpha_eq(body1, body2)
+            },
+
+            (Term::LiteralType(literal_ty1), Term::LiteralType(literal_ty2)) => {
+                literal_ty1 == literal_ty2
+            },
+            (Term::LiteralIntro(literal_intro1), Term::LiteralIntro(literal_intro2)) => {
+                literal_intro1 == literal_intro2
+            },
+            (
+                Term::LiteralElim(scrutinee1, clauses1, default1),
+                Term::LiteralElim(scrutinee2, clauses2, default2),
+            ) => {
+                Term::alpha_eq(scrutinee1, scrutinee2)
+                    && clauses1.len() == clauses2.len()
+                    && Iterator::zip(clauses1.iter(), clauses2.iter())
+                        .all(|((l1, b1), (l2, b2))| l1 == l2 && Term::alpha_eq(b1, b2))
+                    && Term::alpha_eq(default1, default2)
+            },
+
+            (
+                Term::FunType(app_mode1, param_ty1, body_ty1),
+                Term::FunType(app_mode2, param_ty2, body_ty2),
+            ) => {
+                Term::alpha_eq(param_ty1, param_ty2)
+                    && app_mode1 == app_mode2
+                    && Term::alpha_eq(body_ty1, body_ty2)
+            },
+            (Term::FunIntro(app_mode1, body1), Term::FunIntro(app_mode2, body2)) => {
+                app_mode1 == app_mode2 && Term::alpha_eq(body1, body2)
+            },
+            (Term::FunElim(fun1, app_mode1, arg1), Term::FunElim(fun2, app_mode2, arg2)) => {
+                Term::alpha_eq(fun1, fun2) && app_mode1 == app_mode2 && Term::alpha_eq(arg1, arg2)
+            },
+
+            (Term::RecordType(ty_fields1), Term::RecordType(ty_fields2)) => {
+                ty_fields1.len() == ty_fields2.len()
+                    && Iterator::zip(ty_fields1.iter(), ty_fields2.iter())
+                        .all(|((_, l1, t1), (_, l2, t2))| l1 == l2 && Term::alpha_eq(t1, t2))
+            },
+            (Term::RecordIntro(intro_fields1), Term::RecordIntro(intro_fields2)) => {
+                intro_fields1.len() == intro_fields2.len()
+                    && Iterator::zip(intro_fields1.iter(), intro_fields2.iter())
+                        .all(|((l1, t1), (l2, t2))| l1 == l2 && Term::alpha_eq(t1, t2))
+            },
+            (Term::RecordElim(record1, label1), Term::RecordElim(record2, label2)) => {
+                Term::alpha_eq(record1, record2) && label1 == label2
+            },
+
+            (Term::Universe(level1), Term::Universe(level2)) => level1 == level2,
+
+            (_, _) => false,
+        }
+    }
+
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {

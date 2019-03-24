@@ -292,7 +292,7 @@ pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool
             let term1 = read_back_neutral(level, *head1, spine1)?;
             let term2 = read_back_neutral(level, *head2, spine2)?;
 
-            Ok(term1 == term2)
+            Ok(Term::alpha_eq(&term1, &term2))
         },
         (&Value::LiteralType(literal_ty1), &Value::LiteralType(literal_ty2)) => {
             Ok(literal_ty1 == literal_ty2)
