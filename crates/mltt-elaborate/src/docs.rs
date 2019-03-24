@@ -1,10 +1,11 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::SpannedString;
+use mltt_core::syntax::DocString;
 use mltt_span::FileSpan;
 
 /// Concatenate a bunch of lines of documentation into a single string, removing
 /// comment prefixes if they are found.
-pub fn concat(doc_lines: &[SpannedString<'_>]) -> String {
+pub fn concat(doc_lines: &[SpannedString<'_>]) -> DocString {
     let mut doc = String::new();
     for doc_line in doc_lines {
         // Strip the `||| ` or `|||` prefix left over from tokenization
@@ -15,7 +16,7 @@ pub fn concat(doc_lines: &[SpannedString<'_>]) -> String {
             doc_line => &doc_line[..],
         });
     }
-    doc
+    DocString::from(doc)
 }
 
 /// Select the documentation from either the declaration or the definition,
@@ -24,9 +25,9 @@ pub fn merge(
     name: &SpannedString<'_>,
     decl_docs: &[SpannedString<'_>],
     defn_docs: &[SpannedString<'_>],
-) -> Result<String, Diagnostic<FileSpan>> {
+) -> Result<DocString, Diagnostic<FileSpan>> {
     match (decl_docs, defn_docs) {
-        ([], []) => Ok("".to_owned()),
+        ([], []) => Ok("".into()),
         (docs, []) => Ok(concat(docs)),
         ([], docs) => Ok(concat(docs)),
         (_, _) => Err(

@@ -5,9 +5,13 @@
 use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::ops;
+use std::rc::Rc;
 
 pub mod core;
 pub mod domain;
+
+/// Reference counted documentation string
+pub type DocString = Rc<str>;
 
 /// De Bruijn level
 ///

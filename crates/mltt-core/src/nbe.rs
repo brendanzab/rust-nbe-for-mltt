@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{AppClosure, ClauseClosure, Elim, Head, RcType, RcValue, Spine, Value};
-use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
+use crate::syntax::{AppMode, DocString, Env, Label, VarIndex, VarLevel};
 
 /// An error produced during normalization
 ///
@@ -215,23 +215,21 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
         Value::RecordTypeExtend(label, term_ty, rest_ty) => {
             let mut level = level;
 
+            let doc = DocString::from("");
             let term = RcValue::var(level);
             let term_ty = read_back_term(level, term_ty)?;
 
             let mut rest_ty = do_closure_app(rest_ty, term)?;
-            let mut field_tys = vec![(String::new(), label.clone(), term_ty)];
+            let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
 
             while let Value::RecordTypeExtend(next_label, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
             {
                 level += 1;
                 let next_term = RcValue::var(level);
+                let term_ty = read_back_term(level, next_term_ty)?;
 
-                field_tys.push((
-                    String::new(),
-                    next_label.clone(),
-                    read_back_term(level, next_term_ty)?,
-                ));
+                field_tys.push((doc.clone(), next_label.clone(), term_ty));
                 rest_ty = do_closure_app(next_rest_ty, next_term)?;
             }
 

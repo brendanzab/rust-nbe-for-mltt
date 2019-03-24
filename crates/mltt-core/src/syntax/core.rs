@@ -6,12 +6,14 @@ use std::fmt;
 use std::ops;
 use std::rc::Rc;
 
-use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
+use crate::syntax::{
+    AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
+};
 
 /// Top-level items
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
-    pub doc: String,
+    pub doc: DocString,
     pub label: String,
     pub term_ty: RcTerm,
     pub term: RcTerm,
@@ -91,7 +93,7 @@ pub enum Term {
     FunElim(RcTerm, AppMode, RcTerm),
 
     /// Dependent record types
-    RecordType(Vec<(String, Label, RcTerm)>),
+    RecordType(Vec<(DocString, Label, RcTerm)>),
     /// Introduce a record
     RecordIntro(Vec<(Label, RcTerm)>),
     /// Eliminate a record (projection)
