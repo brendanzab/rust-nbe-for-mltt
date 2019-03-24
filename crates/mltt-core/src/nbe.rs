@@ -52,7 +52,7 @@ fn do_literal_elim(
             spine.push(Elim::Literal(clauses, default_body));
             Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
-        _ => Err(NbeError::new("do_record_elim: not a literal")),
+        _ => Err(NbeError::new("do_literal_elim: not a literal")),
     }
 }
 
