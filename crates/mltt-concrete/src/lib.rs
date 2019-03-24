@@ -258,12 +258,15 @@ impl<'file> Literal<'file> {
 pub enum TypeParam<'file> {
     Explicit(FileSpan, Vec<SpannedString<'file>>, Term<'file>),
     Implicit(FileSpan, Vec<SpannedString<'file>>, Option<Term<'file>>),
+    Instance(FileSpan, SpannedString<'file>, Term<'file>),
 }
 
 impl<'file> TypeParam<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
-            TypeParam::Explicit(span, _, _) | TypeParam::Implicit(span, _, _) => *span,
+            TypeParam::Explicit(span, _, _)
+            | TypeParam::Implicit(span, _, _)
+            | TypeParam::Instance(span, _, _) => *span,
         }
     }
 
@@ -299,6 +302,14 @@ impl<'file> TypeParam<'file> {
                 .append(Doc::space())
                 .append(term.to_doc())
                 .append("}"),
+            TypeParam::Instance(_, param_label, term) => Doc::nil()
+                .append("{{")
+                .append(param_label.to_doc())
+                .append(Doc::space())
+                .append(":")
+                .append(Doc::space())
+                .append(term.to_doc())
+                .append("}}"),
         }
     }
 }
@@ -308,13 +319,14 @@ impl<'file> TypeParam<'file> {
 pub enum IntroParam<'file> {
     Explicit(Pattern<'file>),
     Implicit(FileSpan, SpannedString<'file>, Option<Pattern<'file>>),
+    Instance(FileSpan, SpannedString<'file>, Option<Pattern<'file>>),
 }
 
 impl<'file> IntroParam<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             IntroParam::Explicit(pattern) => pattern.span(),
-            IntroParam::Implicit(span, _, _) => *span,
+            IntroParam::Implicit(span, _, _) | IntroParam::Instance(span, _, _) => *span,
         }
     }
 
@@ -334,6 +346,18 @@ impl<'file> IntroParam<'file> {
                 .append(Doc::space())
                 .append(pattern.to_doc())
                 .append("}"),
+            IntroParam::Instance(_, param_label, None) => Doc::nil()
+                .append("{{")
+                .append(param_label.to_doc())
+                .append("}}"),
+            IntroParam::Instance(_, param_label, Some(pattern)) => Doc::nil()
+                .append("{{")
+                .append(param_label.to_doc())
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(pattern.to_doc())
+                .append("}}"),
         }
     }
 }
@@ -343,13 +367,14 @@ impl<'file> IntroParam<'file> {
 pub enum Arg<'file> {
     Explicit(Term<'file>),
     Implicit(FileSpan, SpannedString<'file>, Option<Term<'file>>),
+    Instance(FileSpan, SpannedString<'file>, Option<Term<'file>>),
 }
 
 impl<'file> Arg<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Arg::Explicit(term) => term.span(),
-            Arg::Implicit(span, _, _) => *span,
+            Arg::Implicit(span, _, _) | Arg::Instance(span, _, _) => *span,
         }
     }
 
@@ -358,7 +383,7 @@ impl<'file> Arg<'file> {
         match self {
             Arg::Explicit(term) => term.to_doc(),
             Arg::Implicit(_, param_label, None) => {
-                Doc::text("{").append(param_label.to_doc()).append(")")
+                Doc::text("{").append(param_label.to_doc()).append("}")
             },
             Arg::Implicit(_, param_label, Some(term)) => Doc::nil()
                 .append("{")
@@ -368,6 +393,17 @@ impl<'file> Arg<'file> {
                 .append(Doc::space())
                 .append(term.to_doc())
                 .append("}"),
+            Arg::Instance(_, param_label, None) => {
+                Doc::text("{{").append(param_label.to_doc()).append("}}")
+            },
+            Arg::Instance(_, param_label, Some(term)) => Doc::nil()
+                .append("{{")
+                .append(param_label.to_doc())
+                .append(Doc::space())
+                .append("=")
+                .append(Doc::space())
+                .append(term.to_doc())
+                .append("}}"),
         }
     }
 }

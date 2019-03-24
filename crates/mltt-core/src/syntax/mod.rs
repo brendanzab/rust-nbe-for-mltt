@@ -238,4 +238,6 @@ pub enum AppMode {
     Explicit,
     /// Implicit application mode
     Implicit(Label),
+    /// Instance application mode
+    Instance(Label),
 }

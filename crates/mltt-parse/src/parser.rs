@@ -31,15 +31,15 @@
 //!           | term "." IDENTIFIER
 //!           | "Type" ("^" INT_LITERAL)?
 //!
-//! type-param  ::= "(" IDENTIFIER+ ":" term(0) ")"
-//!               | "{" IDENTIFIER+ "}"
-//!               | "{" IDENTIFIER+ ":" term(0) "}"
+//! type-param  ::= "(" IDENTIFIER+ ":" term ")"
+//!               | "{" IDENTIFIER+ (":" term)? "}"
+//!               | "{{" IDENTIFIER ":" term "}}"
 //! intro-param ::= pattern
-//!               | "{" IDENTIFIER "}"
-//!               | "{" IDENTIFIER "=" pattern "}"
+//!               | "{" IDENTIFIER ("=" pattern)? "}"
+//!               | "{{" IDENTIFIER ("=" pattern)? "}}"
 //! arg         ::= term
-//!               | "{" IDENTIFIER "}"
-//!               | "{" IDENTIFIER "=" term "}"
+//!               | "{" IDENTIFIER ("=" term)? "}"
+//!               | "{{" IDENTIFIER ("=" term)? "}}"
 //!
 //! record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term
 //! record-intro-field  ::= IDENTIFIER
@@ -372,21 +372,33 @@ where
     ///
     /// ```text
     /// intro-param ::= pattern
-    ///               | "{" IDENTIFIER "}"
-    ///               | "{" IDENTIFIER "=" pattern "}"
+    ///               | "{" IDENTIFIER ("=" pattern)? "}"
+    ///               | "{{" IDENTIFIER ("=" pattern)? "}}"
     /// ```
     fn parse_intro_param(&mut self) -> Result<IntroParam<'file>, Diagnostic<FileSpan>> {
         if let Some(start_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
+            let is_instance = self.try_match(TokenKind::Open(DelimKind::Brace)).is_some();
+
             let label = self.expect_identifier()?;
-            let term = if self.try_match(TokenKind::Equals).is_some() {
-                Some(self.parse_pattern()?)
-            } else {
-                None
+            let term = match self.try_match(TokenKind::Equals) {
+                Some(_) => Some(self.parse_pattern()?),
+                None => None,
             };
-            let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+
+            let end_token = if is_instance {
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?
+            } else {
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?
+            };
+
             let span = FileSpan::merge(start_token.span, end_token.span);
 
-            Ok(IntroParam::Implicit(span, label, term))
+            Ok(if is_instance {
+                IntroParam::Instance(span, label, term)
+            } else {
+                IntroParam::Implicit(span, label, term)
+            })
         } else {
             Ok(IntroParam::Explicit(self.parse_pattern()?))
         }
@@ -607,8 +619,8 @@ where
     /// fun-ty  ::= type-param+ "->" term(50 - 1)
     ///
     /// type-param  ::= "(" IDENTIFIER+ ":" term(0) ")"
-    ///               | "{" IDENTIFIER+ "}"
-    ///               | "{" IDENTIFIER+ ":" term(0) "}"
+    ///               | "{" IDENTIFIER+ (":" term(0))? "}"
+    ///               | "{{" IDENTIFIER ":" term(0) "}}"
     /// ```
     fn parse_fun_ty(
         &mut self,
@@ -638,26 +650,37 @@ where
             } else if let Some(start_param_token) =
                 self.try_match(TokenKind::Open(DelimKind::Brace))
             {
-                let mut param_names = Vec::new();
-                while let Some(param_name) = self.try_identifier() {
-                    param_names.push(param_name);
-                }
-                if param_names.is_empty() {
-                    return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(Label::new_primary(start_param_token.span).with_message(
-                            "at least one parameter was expected after this brace",
-                        )));
-                }
+                if self.try_match(TokenKind::Open(DelimKind::Brace)).is_some() {
+                    let param_name = self.expect_identifier()?;
+                    self.expect_match(TokenKind::Colon)?;
+                    let param_ty = self.parse_term(Prec(0))?;
+                    self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                    let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                    let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
 
-                let param_ty = if self.try_match(TokenKind::Colon).is_some() {
-                    Some(self.parse_term(Prec(0))?)
+                    params.push(TypeParam::Instance(param_span, param_name, param_ty));
                 } else {
-                    None
-                };
-                let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
+                    let mut param_names = Vec::new();
+                    while let Some(param_name) = self.try_identifier() {
+                        param_names.push(param_name);
+                    }
+                    if param_names.is_empty() {
+                        return Err(Diagnostic::new_error("expected at least one parameter")
+                            .with_label(Label::new_primary(start_param_token.span).with_message(
+                                "at least one parameter was expected after this brace",
+                            )));
+                    }
 
-                params.push(TypeParam::Implicit(param_span, param_names, param_ty));
+                    let param_ty = match self.try_match(TokenKind::Colon) {
+                        Some(_) => Some(self.parse_term(Prec(0))?),
+                        None => None,
+                    };
+
+                    let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                    let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
+
+                    params.push(TypeParam::Implicit(param_span, param_names, param_ty));
+                }
             } else {
                 break;
             }
@@ -939,24 +962,36 @@ where
     /// ```text
     /// fun-elim    ::= arg*
     /// arg         ::= arg-term(0)
-    ///               | "{" IDENTIFIER "}"
-    ///               | "{" IDENTIFIER "=" term(0) "}"
+    ///               | "{" IDENTIFIER ("=" term(0))? "}"
+    ///               | "{{" IDENTIFIER ("=" term(0))? "}}"
     /// ```
     fn parse_fun_elim(&mut self, lhs: Term<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut args = Vec::new();
 
         while self.is_peek_match(ArgParamStart) {
             if let Some(start_arg_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
+                let is_instance = self.try_match(TokenKind::Open(DelimKind::Brace)).is_some();
+
                 let label = self.expect_identifier()?;
-                let term = if self.try_match(TokenKind::Equals).is_some() {
-                    Some(self.parse_term(Prec(0))?)
-                } else {
-                    None
+                let term = match self.try_match(TokenKind::Equals) {
+                    Some(_) => Some(self.parse_term(Prec(0))?),
+                    None => None,
                 };
-                let end_arg_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+
+                let end_arg_token = if is_instance {
+                    self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                    self.expect_match(TokenKind::Close(DelimKind::Brace))?
+                } else {
+                    self.expect_match(TokenKind::Close(DelimKind::Brace))?
+                };
+
                 let arg_span = FileSpan::merge(start_arg_token.span, end_arg_token.span);
 
-                args.push(Arg::Implicit(arg_span, label, term));
+                args.push(if is_instance {
+                    Arg::Instance(arg_span, label, term)
+                } else {
+                    Arg::Implicit(arg_span, label, term)
+                });
             } else {
                 args.push(Arg::Explicit(self.parse_arg_term(Prec(0))?));
             }
@@ -1138,6 +1173,19 @@ mod tests {
     }
 
     #[test]
+    fn fun_ty_instance() {
+        test_term!(r"Fun {{A : Foo}} -> A", |file_id| Term::FunType(
+            FileSpan::new(file_id, 0, 20),
+            vec![TypeParam::Instance(
+                FileSpan::new(file_id, 4, 15),
+                SpannedString::new(file_id, 6, "A"),
+                Term::Var(SpannedString::new(file_id, 10, "Foo")),
+            )],
+            Box::new(Term::Var(SpannedString::new(file_id, 19, "A"))),
+        ));
+    }
+
+    #[test]
     fn fun_arrow_type() {
         test_term!("Foo -> Bar", |file_id| Term::FunArrowType(
             Box::new(Term::Var(SpannedString::new(file_id, 0, "Foo"))),
@@ -1230,6 +1278,27 @@ mod tests {
     }
 
     #[test]
+    fn fun_intro_multi_params_instance() {
+        test_term!(r"fun x {{y}} {{z = zz}} => x", |file_id| Term::FunIntro(
+            FileSpan::new(file_id, 0, 27),
+            vec![
+                IntroParam::Explicit(Pattern::Var(SpannedString::new(file_id, 4, "x"))),
+                IntroParam::Instance(
+                    FileSpan::new(file_id, 6, 11),
+                    SpannedString::new(file_id, 8, "y"),
+                    None,
+                ),
+                IntroParam::Instance(
+                    FileSpan::new(file_id, 12, 22),
+                    SpannedString::new(file_id, 14, "z"),
+                    Some(Pattern::Var(SpannedString::new(file_id, 18, "zz")))
+                ),
+            ],
+            Box::new(Term::Var(SpannedString::new(file_id, 26, "x"))),
+        ));
+    }
+
+    #[test]
     fn fun_app_1() {
         test_term!(r"foo arg", |file_id| Term::FunElim(
             Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
@@ -1285,6 +1354,25 @@ mod tests {
                     FileSpan::new(file_id, 11, 24),
                     SpannedString::new(file_id, 12, "arg2"),
                     Some(Term::Var(SpannedString::new(file_id, 19, "arg2"))),
+                ),
+            ],
+        ));
+    }
+
+    #[test]
+    fn fun_app_instance() {
+        test_term!(r"foo {{arg1}} {{arg2 = arg2}}", |file_id| Term::FunElim(
+            Box::new(Term::Var(SpannedString::new(file_id, 0, "foo"))),
+            vec![
+                Arg::Instance(
+                    FileSpan::new(file_id, 4, 12),
+                    SpannedString::new(file_id, 6, "arg1"),
+                    None,
+                ),
+                Arg::Instance(
+                    FileSpan::new(file_id, 13, 28),
+                    SpannedString::new(file_id, 15, "arg2"),
+                    Some(Term::Var(SpannedString::new(file_id, 22, "arg2"))),
                 ),
             ],
         ));

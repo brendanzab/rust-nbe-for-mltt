@@ -112,6 +112,7 @@ fn check_param_app_mode<'param, 'file>(
     match (param, expected_app_mode) {
         (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(Some(Cow::Borrowed(pattern))),
         (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
+        | (IntroParam::Instance(_, intro_label, pattern), AppMode::Instance(ty_label))
             if intro_label.slice == ty_label.0 =>
         {
             match pattern {
@@ -119,9 +120,10 @@ fn check_param_app_mode<'param, 'file>(
                 Some(pattern) => Ok(Some(Cow::Borrowed(pattern))),
             }
         },
-        (_, AppMode::Implicit(_)) => Ok(None),
-        (IntroParam::Implicit(span, _, _), AppMode::Explicit) => {
-            let message = "unexpected implicit parameter pattern";
+        (_, AppMode::Implicit(_)) | (_, AppMode::Instance(_)) => Ok(None),
+        (IntroParam::Implicit(span, _, _), AppMode::Explicit)
+        | (IntroParam::Instance(span, _, _), AppMode::Explicit) => {
+            let message = "unexpected parameter pattern";
             Err(Diagnostic::new_error(message).with_label(
                 DiagnosticLabel::new_primary(*span).with_message("this parameter is not needed"),
             ))

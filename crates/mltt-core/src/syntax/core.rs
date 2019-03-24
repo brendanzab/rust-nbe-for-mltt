@@ -184,6 +184,14 @@ impl Term {
                         .append(Doc::space())
                         .append(param_ty.to_doc())
                         .append("}"),
+                    AppMode::Instance(label) => Doc::nil()
+                        .append("{{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append(":")
+                        .append(Doc::space())
+                        .append(param_ty.to_doc())
+                        .append("}}"),
                 };
 
                 Doc::nil()
@@ -208,6 +216,14 @@ impl Term {
                         .append(Doc::space())
                         .append("_")
                         .append("}"),
+                    AppMode::Instance(label) => Doc::nil()
+                        .append("{{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append("=")
+                        .append(Doc::space())
+                        .append("_")
+                        .append("}}"),
                 };
 
                 Doc::nil()
@@ -230,6 +246,14 @@ impl Term {
                         .append(Doc::space())
                         .append(arg.to_doc())
                         .append("}"),
+                    AppMode::Instance(label) => Doc::nil()
+                        .append("{{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append("=")
+                        .append(Doc::space())
+                        .append(arg.to_doc())
+                        .append("}}"),
                 };
 
                 Doc::nil()
@@ -481,6 +505,23 @@ impl Term {
                             .append(param_ty_doc)
                             .append("}")
                     },
+                    AppMode::Instance(label) => {
+                        let param_name = env.fresh_name(Some(&label.0));
+
+                        Doc::nil()
+                            .append("{{")
+                            .append(label.to_doc())
+                            .append(Doc::space())
+                            // TODO: only use `as` if `label.0 != param_name`
+                            .append("as")
+                            .append(Doc::space())
+                            .append(param_name)
+                            .append(Doc::space())
+                            .append(":")
+                            .append(Doc::space())
+                            .append(param_ty_doc)
+                            .append("}}")
+                    },
                 };
                 let body_ty_doc = body_ty.to_display_doc(env);
                 env.pop_name();
@@ -518,6 +559,23 @@ impl Term {
                             .append("_")
                             .append("}")
                     },
+                    AppMode::Instance(label) => {
+                        let param_name = env.fresh_name(Some(&label.0));
+
+                        Doc::nil()
+                            .append("{{")
+                            .append(label.to_doc())
+                            .append(Doc::space())
+                            // TODO: only use `as` if `label.0 != param_name`
+                            .append("as")
+                            .append(Doc::space())
+                            .append(param_name)
+                            .append(Doc::space())
+                            .append("=")
+                            .append(Doc::space())
+                            .append("_")
+                            .append("}}")
+                    },
                 };
                 let body_doc = body.to_display_doc(env);
                 env.pop_name();
@@ -542,6 +600,14 @@ impl Term {
                         .append(Doc::space())
                         .append(arg.to_display_doc(env))
                         .append("}"),
+                    AppMode::Instance(label) => Doc::nil()
+                        .append("{{")
+                        .append(label.to_doc())
+                        .append(Doc::space())
+                        .append("=")
+                        .append(Doc::space())
+                        .append(arg.to_display_doc(env))
+                        .append("}}"),
                 };
 
                 Doc::nil()

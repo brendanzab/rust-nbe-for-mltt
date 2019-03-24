@@ -344,6 +344,7 @@ fn check_arg_app_mode<'arg, 'file>(
     match (concrete_arg, expected_app_mode) {
         (Arg::Explicit(concrete_arg), AppMode::Explicit) => Ok(Cow::Borrowed(concrete_arg)),
         (Arg::Implicit(_, intro_label, concrete_arg), AppMode::Implicit(ty_label))
+        | (Arg::Instance(_, intro_label, concrete_arg), AppMode::Instance(ty_label))
             if intro_label.slice == ty_label.0 =>
         {
             match concrete_arg {
@@ -360,8 +361,18 @@ fn check_arg_app_mode<'arg, 'file>(
                 )),
             ))
         },
-        (Arg::Implicit(span, _, _), AppMode::Explicit) => {
-            let message = "unexpected implicit argument";
+        (_, AppMode::Instance(ty_label)) => {
+            let message = "inference of instance arguments is not yet supported";
+            Err(Diagnostic::new_error(message).with_label(
+                DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
+                    "add the explicit argument `{{{{{} = ..}}}}` here",
+                    ty_label,
+                )),
+            ))
+        },
+        (Arg::Implicit(span, _, _), AppMode::Explicit)
+        | (Arg::Instance(span, _, _), AppMode::Explicit) => {
+            let message = "unexpected argument";
             Err(Diagnostic::new_error(message).with_label(
                 DiagnosticLabel::new_primary(*span).with_message("this argument is not needed"),
             ))
@@ -565,6 +576,16 @@ pub fn synth_term(
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
+                    },
+                    TypeParam::Instance(_, param_label, concrete_param_ty) => {
+                        let app_mode = AppMode::Instance(Label(param_label.to_string()));
+                        let param_ty_span = concrete_param_ty.span();
+                        let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
+                        let param_ty_value = context.eval(param_ty_span, &param_ty)?;
+
+                        context.local_bind(param_label.to_string(), param_ty_value);
+                        param_tys.push((app_mode, param_ty));
+                        max_level = cmp::max(max_level, level);
                     },
                 }
             }
