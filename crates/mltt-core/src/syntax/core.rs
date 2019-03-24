@@ -97,6 +97,13 @@ pub enum Term {
     /// Eliminate a record (projection)
     RecordElim(RcTerm, Label),
 
+    /// Variant types
+    VariantType(Vec<(String, Label, RcTerm)>),
+    /// Introduce a variant
+    VariantIntro(Label, RcTerm),
+    /// Eliminate a record (projection)
+    VariantElim(RcTerm, Vec<(Label, RcTerm)>),
+
     /// Universe of types
     Universe(UniverseLevel),
 }

@@ -178,6 +178,11 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
         },
         Term::RecordElim(record, label) => do_record_elim(&eval(record, env)?, label),
 
+        // Variants
+        Term::VariantType(_) => unimplemented!("eval variant type"),
+        Term::VariantIntro(_, _) => unimplemented!("eval variant intro"),
+        Term::VariantElim(_, _) => unimplemented!("eval variant elim"),
+
         // Universes
         Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
     }

@@ -402,6 +402,10 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             Err(TypeError::NoFieldInType(label.clone()))
         },
 
+        Term::VariantType(_) => unimplemented!("synth variant type"),
+        Term::VariantIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::VariantElim(_, _) => unimplemented!("synth variant elim"),
+
         Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + 1))),
     }
 }
