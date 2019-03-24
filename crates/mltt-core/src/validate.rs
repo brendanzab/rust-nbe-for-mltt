@@ -273,7 +273,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             let mut expected_ty = expected_ty.clone();
 
             for (label, term) in intro_fields {
-                if let Value::RecordTypeExtend(expected_label, expected_term_ty, rest) =
+                if let Value::RecordTypeExtend(_, expected_label, expected_term_ty, rest) =
                     expected_ty.as_ref()
                 {
                     if label != expected_label {
@@ -388,7 +388,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         Term::RecordElim(record, label) => {
             let mut record_ty = synth_term(context, record)?;
 
-            while let Value::RecordTypeExtend(current_label, current_ty, rest) = record_ty.as_ref()
+            while let Value::RecordTypeExtend(_, current_label, current_ty, rest) =
+                record_ty.as_ref()
             {
                 if label == current_label {
                     return Ok(current_ty.clone());

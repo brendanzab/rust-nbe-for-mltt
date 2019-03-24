@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{AppClosure, ClauseClosure, Elim, Head, RcType, RcValue, Spine, Value};
-use crate::syntax::{AppMode, DocString, Env, Label, VarIndex, VarLevel};
+use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
 
 /// An error produced during normalization
 ///
@@ -158,14 +158,15 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
         // Records
         Term::RecordType(fields) => match fields.split_first() {
             None => Ok(RcValue::from(Value::RecordTypeEmpty)),
-            Some(((_, label, ty), rest)) => {
+            Some(((doc, label, ty), rest)) => {
+                let doc = doc.clone();
                 let label = label.clone();
                 let ty = eval(ty, env)?;
                 let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
                 let rest =
                     AppClosure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
 
-                Ok(RcValue::from(Value::RecordTypeExtend(label, ty, rest)))
+                Ok(RcValue::from(Value::RecordTypeExtend(doc, label, ty, rest)))
             },
         },
         Term::RecordIntro(fields) => {
@@ -212,24 +213,23 @@ pub fn read_back_term(level: VarLevel, term: &RcValue) -> Result<RcTerm, NbeErro
         },
 
         // Records
-        Value::RecordTypeExtend(label, term_ty, rest_ty) => {
+        Value::RecordTypeExtend(doc, label, term_ty, rest_ty) => {
             let mut level = level;
 
-            let doc = DocString::from("");
             let term = RcValue::var(level);
             let term_ty = read_back_term(level, term_ty)?;
 
             let mut rest_ty = do_closure_app(rest_ty, term)?;
             let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
 
-            while let Value::RecordTypeExtend(next_label, next_term_ty, next_rest_ty) =
+            while let Value::RecordTypeExtend(next_doc, next_label, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
             {
                 level += 1;
                 let next_term = RcValue::var(level);
-                let term_ty = read_back_term(level, next_term_ty)?;
+                let next_term_ty = read_back_term(level, next_term_ty)?;
 
-                field_tys.push((doc.clone(), next_label.clone(), term_ty));
+                field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
                 rest_ty = do_closure_app(next_rest_ty, next_term)?;
             }
 
@@ -310,8 +310,8 @@ pub fn check_subtype(level: VarLevel, ty1: &RcType, ty2: &RcType) -> Result<bool
             })
         },
         (
-            &Value::RecordTypeExtend(label1, term_ty1, rest_ty1),
-            &Value::RecordTypeExtend(label2, term_ty2, rest_ty2),
+            &Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
+            &Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
         ) => {
             let term = RcValue::var(level);
 

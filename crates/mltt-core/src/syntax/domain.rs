@@ -4,7 +4,9 @@ use std::ops;
 use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
-use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
+use crate::syntax::{
+    AppMode, DocString, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel,
+};
 
 /// A closure that binds a single variable.
 ///
@@ -120,7 +122,7 @@ pub enum Value {
     FunIntro(AppMode, AppClosure),
 
     /// Dependent record type extension
-    RecordTypeExtend(Label, RcType, AppClosure),
+    RecordTypeExtend(DocString, Label, RcType, AppClosure),
     /// Empty record type
     RecordTypeEmpty,
     /// Introduce a record

@@ -449,7 +449,7 @@ pub fn check_term(
 
             for concrete_intro_field in concrete_intro_fields {
                 let (expected_label, expected_term_ty, rest) = match expected_ty.as_ref() {
-                    domain::Value::RecordTypeExtend(label, ty, rest) => Ok((label, ty, rest)),
+                    domain::Value::RecordTypeExtend(_, label, ty, rest) => Ok((label, ty, rest)),
                     _ => Err(Diagnostic::new_error("too many fields found")
                         .with_label(DiagnosticLabel::new_primary(*span))),
                 }?;
@@ -684,7 +684,7 @@ pub fn synth_term(
         Term::RecordElim(concrete_record, label) => {
             let (record, mut record_ty) = synth_term(context, concrete_record)?;
 
-            while let domain::Value::RecordTypeExtend(current_label, current_ty, rest) =
+            while let domain::Value::RecordTypeExtend(_, current_label, current_ty, rest) =
                 record_ty.as_ref()
             {
                 let expr = core::RcTerm::from(core::Term::RecordElim(
