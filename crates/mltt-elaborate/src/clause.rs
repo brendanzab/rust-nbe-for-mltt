@@ -49,30 +49,24 @@ pub fn check_clause(
     let mut param_app_modes = Vec::new();
     let mut expected_ty = expected_ty.clone();
 
-    while let Some((head_param, rest_params)) = clause.concrete_params.split_first() {
-        clause.concrete_params = rest_params;
-
-        loop {
-            let (app_mode, param_ty, next_body_ty) =
-                check_next_expected_param(&mut std::iter::empty(), &expected_ty)?;
-
-            let pattern = check_param_app_mode(head_param, &app_mode)?;
-            let var_name = match pattern.as_ref() {
-                None => None,
-                Some(pattern) => match pattern.as_ref() {
+    while let (Some((app_mode, param_ty, next_body_ty)), Some((head_param, rest_params))) = (
+        next_expected_param(&mut std::iter::empty(), &expected_ty),
+        clause.concrete_params.split_first(),
+    ) {
+        let var_name = match check_param_app_mode(head_param, &app_mode)? {
+            None => None,
+            Some(pattern) => {
+                clause.concrete_params = rest_params;
+                match pattern.as_ref() {
                     Pattern::Var(var_name) => Some(var_name.to_string()),
-                },
-            };
+                }
+            },
+        };
 
-            param_app_modes.push(app_mode);
-            let param_var = context.local_bind(var_name, param_ty.clone());
-            if let Some(next_body_ty) = next_body_ty {
-                expected_ty = do_closure_app(&next_body_ty, param_var)?;
-            }
-
-            if pattern.is_some() {
-                break;
-            }
+        param_app_modes.push(app_mode);
+        let param_var = context.local_bind(var_name, param_ty.clone());
+        if let Some(next_body_ty) = next_body_ty {
+            expected_ty = do_closure_app(&next_body_ty, param_var)?;
         }
     }
 
@@ -103,6 +97,25 @@ pub fn synth_clause(
 // Helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// Get the next expected parameter, by checking, in order:
+///
+/// - the next type synthesized from the scrutinees (if it exists)
+/// - the next parameter from the expected type (if it exists)
+fn next_expected_param<'ty>(
+    expected_scrutinee_param_tys: &mut impl Iterator<Item = domain::RcType>,
+    expected_ty: &'ty domain::RcType,
+) -> Option<(AppMode, domain::RcValue, Option<&'ty domain::AppClosure>)> {
+    match expected_scrutinee_param_tys.next() {
+        Some(param_ty) => Some((AppMode::Explicit, param_ty, None)),
+        None => match expected_ty.as_ref() {
+            domain::Value::FunType(app_mode, param_ty, body_ty) => {
+                Some((app_mode.clone(), param_ty.clone(), Some(body_ty)))
+            },
+            _ => None,
+        },
+    }
+}
+
 /// Check that a given parameter matches the expected application mode, and
 /// return the pattern inside it.
 fn check_param_app_mode<'param, 'file>(
@@ -127,31 +140,6 @@ fn check_param_app_mode<'param, 'file>(
             Err(Diagnostic::new_error(message).with_label(
                 DiagnosticLabel::new_primary(*span).with_message("this parameter is not needed"),
             ))
-        },
-    }
-}
-
-/// Get the next expected parameter, by checking, in order:
-///
-/// - the next type synthesized from the scrutinees (if it exists)
-/// - the next parameter from the expected type (if it exists)
-fn check_next_expected_param<'ty>(
-    expected_scrutinee_param_tys: &mut impl Iterator<Item = domain::RcType>,
-    expected_ty: &'ty domain::RcType,
-) -> Result<(AppMode, domain::RcValue, Option<&'ty domain::AppClosure>), Diagnostic<FileSpan>> {
-    match expected_scrutinee_param_tys.next() {
-        Some(param_ty) => Ok((AppMode::Explicit, param_ty, None)),
-        None => match expected_ty.as_ref() {
-            domain::Value::FunType(app_mode, param_ty, body_ty) => {
-                Ok((app_mode.clone(), param_ty.clone(), Some(body_ty)))
-            },
-            _ => unimplemented!("too many patterns given"),
-            // _ => Err(
-            //     Diagnostic::new_error("too many parameters provided").with_label(
-            //         DiagnosticLabel::new_primary(head_param_span)
-            //             .with_message("try removing this parameter"),
-            //     ),
-            // ),
         },
     }
 }
