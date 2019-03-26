@@ -1,0 +1,19 @@
+default : U32 -> String;
+default ignored = case ignored {
+    _ => "the common choice";
+};
+
+meaning : U32 -> String;
+meaning magic = case magic {
+    7 => "the common choice";
+    42 => "life, the universe, and everything";
+    13 => "unlucky";
+    _ => "nonsense";
+};
+
+hi-to-bye : String -> String;
+hi-to-bye value = case value {
+    "hi" => "bye";
+    other => other;
+};
+

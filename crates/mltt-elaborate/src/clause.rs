@@ -2,11 +2,12 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, Pattern, Term};
-use mltt_core::syntax::{core, domain, AppMode};
+use mltt_core::syntax::{core, domain, AppMode, LiteralIntro};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
+use std::rc::Rc;
 
-use super::{check_term, do_closure_app, synth_term, synth_universe, Context};
+use super::{check_term, do_closure_app, literal, synth_term, synth_universe, Context};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Top-level Implementation
@@ -59,6 +60,12 @@ pub fn check_clause(
                 clause.concrete_params = rest_params;
                 match pattern.as_ref() {
                     Pattern::Var(var_name) => Some(var_name.to_string()),
+                    Pattern::Literal(literal) => {
+                        return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
+                            DiagnosticLabel::new_primary(literal.span())
+                                .with_message("use a case expression for matching on literals"),
+                        ));
+                    },
                 }
             },
         };
@@ -71,6 +78,104 @@ pub fn check_clause(
     let body = check_clause_body(&context, &clause, &expected_ty)?;
 
     Ok(done(param_app_modes, body))
+}
+
+/// The state of a pattern clause, part-way through evaluation
+pub struct CaseClause<'file> {
+    /// The pattern for this case clause
+    pattern: &'file Pattern<'file>,
+    /// The concrete body of this clause
+    body: &'file Term<'file>,
+}
+
+impl<'file> CaseClause<'file> {
+    pub fn new(pattern: &'file Pattern<'file>, body: &'file Term<'file>) -> CaseClause<'file> {
+        CaseClause { pattern, body }
+    }
+}
+
+/// Check that the given case clauses conform to the expected type, and
+/// elaborate them into a case tree.
+pub fn check_case<'file>(
+    context: &Context,
+    span: FileSpan,
+    scrutinee: &Term<'file>,
+    clauses: Vec<CaseClause<'file>>,
+    expected_ty: &domain::RcType,
+) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+    // TODO: Merge with `check_clause`
+    // TODO: Zero or more scrutinees
+    // TODO: One-or-more patterns per case clause
+
+    match clauses.split_last() {
+        None => Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
+            DiagnosticLabel::new_primary(span).with_message("empty patterns are not yet supported"),
+        )),
+        Some((default_clause, literal_clauses)) => {
+            let mut context = context.clone();
+
+            let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
+            let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
+            let scrutinee_var = domain::RcValue::var(context.level());
+            context.local_define(None, scrutinee_value, scrutinee_ty.clone());
+
+            let mut literal_branches =
+                Vec::<(LiteralIntro, core::RcTerm)>::with_capacity(literal_clauses.len());
+
+            for literal_clause in literal_clauses {
+                match literal_clause.pattern {
+                    Pattern::Literal(literal) => {
+                        let literal_intro = literal::check(&context, literal, &scrutinee_ty)?;
+                        let body = check_term(&context, &literal_clause.body, expected_ty)?;
+
+                        match literal_branches
+                            .binary_search_by(|(l, _)| l.partial_cmp(&literal_intro).unwrap()) // NaN?
+                        {
+                            Ok(index) => literal_branches.insert(index + 1, (literal_intro, body)),
+                            Err(index) => literal_branches.insert(index, (literal_intro, body)),
+                        }
+                    },
+                    _ => {
+                        return Err(
+                            Diagnostic::new_error("variable literal pattern").with_label(
+                                DiagnosticLabel::new_primary(literal_clause.pattern.span())
+                                    .with_message("literal pattern expected here"),
+                            ),
+                        );
+                    },
+                }
+            }
+
+            let default = match default_clause.pattern {
+                Pattern::Var(name) => {
+                    let mut context = context.clone();
+
+                    let var_var = domain::RcValue::var(context.level());
+                    context.local_define(name.to_string(), scrutinee_var.clone(), scrutinee_ty);
+                    let body = check_term(&context, &default_clause.body, expected_ty)?;
+
+                    core::RcTerm::from(core::Term::Let(context.read_back(None, &var_var)?, body))
+                },
+                _ => {
+                    return Err(
+                        Diagnostic::new_error("expected variable pattern").with_label(
+                            DiagnosticLabel::new_primary(default_clause.pattern.span())
+                                .with_message("default case expected here"),
+                        ),
+                    );
+                },
+            };
+
+            Ok(core::RcTerm::from(core::Term::Let(
+                scrutinee_term,
+                core::RcTerm::from(core::Term::LiteralElim(
+                    context.read_back(None, &scrutinee_var)?,
+                    Rc::from(literal_branches),
+                    default,
+                )),
+            )))
+        },
+    }
 }
 
 /// Synthesize the type of the clauses, elaborating them into a case tree.

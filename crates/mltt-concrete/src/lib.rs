@@ -174,9 +174,9 @@ impl<'file> fmt::Display for SpannedString<'file> {
 pub enum Pattern<'file> {
     /// Variable patterns
     Var(SpannedString<'file>),
+    /// Literal patterns
+    Literal(Literal<'file>),
     // TODO:
-    // /// Literal patterns
-    // Literal(Literal<'file>),
     // /// Patterns with an explicit type annotation
     // Ann(Box<Pattern<'file>>, Box<Term<'file>>),
     // /// Pair patterns
@@ -187,6 +187,7 @@ impl<'file> Pattern<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Pattern::Var(name) => name.span(),
+            Pattern::Literal(literal) => literal.span(),
         }
     }
 
@@ -194,6 +195,7 @@ impl<'file> Pattern<'file> {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Pattern::Var(name) => name.to_doc(),
+            Pattern::Literal(literal) => literal.to_doc(),
         }
     }
 }
@@ -464,6 +466,15 @@ impl<'file> RecordIntroField<'file> {
         }
     }
 
+    pub fn span(&self) -> FileSpan {
+        match self {
+            RecordIntroField::Punned { label } => label.span(),
+            RecordIntroField::Explicit { label, body, .. } => {
+                FileSpan::merge(label.span(), body.span())
+            },
+        }
+    }
+
     /// Convert the field into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
@@ -519,6 +530,12 @@ pub enum Term<'file> {
         Box<Term<'file>>,
         Box<Term<'file>>,
     ),
+    /// Case expressions
+    Case(
+        FileSpan,
+        Box<Term<'file>>,
+        Vec<(Pattern<'file>, Term<'file>)>,
+    ),
 
     /// Literals
     Literal(Literal<'file>),
@@ -556,6 +573,7 @@ impl<'file> Term<'file> {
             Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
             Term::Let(span, _, _) => *span,
             Term::If(span, _, _, _) => *span,
+            Term::Case(span, _, _) => *span,
             Term::Literal(literal) => literal.span(),
             Term::FunType(span, _, _) => *span,
             Term::FunArrowType(param_ty, body_ty) => {
@@ -614,6 +632,30 @@ impl<'file> Term<'file> {
                 .append("else")
                 .append(Doc::space())
                 .append(alternative.to_doc()),
+            Term::Case(_, scrutinee, clauses) => {
+                let clauses = Doc::intersperse(
+                    clauses.iter().map(|(param, body)| {
+                        Doc::nil()
+                            .append(param.to_doc())
+                            .append(Doc::space())
+                            .append("=>")
+                            .append(Doc::space())
+                            .append(body.to_doc())
+                    }),
+                    Doc::text(";").append(Doc::space()),
+                );
+
+                Doc::nil()
+                    .append("case")
+                    .append(Doc::space())
+                    .append(scrutinee.to_doc())
+                    .append(Doc::space())
+                    .append("{")
+                    .append(Doc::space())
+                    .append(clauses)
+                    .append(Doc::space())
+                    .append("}")
+            },
             Term::Literal(literal) => literal.to_doc(),
             Term::FunType(_, params, body_ty) => Doc::nil()
                 .append("Fun")

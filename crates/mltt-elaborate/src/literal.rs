@@ -11,7 +11,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Literal, LiteralKind};
-use mltt_core::syntax::{core, domain, LiteralIntro, LiteralType};
+use mltt_core::syntax::{domain, LiteralIntro, LiteralType};
 use mltt_span::FileSpan;
 
 use super::Context;
@@ -20,14 +20,14 @@ pub fn check(
     context: &Context,
     concrete_literal: &Literal<'_>,
     expected_ty: &domain::RcType,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as LKind;
     use mltt_core::syntax::domain::Value;
     use mltt_core::syntax::LiteralType as LType;
 
     let Literal { span, kind, slice } = concrete_literal;
 
-    let literal_intro = match (kind, expected_ty.as_ref()) {
+    match (kind, expected_ty.as_ref()) {
         (LKind::String, Value::LiteralType(LType::String)) => parse_string(*span, slice),
         (LKind::Char, Value::LiteralType(LType::Char)) => parse_char(*span, slice),
         (LKind::Int, Value::LiteralType(LType::U8)) => parse_int::<u8>(*span, slice),
@@ -48,14 +48,12 @@ pub fn check(
                 context.read_back(None, expected_ty)?,
             )),
         )),
-    }?;
-
-    Ok(core::RcTerm::from(core::Term::LiteralIntro(literal_intro)))
+    }
 }
 
 pub fn synth(
     concrete_literal: &Literal<'_>,
-) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(LiteralIntro, domain::RcType), Diagnostic<FileSpan>> {
     let Literal { span, kind, slice } = concrete_literal;
 
     let (literal_intro, literal_ty) = match kind {
@@ -68,7 +66,7 @@ pub fn synth(
     };
 
     Ok((
-        core::RcTerm::from(core::Term::LiteralIntro(literal_intro)),
+        literal_intro,
         domain::RcValue::from(domain::Value::LiteralType(literal_ty)),
     ))
 }

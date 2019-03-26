@@ -20,7 +20,7 @@ use mltt_span::FileSpan;
 use std::borrow::Cow;
 use std::rc::Rc;
 
-use crate::clause::Clause;
+use crate::clause::{CaseClause, Clause};
 
 mod clause;
 mod docs;
@@ -430,8 +430,19 @@ pub fn check_term(
                 alternative,
             )))
         },
+        Term::Case(span, scrutinee, clauses) => {
+            let clauses = clauses
+                .iter()
+                .map(|(pattern, body)| CaseClause::new(pattern, body))
+                .collect();
 
-        Term::Literal(concrete_literal) => literal::check(context, concrete_literal, expected_ty),
+            clause::check_case(context, *span, scrutinee, clauses, expected_ty)
+        },
+
+        Term::Literal(concrete_literal) => {
+            let literal_intro = literal::check(context, concrete_literal, expected_ty)?;
+            Ok(core::RcTerm::from(core::Term::LiteralIntro(literal_intro)))
+        },
 
         Term::FunIntro(_, concrete_params, concrete_body) => {
             let clause = Clause::new(concrete_params, None, concrete_body);
@@ -532,8 +543,16 @@ pub fn synth_term(
         Term::If(span, _, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
             DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
         )),
+        Term::Case(span, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
+            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+        )),
 
-        Term::Literal(concrete_literal) => literal::synth(concrete_literal),
+        Term::Literal(concrete_literal) => {
+            let (literal_intro, ty) = literal::synth(concrete_literal)?;
+            let term = core::RcTerm::from(core::Term::LiteralIntro(literal_intro));
+
+            Ok((term, ty))
+        },
 
         Term::FunType(_, concrete_params, concrete_body_ty) => {
             let mut context = context.clone();

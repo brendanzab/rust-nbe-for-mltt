@@ -155,7 +155,7 @@ fn keywords() {
         "~~                                                             " => (TokenKind::Whitespace, "  "),
         "  ~~                                                           " => (TokenKind::Identifier, "as"),
         "    ~                                                          " => (TokenKind::Whitespace, " "),
-        "     ~~~~                                                      " => (TokenKind::Identifier, "case"),
+        "     ~~~~                                                      " => (TokenKind::Keyword, "case"),
         "         ~                                                     " => (TokenKind::Whitespace, " "),
         "          ~~~~                                                 " => (TokenKind::Keyword, "else"),
         "              ~                                                " => (TokenKind::Whitespace, " "),

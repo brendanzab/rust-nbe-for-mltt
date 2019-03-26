@@ -11,6 +11,10 @@
 //!           | DOC_COMMENT* IDENTIFIER intro-param* (":" term)? "=" term ";"
 //!
 //! pattern ::= IDENTIFIER
+//!           | STRING_LITERAL
+//!           | CHAR_LITERAL
+//!           | INT_LITERAL
+//!           | FLOAT_LITERAL
 //!
 //! term    ::= IDENTIFIER
 //!           | "?"
@@ -18,6 +22,7 @@
 //!           | term ":" term
 //!           | "let" item+ "in" term
 //!           | "if" term "then" term "else" term
+//!           | "case" term "{" (intro-param "=>" term ";")* (intro-param "=>" term)? "}"
 //!           | STRING_LITERAL
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
@@ -371,9 +376,9 @@ where
     /// Parse a function introduction parameter
     ///
     /// ```text
-    /// intro-param ::= pattern
-    ///               | "{" IDENTIFIER ("=" pattern)? "}"
-    ///               | "{{" IDENTIFIER ("=" pattern)? "}}"
+    /// intro-param ::= pattern(0)
+    ///               | "{" IDENTIFIER ("=" pattern(0))? "}"
+    ///               | "{{" IDENTIFIER ("=" pattern(0))? "}}"
     /// ```
     fn parse_intro_param(&mut self) -> Result<IntroParam<'file>, Diagnostic<FileSpan>> {
         if let Some(start_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
@@ -381,7 +386,7 @@ where
 
             let label = self.expect_identifier()?;
             let term = match self.try_match(TokenKind::Equals) {
-                Some(_) => Some(self.parse_pattern()?),
+                Some(_) => Some(self.parse_pattern(Prec(0))?),
                 None => None,
             };
 
@@ -400,7 +405,7 @@ where
                 IntroParam::Implicit(span, label, term)
             })
         } else {
-            Ok(IntroParam::Explicit(self.parse_pattern()?))
+            Ok(IntroParam::Explicit(self.parse_pattern(Prec(0))?))
         }
     }
 
@@ -443,10 +448,44 @@ where
     /// Parse a pattern
     ///
     /// ```text
-    /// pattern ::= IDENTIFIER
+    /// pattern(prec) ::= operators(prec) {
+    ///     nilfix  IDENTIFIER
+    ///     nilfix  STRING_LITERAL
+    ///     nilfix  CHAR_LITERAL
+    ///     nilfix  INT_LITERAL
+    ///     nilfix  FLOAT_LITERAL
+    /// }
     /// ```
-    fn parse_pattern(&mut self) -> Result<Pattern<'file>, Diagnostic<FileSpan>> {
-        Ok(Pattern::Var(self.expect_identifier()?))
+    fn parse_pattern(&mut self, _right_prec: Prec) -> Result<Pattern<'file>, Diagnostic<FileSpan>> {
+        // Use Top-Down Operator Precedence Parsing (a.k.a. Pratt Parsing) to
+        // recognise the term syntax. This is not yet abstracted out into a more
+        // general form.
+
+        let token = self.advance().ok_or_else(
+            || Diagnostic::new_error("unexpected EOF"), // FIXME: Spanned diagnostic
+        )?;
+
+        // Prefix operators
+        let pattern = match (token.kind, token.slice) {
+            (TokenKind::Identifier, _) => Ok(Pattern::Var(self.parse_var(token)?)),
+            (TokenKind::StringLiteral, _) => {
+                Ok(Pattern::Literal(self.parse_string_literal(token)?))
+            },
+            (TokenKind::CharLiteral, _) => Ok(Pattern::Literal(self.parse_char_literal(token)?)),
+            (TokenKind::IntLiteral, _) => Ok(Pattern::Literal(self.parse_int_literal(token)?)),
+            (TokenKind::FloatLiteral, _) => Ok(Pattern::Literal(self.parse_float_literal(token)?)),
+            (_, _) => Err(Diagnostic::new_error("expected a pattern")
+                .with_label(Label::new_primary(token.span).with_message("pattern expected here"))),
+        }?;
+
+        // Infix operators
+        while let Some(token) = self.peek() {
+            match token.kind {
+                _ => break,
+            }
+        }
+
+        Ok(pattern)
     }
 
     /// Parse a term
@@ -455,6 +494,7 @@ where
     /// term(prec) ::= operators(prec) {
     ///     prefix  "let"               ::= let-expr
     ///     prefix  "if"                ::= if-expr
+    ///     prefix  "case"              ::= case-expr
     ///     prefix  "("                 ::= parens fun-elim
     ///     prefix  "Fun"               ::= fun-type
     ///     prefix  "fun"               ::= fun-intro
@@ -485,17 +525,17 @@ where
         // Prefix operators
         let mut term = match (token.kind, token.slice) {
             (TokenKind::Identifier, _) => {
-                let term = self.parse_var(token)?;
+                let term = Term::Var(self.parse_var(token)?);
                 self.parse_fun_elim(term)
             },
             (TokenKind::Question, _) => {
                 let term = self.parse_hole(token)?;
                 self.parse_fun_elim(term)
             },
-            (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
-            (TokenKind::CharLiteral, _) => self.parse_char_literal(token),
-            (TokenKind::IntLiteral, _) => self.parse_int_literal(token),
-            (TokenKind::FloatLiteral, _) => self.parse_float_literal(token),
+            (TokenKind::StringLiteral, _) => Ok(Term::Literal(self.parse_string_literal(token)?)),
+            (TokenKind::CharLiteral, _) => Ok(Term::Literal(self.parse_char_literal(token)?)),
+            (TokenKind::IntLiteral, _) => Ok(Term::Literal(self.parse_int_literal(token)?)),
+            (TokenKind::FloatLiteral, _) => Ok(Term::Literal(self.parse_float_literal(token)?)),
             (TokenKind::Open(DelimKind::Paren), _) => {
                 let term = self.parse_parens(token)?;
                 self.parse_fun_elim(term)
@@ -506,6 +546,7 @@ where
             (TokenKind::Keyword, "record") => self.parse_record_intro(token),
             (TokenKind::Keyword, "let") => self.parse_let_expr(token),
             (TokenKind::Keyword, "if") => self.parse_if_expr(token),
+            (TokenKind::Keyword, "case") => self.parse_case_expr(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
                 .with_label(Label::new_primary(token.span).with_message("term expected here"))),
@@ -561,12 +602,12 @@ where
 
         // Prefix operators
         let mut term = match (token.kind, token.slice) {
-            (TokenKind::Identifier, _) => self.parse_var(token),
+            (TokenKind::Identifier, _) => Ok(Term::Var(self.parse_var(token)?)),
             (TokenKind::Question, _) => self.parse_hole(token),
-            (TokenKind::StringLiteral, _) => self.parse_string_literal(token),
-            (TokenKind::CharLiteral, _) => self.parse_char_literal(token),
-            (TokenKind::IntLiteral, _) => self.parse_int_literal(token),
-            (TokenKind::FloatLiteral, _) => self.parse_float_literal(token),
+            (TokenKind::StringLiteral, _) => Ok(Term::Literal(self.parse_string_literal(token)?)),
+            (TokenKind::CharLiteral, _) => Ok(Term::Literal(self.parse_char_literal(token)?)),
+            (TokenKind::IntLiteral, _) => Ok(Term::Literal(self.parse_int_literal(token)?)),
+            (TokenKind::FloatLiteral, _) => Ok(Term::Literal(self.parse_float_literal(token)?)),
             (TokenKind::Open(DelimKind::Paren), _) => self.parse_parens(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
@@ -588,12 +629,15 @@ where
     }
 
     /// Parse the trailing part of a variable
-    fn parse_var(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        Ok(Term::Var(SpannedString {
+    fn parse_var(
+        &mut self,
+        token: Token<'file>,
+    ) -> Result<SpannedString<'file>, Diagnostic<FileSpan>> {
+        Ok(SpannedString {
             source: token.span.source(),
             start: token.span.start(),
             slice: token.slice,
-        }))
+        })
     }
 
     /// Parse the trailing part of a hole
@@ -605,48 +649,48 @@ where
     fn parse_string_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal {
+    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
+        Ok(Literal {
             span: token.span,
             kind: LiteralKind::String,
             slice: token.slice,
-        }))
+        })
     }
 
     /// Parse the trailing part of a character literal
     fn parse_char_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal {
+    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
+        Ok(Literal {
             span: token.span,
             kind: LiteralKind::Char,
             slice: token.slice,
-        }))
+        })
     }
 
     /// Parse the trailing part of a integer literal
     fn parse_int_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal {
+    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
+        Ok(Literal {
             span: token.span,
             kind: LiteralKind::Int,
             slice: token.slice,
-        }))
+        })
     }
 
     /// Parse the trailing part of a floating point literal
     fn parse_float_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        Ok(Term::Literal(Literal {
+    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
+        Ok(Literal {
             span: token.span,
             kind: LiteralKind::Float,
             slice: token.slice,
-        }))
+        })
     }
 
     /// Parse the trailing part of a function introduction
@@ -925,6 +969,45 @@ where
             Box::new(consequent),
             Box::new(alternative),
         ))
+    }
+
+    /// Parse the trailing part of a case expression
+    ///
+    /// ```text
+    /// case-expr ::= arg-term(0) "{" (pattern(0) "=>" term(0) ";")* (pattern(0) "=>" term(0))? "}"
+    /// ```
+    fn parse_case_expr(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
+        let scrutinee = self.parse_arg_term(Prec(0))?;
+
+        self.expect_match(TokenKind::Open(DelimKind::Brace))?;
+
+        let mut clauses = Vec::new();
+        while !self.is_peek_match(TokenKind::Close(DelimKind::Brace)) {
+            let pattern = self.parse_pattern(Prec(0))?;
+
+            self.expect_match(TokenKind::RFatArrow)?;
+
+            let body = self.parse_term(Prec(0))?;
+
+            clauses.push((pattern, body));
+
+            if self.try_match(TokenKind::Semicolon).is_some() {
+                continue;
+            } else {
+                let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                let span = FileSpan::merge(start_token.span, end_token.span);
+
+                return Ok(Term::Case(span, Box::new(scrutinee), clauses));
+            }
+        }
+
+        let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+        let span = FileSpan::merge(start_token.span, end_token.span);
+
+        Ok(Term::Case(span, Box::new(scrutinee), clauses))
     }
 
     /// Parse the trailing part of a universe

@@ -43,7 +43,7 @@ fn do_literal_elim(scrutinee: RcValue, closure: LiteralClosure) -> Result<RcValu
     match scrutinee.as_ref() {
         Value::LiteralIntro(literal_intro) => {
             let index = closure.clauses.binary_search_by(|(l, _)| {
-                l.partial_cmp(literal_intro).unwrap_or(std::cmp::Ordering::Greater) // NaN?
+                l.partial_cmp(literal_intro).unwrap() // NaN?
             });
 
             match index {
