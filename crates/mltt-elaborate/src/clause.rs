@@ -50,7 +50,7 @@ pub fn check_clause(
     let mut expected_ty = expected_ty.clone();
 
     while let (Some((app_mode, param_ty, next_body_ty)), Some((head_param, rest_params))) = (
-        next_expected_param(&mut std::iter::empty(), &expected_ty),
+        next_expected_param(&expected_ty),
         clause.concrete_params.split_first(),
     ) {
         let var_name = match check_param_app_mode(head_param, &app_mode)? {
@@ -65,14 +65,12 @@ pub fn check_clause(
 
         param_app_modes.push(app_mode);
         let param_var = context.local_bind(var_name, param_ty.clone());
-        if let Some(next_body_ty) = next_body_ty {
-            expected_ty = do_closure_app(&next_body_ty, param_var)?;
-        }
+        expected_ty = do_closure_app(next_body_ty, param_var)?;
     }
 
     let body = check_clause_body(&context, &clause, &expected_ty)?;
 
-    Ok(done(vec![], param_app_modes, body))
+    Ok(done(param_app_modes, body))
 }
 
 /// Synthesize the type of the clauses, elaborating them into a case tree.
@@ -97,22 +95,15 @@ pub fn synth_clause(
 // Helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Get the next expected parameter, by checking, in order:
-///
-/// - the next type synthesized from the scrutinees (if it exists)
-/// - the next parameter from the expected type (if it exists)
+/// Get the next expected parameter
 fn next_expected_param<'ty>(
-    expected_scrutinee_param_tys: &mut impl Iterator<Item = domain::RcType>,
     expected_ty: &'ty domain::RcType,
-) -> Option<(AppMode, domain::RcValue, Option<&'ty domain::AppClosure>)> {
-    match expected_scrutinee_param_tys.next() {
-        Some(param_ty) => Some((AppMode::Explicit, param_ty, None)),
-        None => match expected_ty.as_ref() {
-            domain::Value::FunType(app_mode, param_ty, body_ty) => {
-                Some((app_mode.clone(), param_ty.clone(), Some(body_ty)))
-            },
-            _ => None,
+) -> Option<(AppMode, domain::RcValue, &'ty domain::AppClosure)> {
+    match expected_ty.as_ref() {
+        domain::Value::FunType(app_mode, param_ty, body_ty) => {
+            Some((app_mode.clone(), param_ty.clone(), body_ty))
         },
+        _ => None,
     }
 }
 
@@ -181,19 +172,11 @@ fn synth_clause_body(
 }
 
 /// Finish elaborating the patterns into a case tree.
-fn done(
-    args: Vec<core::RcTerm>,
-    param_app_modes: Vec<AppMode>,
-    body: core::RcTerm,
-) -> core::RcTerm {
-    let term = param_app_modes
+fn done(param_app_modes: Vec<AppMode>, body: core::RcTerm) -> core::RcTerm {
+    param_app_modes
         .into_iter()
         .rev()
         .fold(body, |acc, app_mode| {
             core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
-        });
-
-    args.into_iter().fold(term, |acc, arg| {
-        core::RcTerm::from(core::Term::FunElim(acc, AppMode::Explicit, arg))
-    })
+        })
 }
