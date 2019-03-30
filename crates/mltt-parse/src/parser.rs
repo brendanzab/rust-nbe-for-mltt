@@ -404,6 +404,42 @@ where
         }
     }
 
+    /// Parse an argument
+    ///
+    /// ```text
+    /// arg ::= arg-term(0)
+    ///       | "{" IDENTIFIER ("=" term(0))? "}"
+    ///       | "{{" IDENTIFIER ("=" term(0))? "}}"
+    /// ```
+    fn parse_arg(&mut self) -> Result<Arg<'file>, Diagnostic<FileSpan>> {
+        if let Some(start_arg_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
+            let is_instance = self.try_match(TokenKind::Open(DelimKind::Brace)).is_some();
+
+            let label = self.expect_identifier()?;
+            let term = match self.try_match(TokenKind::Equals) {
+                Some(_) => Some(self.parse_term(Prec(0))?),
+                None => None,
+            };
+
+            let end_arg_token = if is_instance {
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?;
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?
+            } else {
+                self.expect_match(TokenKind::Close(DelimKind::Brace))?
+            };
+
+            let arg_span = FileSpan::merge(start_arg_token.span, end_arg_token.span);
+
+            Ok(if is_instance {
+                Arg::Instance(arg_span, label, term)
+            } else {
+                Arg::Implicit(arg_span, label, term)
+            })
+        } else {
+            Ok(Arg::Explicit(self.parse_arg_term(Prec(0))?))
+        }
+    }
+
     /// Parse a pattern
     ///
     /// ```text
@@ -961,40 +997,11 @@ where
     ///
     /// ```text
     /// fun-elim    ::= arg*
-    /// arg         ::= arg-term(0)
-    ///               | "{" IDENTIFIER ("=" term(0))? "}"
-    ///               | "{{" IDENTIFIER ("=" term(0))? "}}"
     /// ```
     fn parse_fun_elim(&mut self, lhs: Term<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let mut args = Vec::new();
-
         while self.is_peek_match(ArgParamStart) {
-            if let Some(start_arg_token) = self.try_match(TokenKind::Open(DelimKind::Brace)) {
-                let is_instance = self.try_match(TokenKind::Open(DelimKind::Brace)).is_some();
-
-                let label = self.expect_identifier()?;
-                let term = match self.try_match(TokenKind::Equals) {
-                    Some(_) => Some(self.parse_term(Prec(0))?),
-                    None => None,
-                };
-
-                let end_arg_token = if is_instance {
-                    self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    self.expect_match(TokenKind::Close(DelimKind::Brace))?
-                } else {
-                    self.expect_match(TokenKind::Close(DelimKind::Brace))?
-                };
-
-                let arg_span = FileSpan::merge(start_arg_token.span, end_arg_token.span);
-
-                args.push(if is_instance {
-                    Arg::Instance(arg_span, label, term)
-                } else {
-                    Arg::Implicit(arg_span, label, term)
-                });
-            } else {
-                args.push(Arg::Explicit(self.parse_arg_term(Prec(0))?));
-            }
+            args.push(self.parse_arg()?);
         }
 
         if args.is_empty() {
