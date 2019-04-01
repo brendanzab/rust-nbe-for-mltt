@@ -422,11 +422,7 @@ pub fn check_term(
             let bool_ty = domain::RcValue::from(domain::Value::LiteralType(LiteralType::Bool));
             let condition = check_term(context, condition, &bool_ty)?;
             let consequent = check_term(context, consequent, expected_ty)?;
-            let alternative = {
-                let mut inner_context = context.clone();
-                inner_context.local_bind(None, bool_ty);
-                check_term(&inner_context, alternative, expected_ty)?
-            };
+            let alternative = check_term(context, alternative, expected_ty)?;
 
             Ok(core::RcTerm::from(core::Term::LiteralElim(
                 condition,

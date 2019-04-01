@@ -532,9 +532,6 @@ impl Term {
                     }),
                     Doc::text(";").append(Doc::space()),
                 );
-                let default_param_name = env.fresh_name(None);
-                let default_body = default_body.to_display_doc(env);
-                env.pop_name();
 
                 Doc::nil()
                     .append("case")
@@ -546,11 +543,11 @@ impl Term {
                     .append(clauses)
                     .append(";")
                     .append(Doc::space())
-                    .append(default_param_name)
+                    .append("_")
                     .append(Doc::space())
                     .append("=>")
                     .append(Doc::space())
-                    .append(default_body)
+                    .append(default_body.to_display_doc(env))
                     .append(Doc::space())
                     .append("}")
             },

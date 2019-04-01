@@ -34,9 +34,11 @@ impl AppClosure {
 
 /// A closure that stores a list of clauses.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ClauseClosure {
-    /// The clauses
+pub struct LiteralClosure {
+    /// The clauses.
     pub clauses: Rc<[(LiteralIntro, RcTerm)]>,
+    /// The default term.
+    pub default: RcTerm,
     /// The environment in which we'll run the clauses in.
     ///
     /// At the moment this captures the _entire_ environment - would it be
@@ -44,21 +46,16 @@ pub struct ClauseClosure {
     pub env: Env<RcValue>,
 }
 
-impl ClauseClosure {
-    pub fn new(clauses: Rc<[(LiteralIntro, RcTerm)]>, env: Env<RcValue>) -> ClauseClosure {
-        ClauseClosure { clauses, env }
-    }
-
-    pub fn match_literal(&self, literal_intro: &LiteralIntro) -> Option<&RcTerm> {
-        use std::cmp::Ordering;
-
-        let index = self.clauses.binary_search_by(|(l, _)| {
-            l.partial_cmp(literal_intro).unwrap_or(Ordering::Greater) // NaN?
-        });
-
-        match index {
-            Ok(index) => self.clauses.get(index).map(|(_, body)| body),
-            Err(_) => None,
+impl LiteralClosure {
+    pub fn new(
+        clauses: Rc<[(LiteralIntro, RcTerm)]>,
+        default: RcTerm,
+        env: Env<RcValue>,
+    ) -> LiteralClosure {
+        LiteralClosure {
+            clauses,
+            default,
+            env,
         }
     }
 }
@@ -161,7 +158,7 @@ pub type Spine = Vec<Elim>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Elim {
     /// Literal elimination (case split)
-    Literal(ClauseClosure, AppClosure),
+    Literal(LiteralClosure),
     /// Function elimination (application)
     Fun(AppMode, RcValue),
     /// Record elimination (projection)

@@ -49,6 +49,7 @@ impl Context {
 
     /// Add a local definition to the context.
     pub fn local_define(&mut self, value: RcValue, ty: RcType) {
+        log::trace!("insert local");
         self.level += 1;
         self.values.add_entry(value);
         self.tys.add_entry(ty);
@@ -246,9 +247,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                 check_term(context, body, &expected_ty)?;
             }
 
-            let mut default_body_context = context.clone();
-            default_body_context.local_bind(scrutinee_ty.clone());
-            check_term(&default_body_context, default_body, expected_ty)
+            check_term(context, default_body, expected_ty)
         },
 
         Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
@@ -308,7 +307,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
 pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
     use std::cmp;
 
-    log::trace!("synthesizing term:\t\t{}", term);
+    log::trace!("synthesizing term:\t{}", term);
 
     match term.as_ref() {
         Term::Var(index) => match context.tys().lookup_entry(*index) {

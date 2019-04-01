@@ -8,7 +8,9 @@ use std::error::Error;
 use std::fmt;
 
 use crate::syntax::core::{RcTerm, Term};
-use crate::syntax::domain::{AppClosure, ClauseClosure, Elim, Head, RcType, RcValue, Spine, Value};
+use crate::syntax::domain::{
+    AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value,
+};
 use crate::syntax::{AppMode, Env, Label, VarIndex, VarLevel};
 
 /// An error produced during normalization
@@ -37,19 +39,21 @@ impl fmt::Display for NbeError {
 }
 
 /// Case split on a literal
-fn do_literal_elim(
-    scrutinee: RcValue,
-    clauses: ClauseClosure,
-    default_body: AppClosure,
-) -> Result<RcValue, NbeError> {
+fn do_literal_elim(scrutinee: RcValue, closure: LiteralClosure) -> Result<RcValue, NbeError> {
     match scrutinee.as_ref() {
-        Value::LiteralIntro(literal_intro) => match clauses.match_literal(literal_intro) {
-            Some(body) => eval(body, &clauses.env),
-            None => do_closure_app(&default_body, scrutinee),
+        Value::LiteralIntro(literal_intro) => {
+            let index = closure.clauses.binary_search_by(|(l, _)| {
+                l.partial_cmp(literal_intro).unwrap_or(std::cmp::Ordering::Greater) // NaN?
+            });
+
+            match index {
+                Ok(index) => eval(&closure.clauses.get(index).unwrap().1, &closure.env),
+                Err(_) => eval(&closure.default, &closure.env),
+            }
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
-            spine.push(Elim::Literal(clauses, default_body));
+            spine.push(Elim::Literal(closure));
             Ok(RcValue::from(Value::Neutral(*head, spine)))
         },
         _ => Err(NbeError::new("do_literal_elim: not a literal")),
@@ -127,10 +131,9 @@ pub fn eval(term: &RcTerm, env: &Env<RcValue>) -> Result<RcValue, NbeError> {
         },
         Term::LiteralElim(scrutinee, clauses, default_body) => {
             let scrutinee = eval(scrutinee, env)?;
-            let clauses = ClauseClosure::new(clauses.clone(), env.clone());
-            let default_body = AppClosure::new(default_body.clone(), env.clone());
+            let closure = LiteralClosure::new(clauses.clone(), default_body.clone(), env.clone());
 
-            do_literal_elim(scrutinee, clauses, default_body)
+            do_literal_elim(scrutinee, closure)
         },
 
         // Functions
@@ -257,18 +260,16 @@ pub fn read_back_neutral(level: VarLevel, head: Head, spine: &Spine) -> Result<R
     };
 
     spine.iter().fold(Ok(head), |acc, elim| match elim {
-        Elim::Literal(clauses, default_body) => {
-            let clauses = clauses
+        Elim::Literal(closure) => {
+            let clauses = closure
                 .clauses
                 .iter()
                 .map(|(literal_intro, body)| {
-                    let body = read_back_term(level, &eval(body, &clauses.env)?)?;
+                    let body = read_back_term(level, &eval(body, &closure.env)?)?;
                     Ok((literal_intro.clone(), body))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let default_param = RcValue::var(level);
-            let default_body =
-                read_back_term(level + 1, &do_closure_app(default_body, default_param)?)?;
+            let default_body = read_back_term(level, &eval(&closure.default, &closure.env)?)?;
 
             Ok(RcTerm::from(Term::LiteralElim(
                 acc?,
