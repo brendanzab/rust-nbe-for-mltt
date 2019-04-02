@@ -3,15 +3,23 @@ default-pattern ignored = case ignored {
     _ => "default";
 };
 
-duplicate-patterns : U32 -> String;
-duplicate-patterns number = case number {
-    42 => "forty-two";
-    42 => "42";
-    _ => "default";
+-- duplicate-patterns : U32 -> String;
+-- duplicate-patterns number = case number {
+--     42 => "forty-two";
+--     42 => "42";
+--     _ => "default";
+-- };
+
+meaning-1 : U32 -> String;
+meaning-1 magic = case magic {
+    7 => "the common choice";
+    42 => "life, the universe, and everything";
+    13 => "unlucky";
+    _ => "nonsense";
 };
 
-meaning : U32 -> String;
-meaning magic = case magic {
+meaning-2 : U32 -> String;
+meaning-2 = case {
     7 => "the common choice";
     42 => "life, the universe, and everything";
     13 => "unlucky";
@@ -19,7 +27,31 @@ meaning magic = case magic {
 };
 
 hi-to-bye : String -> String;
-hi-to-bye value = case value {
+hi-to-bye = case {
     "hi" => "bye";
     other => other;
+};
+
+both-zero-1 : U32 -> Char -> String;
+both-zero-1 n1 n2 = case n1 n2 {
+    0 '0' => "yup";
+    0 _   => "almost";
+    _ '0' => "possibly";
+    _ _   => "nope";
+};
+
+both-zero-2 : U32 -> Char -> String;
+both-zero-2 n = case n {
+    0 '0' => "yup";
+    0 _   => "almost";
+    _ '0' => "possibly";
+    _ _   => "nope";
+};
+
+both-zero-3 : U32 -> Char -> String;
+both-zero-3 = case {
+    0 '0' => "yup";
+    0 _   => "almost";
+    _ '0' => "possibly";
+    _ _   => "nope";
 };

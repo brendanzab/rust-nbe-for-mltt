@@ -1,0 +1,12 @@
+-- Test out a bunch of combinations of implicit params
+weird-id : Fun {A B : Type} -> String -> Fun {C : Type} -> A -> A;
+weird-id = case {
+    {A} {B} "ABC" {C} a => a;
+    {A} {B} "AB" a => a;
+    {A} "AC" {C} a => a;
+    {B} "BC" {C} a => a;
+    {A = _} "A" a => a;
+    {B = _} "B" a => a;
+    "C" a {C = _} => a;
+    _ a => a;
+};

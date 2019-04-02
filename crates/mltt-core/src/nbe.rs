@@ -151,7 +151,7 @@ pub fn eval_term(
     match term.as_ref() {
         Term::Var(var_index) => match values.lookup_entry(*var_index) {
             Some(value) => Ok(value.clone()),
-            None => Err("eval: variable not found".to_owned()),
+            None => Err(format!("eval: variable not found: {}", var_index)),
         },
         Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
             Some((_, meta::Solution::Solved(value), _)) => Ok(value.clone()),

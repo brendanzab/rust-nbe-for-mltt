@@ -17,7 +17,7 @@ use mltt_core::{domain, meta, prim, syntax, AppMode, DocString, Label, UniverseL
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
-use crate::clause::{CaseClause, Clause};
+use crate::clause::Clause;
 pub use crate::context::Context;
 
 mod clause;
@@ -126,8 +126,10 @@ fn check_items(
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
+                        let defn_span = defn.span();
                         let clause = Clause::new(&defn.params, body_ty, body);
-                        let (term, term_ty) = clause::synth_clause(&context, metas, clause)?;
+                        let (term, term_ty) =
+                            clause::synth_clause(&context, metas, defn_span, clause)?;
 
                         entry.insert(None);
                         next_decl_index();
@@ -140,8 +142,10 @@ fn check_items(
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
                         Some((decl_index, term_ty)) => {
+                            let defn_span = defn.span();
                             let clause = Clause::new(&defn.params, body_ty, body);
-                            let term = clause::check_clause(&context, metas, clause, &term_ty)?;
+                            let term =
+                                clause::check_clause(&context, metas, defn_span, clause, &term_ty)?;
 
                             (Some(decl_index), term, body.span(), term_ty)
                         },
@@ -201,7 +205,7 @@ pub fn check_term(
     concrete_term: &Term<'_>,
     expected_ty: &Rc<domain::Type>,
 ) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
-    log::trace!("checking term:\t\t{}", concrete_term);
+    log::trace!("checking term:\t\t\t{}", concrete_term);
 
     match concrete_term {
         Term::Prim(_, name) => {
@@ -233,13 +237,13 @@ pub fn check_term(
                 alternative,
             )))
         },
-        Term::Case(span, scrutinee, clauses) => {
+        Term::Case(span, scrutinees, clauses) => {
             let clauses = clauses
                 .iter()
-                .map(|(pattern, body)| CaseClause::new(pattern, body))
+                .map(|(params, body)| Clause::new(params, None, body))
                 .collect();
 
-            clause::check_case(context, metas, *span, scrutinee, clauses, expected_ty)
+            clause::check_clauses(context, metas, *span, scrutinees, clauses, expected_ty)
         },
 
         Term::LiteralIntro(kind, literal) => {
@@ -247,9 +251,9 @@ pub fn check_term(
             Ok(Rc::from(syntax::Term::literal_intro(literal_intro)))
         },
 
-        Term::FunIntro(_, concrete_params, concrete_body) => {
+        Term::FunIntro(span, concrete_params, concrete_body) => {
             let clause = Clause::new(concrete_params, None, concrete_body);
-            clause::check_clause(context, metas, clause, expected_ty)
+            clause::check_clause(context, metas, *span, clause, expected_ty)
         },
 
         Term::RecordIntro(span, concrete_intro_fields) => {
@@ -267,8 +271,10 @@ pub fn check_term(
                 let (found_label, params, body_ty, body) = concrete_intro_field.desugar();
 
                 if found_label.slice == expected_label.0 {
+                    let span = concrete_intro_field.span();
                     let clause = Clause::new(params, body_ty, &body);
-                    let term = clause::check_clause(&context, metas, clause, expected_term_ty)?;
+                    let term =
+                        clause::check_clause(&context, metas, span, clause, expected_term_ty)?;
 
                     let term_value = context.eval_term(metas, body.span(), &term)?;
                     let term_ty = expected_term_ty.clone();
@@ -424,9 +430,14 @@ pub fn synth_term(
         Term::If(span, _, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
             DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
         )),
-        Term::Case(span, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
-            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
-        )),
+        Term::Case(span, scrutinees, clauses) => {
+            let clauses = clauses
+                .iter()
+                .map(|(params, body)| Clause::new(params, None, body))
+                .collect();
+
+            clause::synth_clauses(context, metas, *span, scrutinees, clauses)
+        },
 
         Term::LiteralIntro(kind, literal) => {
             let (literal_intro, ty) = literal::synth(*kind, literal)?;
@@ -520,9 +531,9 @@ pub fn synth_term(
                 Rc::from(domain::Value::universe(max_level)),
             ))
         },
-        Term::FunIntro(_, concrete_params, concrete_body) => {
+        Term::FunIntro(span, concrete_params, concrete_body) => {
             let clause = Clause::new(concrete_params, None, concrete_body);
-            clause::synth_clause(context, metas, clause)
+            clause::synth_clause(context, metas, *span, clause)
         },
         Term::FunElim(concrete_fun, concrete_args) => {
             let (concrete_arg, concrete_args) = match concrete_args.split_first() {

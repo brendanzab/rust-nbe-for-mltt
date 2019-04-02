@@ -47,6 +47,7 @@ macro_rules! run_test {
 }
 
 run_test!(case_expressions, "tests/case-expressions.mltt");
+run_test!(case_implicit_params, "tests/case-implicit-params.mltt");
 run_test!(categories, "tests/categories.mltt");
 run_test!(combinators, "tests/combinators.mltt");
 run_test!(connectives, "tests/connectives.mltt");

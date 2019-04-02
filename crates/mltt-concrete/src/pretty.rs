@@ -283,11 +283,16 @@ impl<'file> Term<'file> {
                 .append("else")
                 .append(Doc::space())
                 .append(alternative.to_doc()),
-            Term::Case(_, scrutinee, clauses) => {
+            Term::Case(_, scrutinees, clauses) => {
+                let scrutinees = scrutinees
+                    .iter()
+                    .map(|scrutinee| scrutinee.to_doc().append(Doc::space()));
                 let clauses = Doc::intersperse(
-                    clauses.iter().map(|(param, body)| {
+                    clauses.iter().map(|(params, body)| {
+                        let params = params.iter().map(IntroParam::to_doc);
+
                         Doc::nil()
-                            .append(param.to_doc())
+                            .append(Doc::intersperse(params, Doc::space()))
                             .append(Doc::space())
                             .append("=>")
                             .append(Doc::space())
@@ -299,8 +304,7 @@ impl<'file> Term<'file> {
                 Doc::nil()
                     .append("case")
                     .append(Doc::space())
-                    .append(scrutinee.to_doc())
-                    .append(Doc::space())
+                    .append(Doc::concat(scrutinees))
                     .append("{")
                     .append(Doc::space())
                     .append(clauses)

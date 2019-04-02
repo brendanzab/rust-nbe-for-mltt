@@ -356,8 +356,8 @@ pub enum Term<'file> {
     /// Case expressions
     Case(
         FileSpan,
-        Box<Term<'file>>,
-        Vec<(Pattern<'file>, Term<'file>)>,
+        Vec<Term<'file>>,
+        Vec<(Vec<IntroParam<'file>>, Term<'file>)>,
     ),
 
     /// Literal introductions.

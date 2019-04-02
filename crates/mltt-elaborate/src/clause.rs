@@ -1,10 +1,11 @@
 //! Elaboration of lists clauses to case trees.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
+use mltt_concrete::{IntroParam, Pattern, SpannedString, Term};
 use mltt_core::literal::LiteralIntro;
-use mltt_core::{domain, meta, syntax, AppMode, DocString};
+use mltt_core::{domain, meta, syntax, var, AppMode, DocString};
 use mltt_span::FileSpan;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use super::{check_term, literal, synth_term, synth_universe, Context, MetaInsertion};
@@ -13,13 +14,21 @@ use super::{check_term, literal, synth_term, synth_universe, Context, MetaInsert
 // Top-level Implementation
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// The state of a pattern clause, part-way through evaluation
+/// A pattern clause.
 pub struct Clause<'file> {
     /// The parameters that are still waiting to be elaborated
     params: &'file [IntroParam<'file>],
-    /// The expected body type for this clause
+    /// The patterns that have currently been discovered by comparing to the
+    /// expected application mode (from the type).
+    checked_patterns: VecDeque<CheckedPattern<'file>>,
+    /// The variable binders we have traversed over.
+    ///
+    /// We'll add these to the context once we are ready to elaborate the body
+    /// of the clause.
+    binders: Vec<(Option<SpannedString<'file>>, ExpectedParam)>,
+    /// The expected body type for this clause.
     body_ty: Option<&'file Term<'file>>,
-    /// The concrete body of this clause
+    /// The concrete body of this clause.
     body: &'file Term<'file>,
 }
 
@@ -31,6 +40,8 @@ impl<'file> Clause<'file> {
     ) -> Clause<'file> {
         Clause {
             params,
+            checked_patterns: VecDeque::new(),
+            binders: Vec::new(),
             body_ty,
             body,
         }
@@ -44,210 +55,272 @@ impl<'file> Clause<'file> {
 pub fn check_clause(
     context: &Context,
     metas: &mut meta::Env,
-    mut clause: Clause<'_>,
+    case_span: FileSpan,
+    clause: Clause<'_>,
     expected_ty: &Rc<domain::Type>,
 ) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
-    let mut context = context.clone();
-    let mut params = Vec::new();
-    let mut expected_ty = expected_ty.clone();
-
-    while let (Some((app_mode, param_ty, next_body_ty)), Some((head_param, rest_params))) = (
-        next_expected_param(&expected_ty),
-        clause.params.split_first(),
-    ) {
-        let (param_var, name_hint) = match check_param_app_mode(head_param, &app_mode)? {
-            CheckedPattern::Var(None) => (context.add_fresh_param(param_ty), None),
-            CheckedPattern::Var(Some(var_name)) => {
-                clause.params = rest_params;
-                (
-                    context.add_param(var_name, param_ty),
-                    Some(var_name.to_string()),
-                )
-            },
-            CheckedPattern::LiteralIntro(_, literal) => {
-                return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
-                    DiagnosticLabel::new_primary(literal.span())
-                        .with_message("use a case expression for matching on literals"),
-                ));
-            },
-        };
-
-        params.push((app_mode, name_hint));
-        expected_ty = context.app_closure(metas, next_body_ty, param_var)?;
-    }
-
-    let body = check_clause_body(&context, metas, &clause, &expected_ty)?;
-
-    Ok(done(Vec::new(), params, body))
+    check_clauses(context, metas, case_span, &[], vec![clause], expected_ty)
 }
 
-/// The state of a pattern clause, part-way through evaluation
-pub struct CaseClause<'file> {
-    /// The pattern for this case clause
-    pattern: &'file Pattern<'file>,
-    /// The concrete body of this clause
-    body: &'file Term<'file>,
-}
-
-impl<'file> CaseClause<'file> {
-    pub fn new(pattern: &'file Pattern<'file>, body: &'file Term<'file>) -> CaseClause<'file> {
-        CaseClause { pattern, body }
-    }
-}
-
-/// Check that the given case clauses conform to the expected type, and
-/// elaborate them into a case tree.
-pub fn check_case<'file>(
-    context: &Context,
-    metas: &mut meta::Env,
-    span: FileSpan,
-    scrutinee: &Term<'file>,
-    clauses: Vec<CaseClause<'file>>,
-    expected_ty: &Rc<domain::Type>,
-) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
-    // TODO: Merge with `check_clause`
-    // TODO: Zero or more scrutinees
-    // TODO: One-or-more patterns per case clause
-
-    match clauses.split_last() {
-        None => Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
-            DiagnosticLabel::new_primary(span).with_message("empty patterns are not yet supported"),
-        )),
-        Some((default_clause, literal_clauses)) => {
-            let mut context = context.clone();
-
-            let (checked_scrutinee, (param_level, param_ty)) = {
-                let scrutinee_level = context.values().size().next_level();
-                let (scrutinee_term, scrutinee_ty) =
-                    synth_term(MetaInsertion::Yes, &context, metas, scrutinee)?;
-                let scrutinee_value =
-                    context.eval_term(metas, scrutinee.span(), &scrutinee_term)?;
-                context.add_fresh_defn(scrutinee_value, scrutinee_ty.clone());
-
-                ((scrutinee_term, None), (scrutinee_level, scrutinee_ty))
-            };
-
-            let mut literal_branches =
-                Vec::<(LiteralIntro, Rc<syntax::Term>)>::with_capacity(literal_clauses.len());
-
-            for literal_clause in literal_clauses {
-                match literal_clause.pattern {
-                    Pattern::LiteralIntro(kind, literal) => {
-                        let literal_intro =
-                            literal::check(&context, metas, *kind, literal, &param_ty)?;
-                        let body = check_term(&context, metas, &literal_clause.body, expected_ty)?;
-
-                        match literal_branches
-                            .binary_search_by(|(l, _)| l.partial_cmp(&literal_intro).unwrap()) // NaN?
-                        {
-                            Ok(_) => {}, // TODO: Warn about duplicated patterns?
-                            Err(index) => literal_branches.insert(index, (literal_intro, body)),
-                        }
-                    },
-                    _ => {
-                        return Err(
-                            Diagnostic::new_error("variable literal pattern").with_label(
-                                DiagnosticLabel::new_primary(literal_clause.pattern.span())
-                                    .with_message("literal pattern expected here"),
-                            ),
-                        );
-                    },
-                }
-            }
-
-            let default_body = match default_clause.pattern {
-                Pattern::Var(name) => {
-                    let mut context = context.clone();
-                    context.add_name(name, param_level);
-                    check_term(&context, metas, &default_clause.body, expected_ty)?
-                },
-                _ => {
-                    return Err(
-                        Diagnostic::new_error("expected variable pattern").with_label(
-                            DiagnosticLabel::new_primary(default_clause.pattern.span())
-                                .with_message("default case expected here"),
-                        ),
-                    );
-                },
-            };
-
-            let body = Rc::from(syntax::Term::LiteralElim(
-                Rc::from(syntax::Term::var(
-                    context.values().size().index(param_level),
-                )),
-                Rc::from(literal_branches),
-                default_body,
-            ));
-
-            Ok(done(vec![checked_scrutinee], Vec::new(), body))
-        },
-    }
-}
-
-/// Synthesize the type of the clauses, elaborating them into a case tree.
+/// Synthesize the type of a clause, elaborating it into a case tree.
 ///
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_clause(
     context: &Context,
     metas: &mut meta::Env,
+    case_span: FileSpan,
     clause: Clause<'_>,
 ) -> Result<(Rc<syntax::Term>, Rc<domain::Type>), Diagnostic<FileSpan>> {
-    if let Some(param) = clause.params.first() {
-        // TODO: We will be able to type this once we have annotated patterns!
-        return Err(
-            Diagnostic::new_error("unable to infer the type of parameter")
-                .with_label(DiagnosticLabel::new_primary(param.span())),
-        );
-    }
+    synth_clauses(context, metas, case_span, &[], vec![clause])
+}
 
-    synth_clause_body(&context, metas, &clause)
+/// Check that the given clauses conform to an expected type, and elaborate
+/// them into a case tree.
+///
+/// Returns the elaborated term.
+pub fn check_clauses(
+    context: &Context,
+    metas: &mut meta::Env,
+    _case_span: FileSpan,
+    scrutinees: &[Term<'_>],
+    clauses: Vec<Clause<'_>>,
+    expected_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
+    let mut context = context.clone();
+
+    let (scrutinees, params, expected_params, clauses, body_ty) =
+        intro_params(&mut context, metas, scrutinees, clauses, expected_ty)?;
+    // FIXME: not the right level
+    let default = Rc::from(syntax::Term::FunElim(
+        Rc::from(syntax::Term::prim("abort")),
+        AppMode::Explicit,
+        Rc::from(syntax::Term::literal_intro(
+            "entered unreachable code".to_owned(),
+        )),
+    ));
+    let body = check_branches(
+        &context,
+        metas,
+        &expected_params,
+        clauses,
+        &default,
+        &body_ty,
+    )?;
+
+    Ok(done(scrutinees, params, body))
+}
+
+/// Synthesize the type of the clauses, elaborating them into a case tree.
+///
+/// Returns the elaborated term and its synthesized type.
+pub fn synth_clauses(
+    context: &Context,
+    metas: &mut meta::Env,
+    case_span: FileSpan,
+    scrutinees: &[Term<'_>],
+    clauses: Vec<Clause<'_>>,
+) -> Result<(Rc<syntax::Term>, Rc<domain::Type>), Diagnostic<FileSpan>> {
+    // TODO: replicate the behaviour of `check_clauses`
+
+    match clauses.split_first() {
+        Some((clause, [])) => {
+            if let Some(param) = clause.params.first() {
+                // TODO: We will be able to type this once we have annotated patterns!
+                return Err(
+                    Diagnostic::new_error("unable to infer the type of parameter")
+                        .with_label(DiagnosticLabel::new_primary(param.span())),
+                );
+            }
+
+            synth_clause_body(&context, metas, clause)
+        },
+        Some((_, _)) => Err(
+            Diagnostic::new_error("multi clause functions are not yet supported")
+                .with_label(DiagnosticLabel::new_primary(case_span)),
+        ),
+        None => Err(
+            Diagnostic::new_error("empty case matches are not yet supported")
+                .with_label(DiagnosticLabel::new_primary(case_span)),
+        ),
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Helper types
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+enum CheckedPattern<'file> {
+    Var(Option<SpannedString<'file>>),
+    LiteralIntro(LiteralIntro),
+}
+
+#[derive(Clone)]
+struct ExpectedParam {
+    level: var::Level,
+    var: Rc<domain::Value>,
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Helper functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Get the next expected parameter
-fn next_expected_param<'ty>(
-    expected_ty: &'ty Rc<domain::Type>,
-) -> Option<(AppMode, Rc<domain::Value>, &'ty domain::AppClosure)> {
-    match expected_ty.as_ref() {
-        domain::Value::FunType(app_mode, _, param_ty, body_ty) => {
-            Some((app_mode.clone(), param_ty.clone(), body_ty))
-        },
-        _ => None,
-    }
-}
+/// Introduce the parameters that we need for this set of clauses
+fn intro_params<'file>(
+    context: &mut Context,
+    metas: &mut meta::Env,
+    scrutinees: &[Term<'_>],
+    mut clauses: Vec<Clause<'file>>,
+    expected_ty: &Rc<domain::Type>,
+) -> Result<
+    (
+        Vec<(Rc<syntax::Term>, Option<Rc<syntax::Term>>)>,
+        Vec<(AppMode, Option<String>)>,
+        Vec<ExpectedParam>,
+        Vec<Clause<'file>>,
+        Rc<domain::Type>,
+    ),
+    Diagnostic<FileSpan>,
+> {
+    use self::CheckedPattern::Var;
 
-enum CheckedPattern<'file> {
-    Var(Option<SpannedString<'file>>),
-    LiteralIntro(LiteralKind, SpannedString<'file>),
-}
+    log::trace!("introduce parameters");
 
-impl<'file> From<&Pattern<'file>> for CheckedPattern<'file> {
-    fn from(src: &Pattern<'file>) -> CheckedPattern<'file> {
-        match src {
-            Pattern::Var(name) => CheckedPattern::Var(Some(name.clone())),
-            Pattern::LiteralIntro(kind, src) => CheckedPattern::LiteralIntro(*kind, src.clone()),
+    let mut scrutinees_iter = scrutinees.iter();
+    let mut checked_scrutinees = Vec::with_capacity(scrutinees.len());
+    let mut params = Vec::with_capacity(scrutinees.len());
+    let mut expected_params = Vec::with_capacity(scrutinees.len());
+    let mut expected_ty = expected_ty.clone();
+
+    while let Some((app_mode, param_ty, param_step)) =
+        next_expected_param(context, metas, &mut scrutinees_iter, &expected_ty)?
+    {
+        let mut is_done = false;
+
+        for clause in &mut clauses {
+            match (is_done, clause.params.split_first()) {
+                (false, Some((param, params))) => {
+                    match check_param(context, metas, param, app_mode, &param_ty)? {
+                        pattern @ Var(None) => clause.checked_patterns.push_back(pattern),
+                        pattern => {
+                            clause.params = params;
+                            clause.checked_patterns.push_back(pattern);
+                        },
+                    }
+                },
+                (true, Some((param, params))) => {
+                    let span = match params.last() {
+                        None => param.span(),
+                        Some(last_param) => FileSpan::merge(param.span(), last_param.span()),
+                    };
+                    return Err(Diagnostic::new_error("too many parameters")
+                        .with_label(DiagnosticLabel::new_primary(span)));
+                },
+                (false, None) => is_done = true,
+                (true, None) => continue,
+            }
         }
+
+        if is_done {
+            break;
+        }
+
+        let param_level = context.values().size().next_level();
+        match param_step {
+            ParamStep::Scrutinee(param_term, param_ty_term, param_value) => {
+                context.add_fresh_defn(param_value, param_ty.clone());
+                checked_scrutinees.push((param_term, param_ty_term));
+                expected_params.push(ExpectedParam {
+                    level: param_level,
+                    var: Rc::from(domain::Value::var(param_level)),
+                });
+            },
+            ParamStep::Param(name_hint, next_body_ty) => {
+                let param_var = context.add_fresh_param(param_ty.clone());
+                params.push((app_mode.clone(), name_hint));
+                expected_params.push(ExpectedParam {
+                    level: param_level,
+                    var: param_var.clone(),
+                });
+                expected_ty = context.app_closure(metas, next_body_ty, param_var)?;
+            },
+        }
+    }
+
+    Ok((
+        checked_scrutinees,
+        params,
+        expected_params,
+        clauses,
+        expected_ty,
+    ))
+}
+
+enum ParamStep<'ty> {
+    Scrutinee(
+        Rc<syntax::Term>,
+        Option<Rc<syntax::Term>>,
+        Rc<domain::Value>,
+    ),
+    Param(Option<String>, &'ty domain::AppClosure),
+}
+
+/// Get the next expected parameter from the expected type
+fn next_expected_param<'file, 'ty>(
+    context: &Context,
+    metas: &mut meta::Env,
+    scrutinees: &mut impl Iterator<Item = &'file Term<'file>>,
+    expected_ty: &'ty Rc<domain::Type>,
+) -> Result<Option<(&'ty AppMode, Rc<domain::Type>, ParamStep<'ty>)>, Diagnostic<FileSpan>> {
+    match scrutinees.next() {
+        Some(scrutinee) => {
+            let (param_term, param_ty) =
+                synth_term(MetaInsertion::Yes, &context, metas, &scrutinee)?;
+            let param_value = context.eval_term(metas, scrutinee.span(), &param_term)?;
+            Ok(Some((
+                &AppMode::Explicit,
+                param_ty,
+                ParamStep::Scrutinee(param_term, None, param_value),
+            )))
+        },
+        None => match expected_ty.as_ref() {
+            domain::Value::FunType(app_mode, name_hint, param_ty, body_ty) => Ok(Some((
+                app_mode,
+                param_ty.clone(),
+                ParamStep::Param(name_hint.clone(), body_ty),
+            ))),
+            _ => Ok(None),
+        },
     }
 }
 
 /// Check that a given parameter matches the expected application mode, and
 /// return the pattern inside it.
-fn check_param_app_mode<'param, 'file>(
-    param: &'param IntroParam<'file>,
+fn check_param<'file>(
+    context: &Context,
+    metas: &mut meta::Env,
+    param: &'file IntroParam<'file>,
     expected_app_mode: &AppMode,
+    expected_ty: &Rc<domain::Type>,
 ) -> Result<CheckedPattern<'file>, Diagnostic<FileSpan>> {
+    log::trace!("check param:\t{}\tapp mode:\t{}", param, expected_app_mode);
+
+    let check_pattern = |pattern: &Pattern<'file>| match pattern {
+        Pattern::Var(name) => Ok(CheckedPattern::Var(Some(name.clone()))),
+        Pattern::LiteralIntro(kind, src) => {
+            let literal_intro = literal::check(&context, metas, *kind, src, expected_ty)?;
+            Ok(CheckedPattern::LiteralIntro(literal_intro))
+        },
+    };
+
     match (param, expected_app_mode) {
-        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(CheckedPattern::from(pattern)),
+        (IntroParam::Explicit(pattern), AppMode::Explicit) => check_pattern(pattern),
         (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
         | (IntroParam::Instance(_, intro_label, pattern), AppMode::Instance(ty_label))
             if intro_label.slice == ty_label.0 =>
         {
             match pattern {
                 None => Ok(CheckedPattern::Var(Some(intro_label.clone()))),
-                Some(pattern) => Ok(CheckedPattern::from(pattern)),
+                Some(pattern) => check_pattern(pattern),
             }
         },
         (_, AppMode::Implicit(_)) | (_, AppMode::Instance(_)) => Ok(CheckedPattern::Var(None)),
@@ -261,6 +334,160 @@ fn check_param_app_mode<'param, 'file>(
     }
 }
 
+/// Implements the 'mixture rule' and the 'empty rule'
+fn check_branches(
+    context: &Context,
+    metas: &mut meta::Env,
+    params: &[ExpectedParam],
+    clauses: Vec<Clause<'_>>,
+    default: &Rc<syntax::Term>,
+    expected_body_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
+    log::trace!("check branches");
+
+    match params.split_first() {
+        None => check_branches_empty(context, metas, clauses, default, expected_body_ty),
+        Some(params) => {
+            check_branches_mixture(context, metas, params, clauses, default, expected_body_ty)
+        },
+    }
+}
+
+/// Implements the 'empty rule'
+fn check_branches_empty(
+    context: &Context,
+    metas: &mut meta::Env,
+    clauses: Vec<Clause<'_>>,
+    _default: &Rc<syntax::Term>,
+    expected_body_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
+    log::trace!("check branches empty");
+
+    // foldr FATBAR default [body | ([], body) <- clauses]
+
+    // > Regarding the fat bar, I implemented that as something like
+    // > `t1 [] t2 == let f () = t2 in t1[fail/f()]`, plus some inlining
+    // > of `f` when it's only used once or very small
+    //
+    // - [Ollef](https://gitter.im/pikelet-lang/Lobby?at=5c91f5bc8aa66959b63dfa40)
+
+    // for clause in clauses.iter().rev() {
+    //     let body = check_clause_body(context, metas, clause, expected_body_ty)?;
+    // }
+
+    // Ok(Rc::from(syntax::Term::Let(
+    //     default.clone(),
+    //     unimplemented!("check_branches"),
+    // )))
+
+    match clauses.split_first() {
+        Some((clause, [])) => check_clause_body(context, metas, clause, expected_body_ty),
+        Some((_, _)) => Err(Diagnostic::new_error(
+            "case matches with duplicate patterns are not yet supported",
+        )),
+        None => Err(Diagnostic::new_error(
+            "empty case matches are not yet supported",
+        )),
+    }
+}
+
+enum PatternGroup<'file> {
+    Var(Vec<Clause<'file>>),
+    LiteralIntro(Vec<(LiteralIntro, Vec<Clause<'file>>)>),
+}
+
+// Group patterns by the kind of the first pattern in each clause
+fn group_first_patterns<'file>(
+    param: &ExpectedParam,
+    clauses: Vec<Clause<'file>>,
+) -> Vec<PatternGroup<'file>> {
+    let mut groups = Vec::new();
+    for mut clause in clauses {
+        match clause.checked_patterns.pop_front() {
+            None => panic!("not enough patterns"),
+            Some(CheckedPattern::Var(name)) => {
+                // Introduce the appropriate binder when we see a variable
+                clause.binders.push((name, param.clone()));
+
+                match groups.last_mut() {
+                    Some(PatternGroup::Var(clauses)) => clauses.push(clause),
+                    _ => groups.push(PatternGroup::Var(vec![clause])),
+                }
+            },
+            Some(CheckedPattern::LiteralIntro(literal_intro)) => match groups.last_mut() {
+                Some(PatternGroup::LiteralIntro(clauses)) => match clauses
+                    .binary_search_by(|(l, _)| l.partial_cmp(&literal_intro).unwrap())
+                {
+                    Ok(index) => clauses.get_mut(index).unwrap().1.push(clause),
+                    Err(index) => clauses.insert(index, (literal_intro, vec![clause])),
+                },
+                _ => groups.push(PatternGroup::LiteralIntro(vec![(
+                    literal_intro,
+                    vec![clause],
+                )])),
+            },
+        }
+    }
+    groups
+}
+
+/// Implements the 'mixture rule' and the 'variable rule'
+fn check_branches_mixture<'file>(
+    context: &Context,
+    metas: &mut meta::Env,
+    (param, params): (&ExpectedParam, &[ExpectedParam]),
+    clauses: Vec<Clause<'_>>,
+    default: &Rc<syntax::Term>,
+    expected_body_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
+    log::trace!("check branches mixture");
+
+    group_first_patterns(param, clauses).into_iter().rev().fold(
+        Ok(default.clone()),
+        |default, group| match group {
+            PatternGroup::Var(clauses) => {
+                check_branches(context, metas, params, clauses, &default?, expected_body_ty)
+            },
+            PatternGroup::LiteralIntro(clauses) => {
+                let params = (param, params);
+                check_branches_literal(context, metas, params, clauses, &default?, expected_body_ty)
+            },
+        },
+    )
+}
+
+/// Implements the 'literal rule' (adapted from the 'constructor rule').
+fn check_branches_literal<'file>(
+    context: &Context,
+    metas: &mut meta::Env,
+    (param, params): (&ExpectedParam, &[ExpectedParam]),
+    clauses: Vec<(LiteralIntro, Vec<Clause<'file>>)>,
+    default: &Rc<syntax::Term>,
+    expected_body_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
+    log::trace!("check branches literal");
+
+    let scrutinee = Rc::from(syntax::Term::var(
+        context.values().size().index(param.level),
+    ));
+    let clauses = Rc::from(
+        clauses
+            .into_iter()
+            .map(|(literal_intro, clauses)| {
+                let body =
+                    check_branches(context, metas, params, clauses, default, expected_body_ty)?;
+                Ok((literal_intro, body))
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+    );
+
+    Ok(Rc::from(syntax::Term::LiteralElim(
+        scrutinee,
+        clauses,
+        default.clone(),
+    )))
+}
+
 /// Check that the body of the given clause conforms to they expected type, and
 /// elaborate it.
 fn check_clause_body(
@@ -269,6 +496,16 @@ fn check_clause_body(
     clause: &Clause<'_>,
     expected_body_ty: &Rc<domain::Type>,
 ) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
+    log::trace!("check clause body");
+
+    let mut context = context.clone();
+
+    for (name, param) in &clause.binders {
+        if let Some(name) = name {
+            context.add_name(name, param.level);
+        }
+    }
+
     match clause.body_ty {
         None => check_term(&context, metas, clause.body, &expected_body_ty),
         Some(body_ty) => {
