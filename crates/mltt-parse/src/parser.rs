@@ -22,7 +22,7 @@
 //!           | term ":" term
 //!           | "let" item+ "in" term
 //!           | "if" term "then" term "else" term
-//!           | "case" term "{" (intro-param "=>" term ";")* (intro-param "=>" term)? "}"
+//!           | "case" term "{" (case-clause ";")* case-clause? "}"
 //!           | STRING_LITERAL
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
@@ -46,6 +46,7 @@
 //!               | "{" IDENTIFIER ("=" term)? "}"
 //!               | "{{" IDENTIFIER ("=" term)? "}}"
 //!
+//! case-clause         ::= pattern "=>" term
 //! record-type-field   ::= DOC_COMMENT* IDENTIFIER ":" term
 //! record-intro-field  ::= IDENTIFIER
 //!                       | IDENTIFIER intro-param* (":" term)? "=" term
@@ -974,7 +975,8 @@ where
     /// Parse the trailing part of a case expression
     ///
     /// ```text
-    /// case-expr ::= arg-term(0) "{" (pattern(0) "=>" term(0) ";")* (pattern(0) "=>" term(0))? "}"
+    /// case-expr   ::= arg-term(0) "{" (case-clause ";")* case-clause? "}"
+    /// case-clause ::= pattern(0) "=>" term(0)
     /// ```
     fn parse_case_expr(
         &mut self,
