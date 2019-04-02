@@ -255,6 +255,12 @@ impl<'file> Literal<'file> {
     }
 }
 
+impl<'file> fmt::Display for Literal<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
+    }
+}
+
 /// A group of parameters to be used in a function type
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeParam<'file> {
@@ -316,6 +322,12 @@ impl<'file> TypeParam<'file> {
     }
 }
 
+impl<'file> fmt::Display for TypeParam<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
+    }
+}
+
 /// A parameter pattern to be used in a function introduction
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntroParam<'file> {
@@ -361,6 +373,12 @@ impl<'file> IntroParam<'file> {
                 .append(pattern.to_doc())
                 .append("}}"),
         }
+    }
+}
+
+impl<'file> fmt::Display for IntroParam<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }
 
@@ -410,6 +428,12 @@ impl<'file> Arg<'file> {
     }
 }
 
+impl<'file> fmt::Display for Arg<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordTypeField<'file> {
     pub docs: Vec<SpannedString<'file>>,
@@ -427,6 +451,12 @@ impl<'file> RecordTypeField<'file> {
             .append(Doc::space())
             .append(self.ann.to_doc())
             .append(";")
+    }
+}
+
+impl<'file> fmt::Display for RecordTypeField<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }
 
@@ -506,6 +536,12 @@ impl<'file> RecordIntroField<'file> {
                     .append(";")
             },
         }
+    }
+}
+
+impl<'file> fmt::Display for RecordIntroField<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }
 

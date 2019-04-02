@@ -288,6 +288,16 @@ pub enum AppMode {
     Instance(Label),
 }
 
+impl fmt::Display for AppMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppMode::Explicit => write!(f, "_"),
+            AppMode::Implicit(label) => write!(f, "{{{}}}", label),
+            AppMode::Instance(label) => write!(f, "{{{{{}}}}}", label),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{f32, f64};
