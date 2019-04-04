@@ -261,6 +261,30 @@ impl LiteralIntro {
     }
 }
 
+macro_rules! impl_from_to_literal_intro {
+    ($T:ty, $Literal:ident) => {
+        impl From<$T> for LiteralIntro {
+            fn from(src: $T) -> LiteralIntro {
+                LiteralIntro::$Literal(src)
+            }
+        }
+    };
+}
+
+impl_from_to_literal_intro!(String, String);
+impl_from_to_literal_intro!(char, Char);
+impl_from_to_literal_intro!(bool, Bool);
+impl_from_to_literal_intro!(u8, U8);
+impl_from_to_literal_intro!(u16, U16);
+impl_from_to_literal_intro!(u32, U32);
+impl_from_to_literal_intro!(u64, U64);
+impl_from_to_literal_intro!(i8, S8);
+impl_from_to_literal_intro!(i16, S16);
+impl_from_to_literal_intro!(i32, S32);
+impl_from_to_literal_intro!(i64, S64);
+impl_from_to_literal_intro!(f32, F32);
+impl_from_to_literal_intro!(f64, F64);
+
 /// A label
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);

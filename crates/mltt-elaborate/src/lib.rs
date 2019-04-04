@@ -196,8 +196,7 @@ impl Default for Context {
 
         let mut context = Context::new();
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
-        let lit_intro = |lit| RcValue::from(Value::LiteralIntro(lit));
-        let bool_intro = |lit| lit_intro(LiteralIntro::Bool(lit));
+        let bool_intro = RcValue::literal_intro;
         let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let bool = lit_ty(LiteralType::Bool);
 

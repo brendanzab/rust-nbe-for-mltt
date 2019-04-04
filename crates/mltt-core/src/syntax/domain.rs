@@ -97,6 +97,11 @@ impl RcValue {
     pub fn prim(name: String) -> RcValue {
         RcValue::from(Value::prim(name))
     }
+
+    /// Construct a literal introduction.
+    pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcValue {
+        RcValue::from(Value::literal_intro(value))
+    }
 }
 
 /// Terms that are in _weak head normal form_
@@ -143,6 +148,11 @@ impl Value {
     /// Construct a primitive.
     pub fn prim(name: String) -> Value {
         Value::Neutral(Head::Prim(name), Vec::new())
+    }
+
+    /// Construct a literal introduction.
+    pub fn literal_intro(value: impl Into<LiteralIntro>) -> Value {
+        Value::LiteralIntro(value.into())
     }
 }
 

@@ -90,15 +90,14 @@ impl Default for Context {
     fn default() -> Context {
         let mut context = Context::new();
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
-        let lit_intro = |lit| RcValue::from(Value::LiteralIntro(lit));
         let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let bool = lit_ty(LiteralType::Bool);
 
         context.local_define(lit_ty(LiteralType::String), u0.clone());
         context.local_define(lit_ty(LiteralType::Char), u0.clone());
         context.local_define(bool.clone(), u0.clone());
-        context.local_define(lit_intro(LiteralIntro::Bool(true)), bool.clone());
-        context.local_define(lit_intro(LiteralIntro::Bool(false)), bool.clone());
+        context.local_define(RcValue::literal_intro(true), bool.clone());
+        context.local_define(RcValue::literal_intro(false), bool.clone());
         context.local_define(lit_ty(LiteralType::U8), u0.clone());
         context.local_define(lit_ty(LiteralType::U16), u0.clone());
         context.local_define(lit_ty(LiteralType::U32), u0.clone());
