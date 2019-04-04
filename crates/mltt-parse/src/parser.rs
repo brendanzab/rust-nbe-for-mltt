@@ -1026,12 +1026,14 @@ where
     ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         if self.try_match(TokenKind::Caret).is_some() {
             let integer_token = self.expect_match(TokenKind::IntLiteral)?;
-            // FIXME: if prefixed integer
-            // FIXME: if separators
-            let level = integer_token.slice.parse().unwrap();
+            let level = SpannedString {
+                source: integer_token.span.source(),
+                start: integer_token.span.start(),
+                slice: integer_token.slice,
+            };
             let span = FileSpan::merge(start_token.span, integer_token.span);
 
-            Ok(Term::Universe(span, Some((integer_token.span, level))))
+            Ok(Term::Universe(span, Some(level)))
         } else {
             Ok(Term::Universe(start_token.span, None))
         }

@@ -751,7 +751,7 @@ pub fn synth_term(
         Term::Universe(_, level) => {
             let level = match level {
                 None => UniverseLevel(0),
-                Some((_, level)) => UniverseLevel(*level),
+                Some(level) => UniverseLevel(literal::parse_int(level.span(), level.slice)?),
             };
 
             Ok((

@@ -599,7 +599,7 @@ pub enum Term<'file> {
     RecordElim(Box<Term<'file>>, SpannedString<'file>),
 
     /// Universe of types
-    Universe(FileSpan, Option<(FileSpan, u32)>),
+    Universe(FileSpan, Option<SpannedString<'file>>),
 }
 
 impl<'file> Term<'file> {
@@ -770,7 +770,7 @@ impl<'file> Term<'file> {
             },
             Term::RecordElim(record, label) => record.to_doc().append(".").append(label.to_doc()),
             Term::Universe(_, None) => Doc::text("Type"),
-            Term::Universe(_, Some((_, level))) => Doc::text("Type^").append(Doc::as_string(level)),
+            Term::Universe(_, Some(level)) => Doc::text("Type^").append(level.to_doc()),
         }
     }
 }

@@ -546,7 +546,7 @@ fn universe() {
 fn universe_level_0() {
     test_term!("Type^0", |file_id| Term::Universe(
         FileSpan::new(file_id, 0, 6),
-        Some((FileSpan::new(file_id, 5, 6), 0)),
+        Some(SpannedString::new(file_id, 5, "0")),
     ));
 }
 
@@ -554,6 +554,6 @@ fn universe_level_0() {
 fn universe_level_23() {
     test_term!("Type^23", |file_id| Term::Universe(
         FileSpan::new(file_id, 0, 7),
-        Some((FileSpan::new(file_id, 5, 7), 23)),
+        Some(SpannedString::new(file_id, 5, "23")),
     ));
 }
