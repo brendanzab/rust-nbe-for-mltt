@@ -418,7 +418,7 @@ pub fn check_term(
 
     match concrete_term {
         Term::Prim(_, name) => {
-            let parsed_name = literal::parse_string(name.span(), name.slice)?;
+            let parsed_name = literal::parse_string(name)?;
             match context.prims().lookup_entry(&parsed_name) {
                 None => Err(Diagnostic::new_error("unknown primitive")
                     .with_label(DiagnosticLabel::new_primary(name.span()))),
@@ -534,9 +534,7 @@ pub fn synth_term(
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
             Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
         },
-        Term::Prim(span, name) => match context
-            .prims()
-            .lookup_entry(&literal::parse_string(name.span(), name.slice)?)
+        Term::Prim(span, name) => match context.prims().lookup_entry(&literal::parse_string(name)?)
         {
             None => Err(Diagnostic::new_error("unknown primitive")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
@@ -751,7 +749,7 @@ pub fn synth_term(
         Term::Universe(_, level) => {
             let level = match level {
                 None => UniverseLevel(0),
-                Some(level) => UniverseLevel(literal::parse_int(level.span(), level.slice)?),
+                Some(level) => UniverseLevel(literal::parse_int(level)?),
             };
 
             Ok((

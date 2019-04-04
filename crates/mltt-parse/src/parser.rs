@@ -655,9 +655,12 @@ where
         token: Token<'file>,
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
-            span: token.span,
             kind: LiteralKind::String,
-            slice: token.slice,
+            src: SpannedString {
+                source: token.span.source(),
+                start: token.span.start(),
+                slice: token.slice,
+            },
         })
     }
 
@@ -667,9 +670,12 @@ where
         token: Token<'file>,
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
-            span: token.span,
             kind: LiteralKind::Char,
-            slice: token.slice,
+            src: SpannedString {
+                source: token.span.source(),
+                start: token.span.start(),
+                slice: token.slice,
+            },
         })
     }
 
@@ -679,9 +685,12 @@ where
         token: Token<'file>,
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
-            span: token.span,
             kind: LiteralKind::Int,
-            slice: token.slice,
+            src: SpannedString {
+                source: token.span.source(),
+                start: token.span.start(),
+                slice: token.slice,
+            },
         })
     }
 
@@ -691,9 +700,12 @@ where
         token: Token<'file>,
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
-            span: token.span,
             kind: LiteralKind::Float,
-            slice: token.slice,
+            src: SpannedString {
+                source: token.span.source(),
+                start: token.span.start(),
+                slice: token.slice,
+            },
         })
     }
 

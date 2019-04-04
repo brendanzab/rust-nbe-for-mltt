@@ -52,36 +52,32 @@ fn hole() {
 #[test]
 fn string_literal() {
     test_term!("\"value\"", |file_id| Term::Literal(Literal {
-        span: FileSpan::new(file_id, 0, 7),
         kind: LiteralKind::String,
-        slice: "\"value\"",
+        src: SpannedString::new(file_id, 0, "\"value\""),
     }));
 }
 
 #[test]
 fn char_literal() {
     test_term!("'\\n'", |file_id| Term::Literal(Literal {
-        span: FileSpan::new(file_id, 0, 4),
         kind: LiteralKind::Char,
-        slice: "'\\n'",
+        src: SpannedString::new(file_id, 0, "'\\n'"),
     }));
 }
 
 #[test]
 fn int_literal() {
     test_term!("0xA_F00", |file_id| Term::Literal(Literal {
-        span: FileSpan::new(file_id, 0, 7),
         kind: LiteralKind::Int,
-        slice: "0xA_F00",
+        src: SpannedString::new(file_id, 0, "0xA_F00"),
     }));
 }
 
 #[test]
 fn float_literal() {
     test_term!("0.3_46e_23", |file_id| Term::Literal(Literal {
-        span: FileSpan::new(file_id, 0, 10),
         kind: LiteralKind::Float,
-        slice: "0.3_46e_23",
+        src: SpannedString::new(file_id, 0, "0.3_46e_23"),
     }));
 }
 

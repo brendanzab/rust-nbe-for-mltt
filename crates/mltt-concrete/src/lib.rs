@@ -129,7 +129,7 @@ impl<'file> Definition<'file> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpannedString<'file> {
     pub source: FileId,
     pub start: ByteIndex,
@@ -234,24 +234,22 @@ impl LiteralKind {
 /// Concrete literals
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Literal<'file> {
-    /// The span where this literal was introduced
-    pub span: FileSpan,
     /// The kind of literal
     pub kind: LiteralKind,
     /// We use a string here, because we'll be using type information to do
     /// further parsing of these. For example we need to know the size of an
     /// integer literal before we can know whether the literal is overflowing.
-    pub slice: &'file str,
+    pub src: SpannedString<'file>,
 }
 
 impl<'file> Literal<'file> {
     pub fn span(&self) -> FileSpan {
-        self.span
+        self.src.span()
     }
 
     /// Convert the literal into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(self.slice)
+        Doc::as_string(self.src.slice)
     }
 }
 

@@ -10,7 +10,7 @@
 //! into a data type of your choice, or return a custom error diagnostic.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::Literal;
+use mltt_concrete::{Literal, SpannedString};
 use mltt_core::syntax::{domain, LiteralIntro};
 use mltt_span::FileSpan;
 
@@ -25,25 +25,25 @@ pub fn check(
     use mltt_core::syntax::domain::Value;
     use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
 
-    let Literal { span, kind, slice } = concrete_literal;
+    let Literal { kind, src } = concrete_literal;
 
     match (kind, expected_ty.as_ref()) {
-        (Lk::String, Value::LiteralType(Lt::String)) => parse_string(*span, slice).map(Li::String),
-        (Lk::Char, Value::LiteralType(Lt::Char)) => parse_char(*span, slice).map(Li::Char),
-        (Lk::Int, Value::LiteralType(Lt::U8)) => parse_int::<u8>(*span, slice).map(Li::U8),
-        (Lk::Int, Value::LiteralType(Lt::U16)) => parse_int::<u16>(*span, slice).map(Li::U16),
-        (Lk::Int, Value::LiteralType(Lt::U32)) => parse_int::<u32>(*span, slice).map(Li::U32),
-        (Lk::Int, Value::LiteralType(Lt::U64)) => parse_int::<u64>(*span, slice).map(Li::U64),
-        (Lk::Int, Value::LiteralType(Lt::S8)) => parse_int::<i8>(*span, slice).map(Li::S8),
-        (Lk::Int, Value::LiteralType(Lt::S16)) => parse_int::<i16>(*span, slice).map(Li::S16),
-        (Lk::Int, Value::LiteralType(Lt::S32)) => parse_int::<i32>(*span, slice).map(Li::S32),
-        (Lk::Int, Value::LiteralType(Lt::S64)) => parse_int::<i64>(*span, slice).map(Li::S64),
-        (Lk::Int, Value::LiteralType(Lt::F32)) => literal_bug(*span, "unimplemented: f32"),
-        (Lk::Int, Value::LiteralType(Lt::F64)) => literal_bug(*span, "unimplemented: f64"),
-        (Lk::Float, Value::LiteralType(Lt::F32)) => literal_bug(*span, "unimplemented: f32"),
-        (Lk::Float, Value::LiteralType(Lt::F64)) => literal_bug(*span, "unimplemented: f64"),
+        (Lk::String, Value::LiteralType(Lt::String)) => parse_string(src).map(Li::String),
+        (Lk::Char, Value::LiteralType(Lt::Char)) => parse_char(src).map(Li::Char),
+        (Lk::Int, Value::LiteralType(Lt::U8)) => parse_int::<u8>(src).map(Li::U8),
+        (Lk::Int, Value::LiteralType(Lt::U16)) => parse_int::<u16>(src).map(Li::U16),
+        (Lk::Int, Value::LiteralType(Lt::U32)) => parse_int::<u32>(src).map(Li::U32),
+        (Lk::Int, Value::LiteralType(Lt::U64)) => parse_int::<u64>(src).map(Li::U64),
+        (Lk::Int, Value::LiteralType(Lt::S8)) => parse_int::<i8>(src).map(Li::S8),
+        (Lk::Int, Value::LiteralType(Lt::S16)) => parse_int::<i16>(src).map(Li::S16),
+        (Lk::Int, Value::LiteralType(Lt::S32)) => parse_int::<i32>(src).map(Li::S32),
+        (Lk::Int, Value::LiteralType(Lt::S64)) => parse_int::<i64>(src).map(Li::S64),
+        (Lk::Int, Value::LiteralType(Lt::F32)) => literal_bug(src.span(), "unimplemented: f32"),
+        (Lk::Int, Value::LiteralType(Lt::F64)) => literal_bug(src.span(), "unimplemented: f64"),
+        (Lk::Float, Value::LiteralType(Lt::F32)) => literal_bug(src.span(), "unimplemented: f32"),
+        (Lk::Float, Value::LiteralType(Lt::F64)) => literal_bug(src.span(), "unimplemented: f64"),
         (_, _) => Err(Diagnostic::new_error("mismatched literal").with_label(
-            DiagnosticLabel::new_primary(*span).with_message(format!(
+            DiagnosticLabel::new_primary(src.span()).with_message(format!(
                 "expected: {}",
                 context.read_back(None, expected_ty)?,
             )),
@@ -57,14 +57,14 @@ pub fn synth(
     use mltt_concrete::LiteralKind as Lk;
     use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
 
-    let Literal { span, kind, slice } = concrete_literal;
+    let Literal { kind, src } = concrete_literal;
 
     let (literal_intro, literal_ty) = match kind {
-        Lk::String => (Li::String(parse_string(*span, slice)?), Lt::String),
-        Lk::Char => (Li::Char(parse_char(*span, slice)?), Lt::Char),
+        Lk::String => (Li::String(parse_string(src)?), Lt::String),
+        Lk::Char => (Li::Char(parse_char(src)?), Lt::Char),
         Lk::Int | Lk::Float => {
             return Err(Diagnostic::new_error("ambiguous literal")
-                .with_label(DiagnosticLabel::new_primary(*span)));
+                .with_label(DiagnosticLabel::new_primary(src.span())));
         },
     };
 
@@ -89,16 +89,16 @@ fn expect_char(
     }
 }
 
-pub fn parse_string(span: FileSpan, src: &str) -> Result<String, Diagnostic<FileSpan>> {
-    let mut chars = src.chars();
+pub fn parse_string(src: &SpannedString<'_>) -> Result<String, Diagnostic<FileSpan>> {
+    let mut chars = src.slice.chars();
     let mut string = String::new();
 
     assert_eq!(chars.next(), Some('"'));
 
     loop {
-        match expect_char(span, &mut chars)? {
+        match expect_char(src.span(), &mut chars)? {
             '"' => break,
-            '\\' => string.push(parse_escape(span, &mut chars)?),
+            '\\' => string.push(parse_escape(src.span(), &mut chars)?),
             ch => string.push(ch),
         }
     }
@@ -108,14 +108,14 @@ pub fn parse_string(span: FileSpan, src: &str) -> Result<String, Diagnostic<File
     Ok(string)
 }
 
-pub fn parse_char(span: FileSpan, src: &str) -> Result<char, Diagnostic<FileSpan>> {
-    let mut chars = src.chars();
+pub fn parse_char(src: &SpannedString<'_>) -> Result<char, Diagnostic<FileSpan>> {
+    let mut chars = src.slice.chars();
 
     assert_eq!(chars.next(), Some('\''));
 
-    let ch = match expect_char(span, &mut chars)? {
-        '\'' => literal_bug(span, "unexpected end of character"),
-        '\\' => parse_escape(span, &mut chars),
+    let ch = match expect_char(src.span(), &mut chars)? {
+        '\'' => literal_bug(src.span(), "unexpected end of character"),
+        '\\' => parse_escape(src.span(), &mut chars),
         ch => Ok(ch),
     }?;
 
@@ -215,14 +215,14 @@ impl_parse_int_literal!(i16);
 impl_parse_int_literal!(i32);
 impl_parse_int_literal!(i64);
 
-pub fn parse_int<T: ParseIntLiteral>(span: FileSpan, src: &str) -> Result<T, Diagnostic<FileSpan>> {
-    let mut chars = src.chars();
+pub fn parse_int<T: ParseIntLiteral>(src: &SpannedString<'_>) -> Result<T, Diagnostic<FileSpan>> {
+    let mut chars = src.slice.chars();
 
     fn from_char<T: ParseIntLiteral>(ch: char, ch_diff: char, off: u8) -> T {
         T::from_u8(ch as u8 - ch_diff as u8 + off)
     }
 
-    let (base, mut number) = match expect_char(span, &mut chars)? {
+    let (base, mut number) = match expect_char(src.span(), &mut chars)? {
         '0' => match chars.next() {
             None => (10, T::from_u8(0)),
             Some('b') => (2, T::from_u8(0)),
@@ -230,10 +230,10 @@ pub fn parse_int<T: ParseIntLiteral>(span: FileSpan, src: &str) -> Result<T, Dia
             Some('x') => (16, T::from_u8(0)),
             Some('_') => (10, T::from_u8(0)),
             Some(ch @ '0'..='9') => (10, from_char(ch, '0', 0)),
-            Some(_) => literal_bug(span, "unexpected character")?,
+            Some(_) => literal_bug(src.span(), "unexpected character")?,
         },
         ch @ '0'..='9' => (10, T::from_u8(ch as u8 - '0' as u8)),
-        _ => literal_bug(span, "unexpected character")?,
+        _ => literal_bug(src.span(), "unexpected character")?,
     };
 
     let acc = |prev: T, base: u8, inc: T| {
@@ -241,7 +241,7 @@ pub fn parse_int<T: ParseIntLiteral>(span: FileSpan, src: &str) -> Result<T, Dia
             .and_then(|prev| prev.checked_add(inc))
             .ok_or_else(|| {
                 Diagnostic::new_error("overflowing literal")
-                    .with_label(DiagnosticLabel::new_primary(span))
+                    .with_label(DiagnosticLabel::new_primary(src.span()))
             })
     };
 
@@ -254,7 +254,7 @@ pub fn parse_int<T: ParseIntLiteral>(span: FileSpan, src: &str) -> Result<T, Dia
             (16, ch @ 'a'..='f') => number = acc(number, base, from_char(ch, 'a', 10))?,
             (16, ch @ 'A'..='F') => number = acc(number, base, from_char(ch, 'A', 10))?,
             (_, '_') => continue,
-            (_, _) => literal_bug(span, "unexpected character")?,
+            (_, _) => literal_bug(src.span(), "unexpected character")?,
         }
     }
 
