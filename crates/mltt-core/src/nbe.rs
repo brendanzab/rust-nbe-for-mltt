@@ -48,7 +48,7 @@ pub struct PrimEntry {
     ///
     /// # Returns
     ///
-    /// - `Some(Ok(_))`: if the primitive resulted in an evaluation error
+    /// - `Some(Ok(_))`: if the primitive returned a value
     /// - `Some(Err(_))`: if the primitive resulted in an evaluation error
     /// - `None`: if the primitive is stuck on an argument
     pub interpretation: fn(Vec<RcValue>) -> Option<Result<RcValue, NbeError>>,

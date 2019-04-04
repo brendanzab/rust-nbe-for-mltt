@@ -27,7 +27,7 @@
 //!           | CHAR_LITERAL
 //!           | INT_LITERAL
 //!           | FLOAT_LITERAL
-//!           | "primitive" FLOAT_LITERAL
+//!           | "primitive" STRING_LITERAL
 //!           | "Fun" type-param+ "->" term
 //!           | term "->" term
 //!           | "fun" intro-param+ "=>" term
