@@ -307,6 +307,7 @@ impl Default for PrimEnv {
                 "f32-div".to_owned() => prim_entry!(|lhs: f32, rhs: f32| Some(Ok(RcValue::literal_intro(lhs / rhs)))),
                 "f64-div".to_owned() => prim_entry!(|lhs: f64, rhs: f64| Some(Ok(RcValue::literal_intro(lhs / rhs)))),
 
+                "char-to-string".to_owned() => prim_entry!(|value: char| Some(Ok(RcValue::literal_intro(value.to_string())))),
                 "u8-to-string".to_owned() => prim_entry!(|value: u8| Some(Ok(RcValue::literal_intro(value.to_string())))),
                 "u16-to-string".to_owned() => prim_entry!(|value: u16| Some(Ok(RcValue::literal_intro(value.to_string())))),
                 "u32-to-string".to_owned() => prim_entry!(|value: u32| Some(Ok(RcValue::literal_intro(value.to_string())))),

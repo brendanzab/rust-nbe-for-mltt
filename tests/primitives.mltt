@@ -130,6 +130,7 @@ s64-div = primitive "s64-div" : S64 -> S64 -> S64;
 f32-div = primitive "f32-div" : F32 -> F32 -> F32;
 f64-div = primitive "f64-div" : F64 -> F64 -> F64;
 
+char-to-string = primitive "char-to-string" : Char -> String;
 u8-to-string = primitive "u8-to-string" : U8 -> String;
 u16-to-string = primitive "u16-to-string" : U16 -> String;
 u32-to-string = primitive "u32-to-string" : U32 -> String;
