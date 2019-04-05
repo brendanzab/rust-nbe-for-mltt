@@ -580,6 +580,9 @@ pub fn synth_term(
             Ok((term, ty))
         },
 
+        Term::ArrayIntro(span, _) => Err(Diagnostic::new_error("arrays are not yet implemented")
+            .with_label(DiagnosticLabel::new_primary(*span).with_message("not yet implemented"))),
+
         Term::FunType(_, concrete_params, concrete_body_ty) => {
             let mut context = context.clone();
             let mut param_tys = Vec::new();

@@ -28,6 +28,7 @@
 //!           | INT_LITERAL
 //!           | FLOAT_LITERAL
 //!           | "primitive" STRING_LITERAL
+//!           | "[" (term ";")* term? ")" "]"
 //!           | "Fun" type-param+ "->" term
 //!           | term "->" term
 //!           | "fun" intro-param+ "=>" term
@@ -497,6 +498,7 @@ where
     ///     prefix  "if"                ::= if-expr
     ///     prefix  "case"              ::= case-expr
     ///     prefix  "("                 ::= parens fun-elim
+    ///     prefix  "["                 ::= array-intro
     ///     prefix  "Fun"               ::= fun-type
     ///     prefix  "fun"               ::= fun-intro
     ///     prefix  "Record"            ::= record-type
@@ -554,6 +556,7 @@ where
                 let term = self.parse_parens(token)?;
                 self.parse_fun_elim(term)
             },
+            (TokenKind::Open(DelimKind::Bracket), _) => self.parse_array(token),
             (TokenKind::Keyword, "Fun") => self.parse_fun_ty(token),
             (TokenKind::Keyword, "fun") => self.parse_fun_intro(token),
             (TokenKind::Keyword, "Record") => self.parse_record_ty(token),
@@ -595,6 +598,7 @@ where
     /// ```text
     /// arg-term(prec) ::= operators(prec) {
     ///     prefix  "("                 ::= parens
+    ///     prefix  "["                 ::= array-intro
     ///     prefix  "Type"              ::= universe
     ///     nilfix  IDENTIFIER
     ///     nilfix  "?"
@@ -636,6 +640,7 @@ where
                 Ok(Term::LiteralIntro(kind, literal))
             },
             (TokenKind::Open(DelimKind::Paren), _) => self.parse_parens(token),
+            (TokenKind::Open(DelimKind::Bracket), _) => self.parse_array(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
                 .with_label(Label::new_primary(token.span()).with_message("term expected here"))),
@@ -832,6 +837,27 @@ where
         let span = FileSpan::merge(start_token.span(), end_token.span());
 
         Ok(Term::Parens(span, Box::new(term)))
+    }
+
+    /// Parse the trailing part of an array introduction.
+    ///
+    /// ```text
+    /// array-intro ::= (term(0) ";")* term(0)? ")"
+    /// ```
+    fn parse_array(
+        &mut self,
+        start_token: Token<'file>,
+    ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
+        let mut elems = Vec::new();
+
+        self.expect_match(TokenKind::Open(DelimKind::Bracket))?;
+
+        // TODO: Elems
+
+        let end_token = self.expect_match(TokenKind::Close(DelimKind::Bracket))?;
+        let span = FileSpan::merge(start_token.span(), end_token.span());
+
+        Ok(Term::ArrayIntro(span, elems))
     }
 
     /// Parse the trailing part of a record type

@@ -548,6 +548,9 @@ pub enum Term<'file> {
     /// Literal introductions.
     LiteralIntro(LiteralKind, SpannedString<'file>),
 
+    /// Array introductions.
+    ArrayIntro(FileSpan, Vec<Term<'file>>),
+
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
@@ -584,6 +587,7 @@ impl<'file> Term<'file> {
             Term::If(span, _, _, _) => *span,
             Term::Case(span, _, _) => *span,
             Term::LiteralIntro(_, literal) => literal.span(),
+            Term::ArrayIntro(span, _) => *span,
             Term::FunType(span, _, _) => *span,
             Term::FunArrowType(param_ty, body_ty) => {
                 FileSpan::merge(param_ty.span(), body_ty.span())
@@ -670,6 +674,13 @@ impl<'file> Term<'file> {
                     .append("}")
             },
             Term::LiteralIntro(_, literal) => literal.to_doc(),
+            Term::ArrayIntro(_, elems) => Doc::nil()
+                .append("[")
+                .append(Doc::intersperse(
+                    elems.iter().map(Term::to_doc),
+                    Doc::text(";").append(Doc::space()),
+                ))
+                .append("]"),
             Term::FunType(_, params, body_ty) => Doc::nil()
                 .append("Fun")
                 .append(Doc::space())
