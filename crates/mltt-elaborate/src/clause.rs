@@ -60,7 +60,7 @@ pub fn check_clause(
                 clause.concrete_params = rest_params;
                 match pattern.as_ref() {
                     Pattern::Var(var_name) => Some(var_name.to_string()),
-                    Pattern::Literal(literal) => {
+                    Pattern::LiteralIntro(_, literal) => {
                         return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
                             DiagnosticLabel::new_primary(literal.span())
                                 .with_message("use a case expression for matching on literals"),
@@ -124,8 +124,8 @@ pub fn check_case<'file>(
 
             for literal_clause in literal_clauses {
                 match literal_clause.pattern {
-                    Pattern::Literal(literal) => {
-                        let literal_intro = literal::check(&context, literal, &scrutinee_ty)?;
+                    Pattern::LiteralIntro(kind, literal) => {
+                        let literal_intro = literal::check(&context, *kind, literal, &scrutinee_ty)?;
                         let body = check_term(&context, &literal_clause.body, expected_ty)?;
 
                         match literal_branches

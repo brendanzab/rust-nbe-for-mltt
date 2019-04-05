@@ -1,7 +1,7 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use mltt_concrete::{
-    Arg, Definition, IntroParam, Item, Literal, LiteralKind, Pattern, RecordIntroField,
-    RecordTypeField, SpannedString, Term, TypeParam,
+    Arg, Definition, IntroParam, Item, LiteralKind, Pattern, RecordIntroField, RecordTypeField,
+    SpannedString, Term, TypeParam,
 };
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser::parse_term;
@@ -51,34 +51,34 @@ fn hole() {
 
 #[test]
 fn string_literal() {
-    test_term!("\"value\"", |file_id| Term::Literal(Literal {
-        kind: LiteralKind::String,
-        src: SpannedString::new(file_id, 0, "\"value\""),
-    }));
+    test_term!("\"value\"", |file_id| Term::LiteralIntro(
+        LiteralKind::String,
+        SpannedString::new(file_id, 0, "\"value\""),
+    ));
 }
 
 #[test]
 fn char_literal() {
-    test_term!("'\\n'", |file_id| Term::Literal(Literal {
-        kind: LiteralKind::Char,
-        src: SpannedString::new(file_id, 0, "'\\n'"),
-    }));
+    test_term!("'\\n'", |file_id| Term::LiteralIntro(
+        LiteralKind::Char,
+        SpannedString::new(file_id, 0, "'\\n'"),
+    ));
 }
 
 #[test]
 fn int_literal() {
-    test_term!("0xA_F00", |file_id| Term::Literal(Literal {
-        kind: LiteralKind::Int,
-        src: SpannedString::new(file_id, 0, "0xA_F00"),
-    }));
+    test_term!("0xA_F00", |file_id| Term::LiteralIntro(
+        LiteralKind::Int,
+        SpannedString::new(file_id, 0, "0xA_F00"),
+    ));
 }
 
 #[test]
 fn float_literal() {
-    test_term!("0.3_46e_23", |file_id| Term::Literal(Literal {
-        kind: LiteralKind::Float,
-        src: SpannedString::new(file_id, 0, "0.3_46e_23"),
-    }));
+    test_term!("0.3_46e_23", |file_id| Term::LiteralIntro(
+        LiteralKind::Float,
+        SpannedString::new(file_id, 0, "0.3_46e_23"),
+    ));
 }
 
 #[test]

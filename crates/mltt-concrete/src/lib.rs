@@ -174,8 +174,8 @@ impl<'file> fmt::Display for SpannedString<'file> {
 pub enum Pattern<'file> {
     /// Variable patterns
     Var(SpannedString<'file>),
-    /// Literal patterns
-    Literal(Literal<'file>),
+    /// Literal introductions.
+    LiteralIntro(LiteralKind, SpannedString<'file>),
     // TODO:
     // /// Patterns with an explicit type annotation
     // Ann(Box<Pattern<'file>>, Box<Term<'file>>),
@@ -187,7 +187,7 @@ impl<'file> Pattern<'file> {
     pub fn span(&self) -> FileSpan {
         match self {
             Pattern::Var(name) => name.span(),
-            Pattern::Literal(literal) => literal.span(),
+            Pattern::LiteralIntro(_, literal) => literal.span(),
         }
     }
 
@@ -195,7 +195,7 @@ impl<'file> Pattern<'file> {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Pattern::Var(name) => name.to_doc(),
-            Pattern::Literal(literal) => literal.to_doc(),
+            Pattern::LiteralIntro(_, literal) => literal.to_doc(),
         }
     }
 }
@@ -228,34 +228,6 @@ impl LiteralKind {
             LiteralKind::Int => "integer",
             LiteralKind::Float => "floating point",
         }
-    }
-}
-
-/// Concrete literals
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Literal<'file> {
-    /// The kind of literal
-    pub kind: LiteralKind,
-    /// We use a string here, because we'll be using type information to do
-    /// further parsing of these. For example we need to know the size of an
-    /// integer literal before we can know whether the literal is overflowing.
-    pub src: SpannedString<'file>,
-}
-
-impl<'file> Literal<'file> {
-    pub fn span(&self) -> FileSpan {
-        self.src.span()
-    }
-
-    /// Convert the literal into a pretty-printable document
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(self.src.slice)
-    }
-}
-
-impl<'file> fmt::Display for Literal<'file> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.to_doc().group().pretty(1_000_000_000).fmt(f)
     }
 }
 
@@ -573,8 +545,8 @@ pub enum Term<'file> {
         Vec<(Pattern<'file>, Term<'file>)>,
     ),
 
-    /// Literals
-    Literal(Literal<'file>),
+    /// Literal introductions.
+    LiteralIntro(LiteralKind, SpannedString<'file>),
 
     /// Dependent function type
     ///
@@ -611,7 +583,7 @@ impl<'file> Term<'file> {
             Term::Let(span, _, _) => *span,
             Term::If(span, _, _, _) => *span,
             Term::Case(span, _, _) => *span,
-            Term::Literal(literal) => literal.span(),
+            Term::LiteralIntro(_, literal) => literal.span(),
             Term::FunType(span, _, _) => *span,
             Term::FunArrowType(param_ty, body_ty) => {
                 FileSpan::merge(param_ty.span(), body_ty.span())
@@ -697,7 +669,7 @@ impl<'file> Term<'file> {
                     .append(Doc::space())
                     .append("}")
             },
-            Term::Literal(literal) => literal.to_doc(),
+            Term::LiteralIntro(_, literal) => literal.to_doc(),
             Term::FunType(_, params, body_ty) => Doc::nil()
                 .append("Fun")
                 .append(Doc::space())

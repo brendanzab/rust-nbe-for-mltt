@@ -457,8 +457,8 @@ pub fn check_term(
             clause::check_case(context, *span, scrutinee, clauses, expected_ty)
         },
 
-        Term::Literal(concrete_literal) => {
-            let literal_intro = literal::check(context, concrete_literal, expected_ty)?;
+        Term::LiteralIntro(kind, literal) => {
+            let literal_intro = literal::check(context, *kind, literal, expected_ty)?;
             Ok(core::RcTerm::from(core::Term::LiteralIntro(literal_intro)))
         },
 
@@ -573,8 +573,8 @@ pub fn synth_term(
             DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
         )),
 
-        Term::Literal(concrete_literal) => {
-            let (literal_intro, ty) = literal::synth(concrete_literal)?;
+        Term::LiteralIntro(kind, literal) => {
+            let (literal_intro, ty) = literal::synth(*kind, literal)?;
             let term = core::RcTerm::from(core::Term::LiteralIntro(literal_intro));
 
             Ok((term, ty))

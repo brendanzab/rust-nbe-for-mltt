@@ -10,7 +10,7 @@
 //! into a data type of your choice, or return a custom error diagnostic.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{Literal, SpannedString};
+use mltt_concrete::{LiteralKind, SpannedString};
 use mltt_core::syntax::{domain, LiteralIntro};
 use mltt_span::FileSpan;
 
@@ -18,14 +18,13 @@ use super::Context;
 
 pub fn check(
     context: &Context,
-    concrete_literal: &Literal<'_>,
+    kind: LiteralKind,
+    src: &SpannedString<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as Lk;
     use mltt_core::syntax::domain::Value;
     use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
-
-    let Literal { kind, src } = concrete_literal;
 
     match (kind, expected_ty.as_ref()) {
         (Lk::String, Value::LiteralType(Lt::String)) => parse_string(src).map(Li::String),
@@ -52,12 +51,11 @@ pub fn check(
 }
 
 pub fn synth(
-    concrete_literal: &Literal<'_>,
+    kind: LiteralKind,
+    src: &SpannedString<'_>,
 ) -> Result<(LiteralIntro, domain::RcType), Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as Lk;
     use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
-
-    let Literal { kind, src } = concrete_literal;
 
     let (literal_intro, literal_ty) = match kind {
         Lk::String => (Li::String(parse_string(src)?), Lt::String),

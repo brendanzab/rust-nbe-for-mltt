@@ -62,8 +62,8 @@
 
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::{
-    Arg, Declaration, Definition, IntroParam, Item, Literal, LiteralKind, Pattern,
-    RecordIntroField, RecordTypeField, SpannedString, Term, TypeParam,
+    Arg, Declaration, Definition, IntroParam, Item, LiteralKind, Pattern, RecordIntroField,
+    RecordTypeField, SpannedString, Term, TypeParam,
 };
 use mltt_span::FileSpan;
 
@@ -459,13 +459,24 @@ where
         let pattern = match (token.kind, token.src.slice) {
             (TokenKind::Identifier, _) => Ok(Pattern::Var(self.parse_var(token)?)),
             (TokenKind::StringLiteral, _) => {
-                Ok(Pattern::Literal(self.parse_string_literal(token)?))
+                let (kind, literal) = self.parse_string_literal(token)?;
+                Ok(Pattern::LiteralIntro(kind, literal))
             },
-            (TokenKind::CharLiteral, _) => Ok(Pattern::Literal(self.parse_char_literal(token)?)),
-            (TokenKind::IntLiteral, _) => Ok(Pattern::Literal(self.parse_int_literal(token)?)),
-            (TokenKind::FloatLiteral, _) => Ok(Pattern::Literal(self.parse_float_literal(token)?)),
-            (_, _) => Err(Diagnostic::new_error("expected a pattern")
-                .with_label(Label::new_primary(token.span()).with_message("pattern expected here"))),
+            (TokenKind::CharLiteral, _) => {
+                let (kind, literal) = self.parse_char_literal(token)?;
+                Ok(Pattern::LiteralIntro(kind, literal))
+            },
+            (TokenKind::IntLiteral, _) => {
+                let (kind, literal) = self.parse_int_literal(token)?;
+                Ok(Pattern::LiteralIntro(kind, literal))
+            },
+            (TokenKind::FloatLiteral, _) => {
+                let (kind, literal) = self.parse_float_literal(token)?;
+                Ok(Pattern::LiteralIntro(kind, literal))
+            },
+            (_, _) => Err(Diagnostic::new_error("expected a pattern").with_label(
+                Label::new_primary(token.span()).with_message("pattern expected here"),
+            )),
         }?;
 
         // Infix operators
@@ -523,10 +534,22 @@ where
                 let term = self.parse_hole(token)?;
                 self.parse_fun_elim(term)
             },
-            (TokenKind::StringLiteral, _) => Ok(Term::Literal(self.parse_string_literal(token)?)),
-            (TokenKind::CharLiteral, _) => Ok(Term::Literal(self.parse_char_literal(token)?)),
-            (TokenKind::IntLiteral, _) => Ok(Term::Literal(self.parse_int_literal(token)?)),
-            (TokenKind::FloatLiteral, _) => Ok(Term::Literal(self.parse_float_literal(token)?)),
+            (TokenKind::StringLiteral, _) => {
+                let (kind, literal) = self.parse_string_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
+            (TokenKind::CharLiteral, _) => {
+                let (kind, literal) = self.parse_char_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
+            (TokenKind::IntLiteral, _) => {
+                let (kind, literal) = self.parse_int_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
+            (TokenKind::FloatLiteral, _) => {
+                let (kind, literal) = self.parse_float_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
             (TokenKind::Open(DelimKind::Paren), _) => {
                 let term = self.parse_parens(token)?;
                 self.parse_fun_elim(term)
@@ -596,10 +619,22 @@ where
         let mut term = match (token.kind, token.src.slice) {
             (TokenKind::Identifier, _) => Ok(Term::Var(self.parse_var(token)?)),
             (TokenKind::Question, _) => self.parse_hole(token),
-            (TokenKind::StringLiteral, _) => Ok(Term::Literal(self.parse_string_literal(token)?)),
-            (TokenKind::CharLiteral, _) => Ok(Term::Literal(self.parse_char_literal(token)?)),
-            (TokenKind::IntLiteral, _) => Ok(Term::Literal(self.parse_int_literal(token)?)),
-            (TokenKind::FloatLiteral, _) => Ok(Term::Literal(self.parse_float_literal(token)?)),
+            (TokenKind::StringLiteral, _) => {
+                let (kind, literal) = self.parse_string_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
+            (TokenKind::CharLiteral, _) => {
+                let (kind, literal) = self.parse_char_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
+            (TokenKind::IntLiteral, _) => {
+                let (kind, literal) = self.parse_int_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
+            (TokenKind::FloatLiteral, _) => {
+                let (kind, literal) = self.parse_float_literal(token)?;
+                Ok(Term::LiteralIntro(kind, literal))
+            },
             (TokenKind::Open(DelimKind::Paren), _) => self.parse_parens(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
@@ -637,44 +672,32 @@ where
     fn parse_string_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
-        Ok(Literal {
-            kind: LiteralKind::String,
-            src: token.src,
-        })
+    ) -> Result<(LiteralKind, SpannedString<'file>), Diagnostic<FileSpan>> {
+        Ok((LiteralKind::String, token.src))
     }
 
     /// Parse the trailing part of a character literal
     fn parse_char_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
-        Ok(Literal {
-            kind: LiteralKind::Char,
-            src: token.src,
-        })
+    ) -> Result<(LiteralKind, SpannedString<'file>), Diagnostic<FileSpan>> {
+        Ok((LiteralKind::Char, token.src))
     }
 
     /// Parse the trailing part of a integer literal
     fn parse_int_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
-        Ok(Literal {
-            kind: LiteralKind::Int,
-            src: token.src,
-        })
+    ) -> Result<(LiteralKind, SpannedString<'file>), Diagnostic<FileSpan>> {
+        Ok((LiteralKind::Int, token.src))
     }
 
     /// Parse the trailing part of a floating point literal
     fn parse_float_literal(
         &mut self,
         token: Token<'file>,
-    ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
-        Ok(Literal {
-            kind: LiteralKind::Float,
-            src: token.src,
-        })
+    ) -> Result<(LiteralKind, SpannedString<'file>), Diagnostic<FileSpan>> {
+        Ok((LiteralKind::Float, token.src))
     }
 
     /// Parse the trailing part of a function introduction
@@ -720,7 +743,8 @@ where
                     let param_ty = self.parse_term(Prec(0))?;
                     self.expect_match(TokenKind::Close(DelimKind::Brace))?;
                     let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    let param_span = FileSpan::merge(start_param_token.span(), end_param_token.span());
+                    let param_span =
+                        FileSpan::merge(start_param_token.span(), end_param_token.span());
 
                     params.push(TypeParam::Instance(param_span, param_name, param_ty));
                 } else {
@@ -730,9 +754,11 @@ where
                     }
                     if param_names.is_empty() {
                         return Err(Diagnostic::new_error("expected at least one parameter")
-                            .with_label(Label::new_primary(start_param_token.span()).with_message(
-                                "at least one parameter was expected after this brace",
-                            )));
+                            .with_label(
+                                Label::new_primary(start_param_token.span()).with_message(
+                                    "at least one parameter was expected after this brace",
+                                ),
+                            ));
                     }
 
                     let param_ty = match self.try_match(TokenKind::Colon) {
@@ -741,7 +767,8 @@ where
                     };
 
                     let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    let param_span = FileSpan::merge(start_param_token.span(), end_param_token.span());
+                    let param_span =
+                        FileSpan::merge(start_param_token.span(), end_param_token.span());
 
                     params.push(TypeParam::Implicit(param_span, param_names, param_ty));
                 }
