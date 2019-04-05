@@ -1,4 +1,5 @@
 use language_reporting::{Diagnostic, Label};
+use mltt_concrete::SpannedString;
 use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
 use std::str::Chars;
 
@@ -151,6 +152,15 @@ impl<'file> Lexer<'file> {
         &self.file.contents()[self.token_start.to_usize()..self.token_end.to_usize()]
     }
 
+    /// Returns the source of the current token
+    fn token_src(&self) -> SpannedString<'file> {
+        SpannedString {
+            source: self.file.id(),
+            slice: self.token_slice(),
+            start: self.token_start,
+        }
+    }
+
     /// Returns the span of the end of the file
     fn eof_span(&self) -> FileSpan {
         let end = self.file.span().end();
@@ -159,10 +169,9 @@ impl<'file> Lexer<'file> {
 
     /// Emit a token and reset the start position, ready for the next token
     fn emit(&mut self, kind: TokenKind) -> Token<'file> {
-        let slice = self.token_slice();
-        let span = self.token_span();
+        let src = self.token_src();
         self.token_start = self.token_end;
-        Token { kind, slice, span }
+        Token { kind, src }
     }
 
     /// Peek at the current lookahead character.

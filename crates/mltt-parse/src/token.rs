@@ -1,3 +1,4 @@
+use mltt_concrete::SpannedString;
 use mltt_span::FileSpan;
 use std::fmt;
 
@@ -49,19 +50,21 @@ pub enum TokenKind {
 pub struct Token<'file> {
     /// The token kind
     pub kind: TokenKind,
-    /// The slice of source code that produced the token
-    pub slice: &'file str,
-    /// The span in the source code
-    pub span: FileSpan,
+    /// The source code that produced the token
+    pub src: SpannedString<'file>,
 }
 
 impl Token<'_> {
+    pub fn span(&self) -> FileSpan {
+        self.src.span()
+    }
+
     pub fn is_whitespace(&self) -> bool {
         self.kind == TokenKind::Whitespace || self.kind == TokenKind::LineComment
     }
 
     pub fn is_keyword(&self, slice: &str) -> bool {
-        self.kind == TokenKind::Keyword && self.slice == slice
+        self.kind == TokenKind::Keyword && self.src.slice == slice
     }
 }
 
@@ -71,9 +74,9 @@ impl fmt::Debug for Token<'_> {
             f,
             "{kind:?}@[{start}, {end}) {slice:?}",
             kind = self.kind,
-            start = self.span.start().to_usize(),
-            end = self.span.end().to_usize(),
-            slice = self.slice,
+            start = self.src.span().start().to_usize(),
+            end = self.src.span().end().to_usize(),
+            slice = self.src.slice,
         )
     }
 }

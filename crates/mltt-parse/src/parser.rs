@@ -110,7 +110,7 @@ struct Keyword<'a>(pub &'a str);
 
 impl Matcher<Token<'_>> for Keyword<'_> {
     fn is_match(&self, given: &Token<'_>) -> bool {
-        given.kind == TokenKind::Keyword && given.slice == self.0
+        given.kind == TokenKind::Keyword && given.src.slice == self.0
     }
 }
 
@@ -137,7 +137,7 @@ impl Matcher<Token<'_>> for ArgParamStart {
             | TokenKind::FloatLiteral
             | TokenKind::Open(DelimKind::Paren)
             | TokenKind::Open(DelimKind::Brace) => true,
-            TokenKind::Keyword if given.slice == "Type" => true,
+            TokenKind::Keyword if given.src.slice == "Type" => true,
             _ => false,
         }
     }
@@ -245,27 +245,19 @@ where
             match self.peek() {
                 None => Diagnostic::new_error("unexpected EOF"), // FIXME: Span
                 Some(token) => Diagnostic::new_error("unexpected token")
-                    .with_label(Label::new_primary(token.span).with_message("token found here")),
+                    .with_label(Label::new_primary(token.span()).with_message("token found here")),
             }
         })
     }
 
     fn try_identifier(&mut self) -> Option<SpannedString<'file>> {
         let token = self.try_match(TokenKind::Identifier)?;
-        Some(SpannedString {
-            source: token.span.source(),
-            start: token.span.start(),
-            slice: token.slice,
-        })
+        Some(token.src)
     }
 
     fn expect_identifier(&mut self) -> Result<SpannedString<'file>, Diagnostic<FileSpan>> {
         let token = self.expect_match(TokenKind::Identifier)?;
-        Ok(SpannedString {
-            source: token.span.source(),
-            start: token.span.start(),
-            slice: token.slice,
-        })
+        Ok(token.src)
     }
 
     fn expect_eof(&mut self) -> Result<(), Diagnostic<FileSpan>> {
@@ -274,7 +266,7 @@ where
             Some(token) => {
                 log::debug!("non-eof token {:?}", token);
                 Err(Diagnostic::new_error("expected EOF")
-                    .with_label(Label::new_primary(token.span).with_message("unexpected token")))
+                    .with_label(Label::new_primary(token.span()).with_message("unexpected token")))
             },
         }
     }
@@ -282,11 +274,7 @@ where
     fn expect_doc_comments(&mut self) -> Vec<SpannedString<'file>> {
         let mut docs = Vec::new();
         while let Some(doc_token) = self.try_match(TokenKind::LineDoc) {
-            docs.push(SpannedString {
-                source: doc_token.span.source(),
-                start: doc_token.span.start(),
-                slice: doc_token.slice,
-            });
+            docs.push(doc_token.src);
         }
         docs
     }
@@ -399,7 +387,7 @@ where
                 self.expect_match(TokenKind::Close(DelimKind::Brace))?
             };
 
-            let span = FileSpan::merge(start_token.span, end_token.span);
+            let span = FileSpan::merge(start_token.span(), end_token.span());
 
             Ok(if is_instance {
                 IntroParam::Instance(span, label, term)
@@ -435,7 +423,7 @@ where
                 self.expect_match(TokenKind::Close(DelimKind::Brace))?
             };
 
-            let arg_span = FileSpan::merge(start_arg_token.span, end_arg_token.span);
+            let arg_span = FileSpan::merge(start_arg_token.span(), end_arg_token.span());
 
             Ok(if is_instance {
                 Arg::Instance(arg_span, label, term)
@@ -468,7 +456,7 @@ where
         )?;
 
         // Prefix operators
-        let pattern = match (token.kind, token.slice) {
+        let pattern = match (token.kind, token.src.slice) {
             (TokenKind::Identifier, _) => Ok(Pattern::Var(self.parse_var(token)?)),
             (TokenKind::StringLiteral, _) => {
                 Ok(Pattern::Literal(self.parse_string_literal(token)?))
@@ -477,7 +465,7 @@ where
             (TokenKind::IntLiteral, _) => Ok(Pattern::Literal(self.parse_int_literal(token)?)),
             (TokenKind::FloatLiteral, _) => Ok(Pattern::Literal(self.parse_float_literal(token)?)),
             (_, _) => Err(Diagnostic::new_error("expected a pattern")
-                .with_label(Label::new_primary(token.span).with_message("pattern expected here"))),
+                .with_label(Label::new_primary(token.span()).with_message("pattern expected here"))),
         }?;
 
         // Infix operators
@@ -526,7 +514,7 @@ where
         )?;
 
         // Prefix operators
-        let mut term = match (token.kind, token.slice) {
+        let mut term = match (token.kind, token.src.slice) {
             (TokenKind::Identifier, _) => {
                 let term = Term::Var(self.parse_var(token)?);
                 self.parse_fun_elim(term)
@@ -553,7 +541,7 @@ where
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (TokenKind::Keyword, "primitive") => self.parse_prim(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
-                .with_label(Label::new_primary(token.span).with_message("term expected here"))),
+                .with_label(Label::new_primary(token.span()).with_message("term expected here"))),
         }?;
 
         // Infix operators
@@ -605,7 +593,7 @@ where
         )?;
 
         // Prefix operators
-        let mut term = match (token.kind, token.slice) {
+        let mut term = match (token.kind, token.src.slice) {
             (TokenKind::Identifier, _) => Ok(Term::Var(self.parse_var(token)?)),
             (TokenKind::Question, _) => self.parse_hole(token),
             (TokenKind::StringLiteral, _) => Ok(Term::Literal(self.parse_string_literal(token)?)),
@@ -615,7 +603,7 @@ where
             (TokenKind::Open(DelimKind::Paren), _) => self.parse_parens(token),
             (TokenKind::Keyword, "Type") => self.parse_universe(token),
             (_, _) => Err(Diagnostic::new_error("expected a term")
-                .with_label(Label::new_primary(token.span).with_message("term expected here"))),
+                .with_label(Label::new_primary(token.span()).with_message("term expected here"))),
         }?;
 
         // Infix operators
@@ -637,16 +625,12 @@ where
         &mut self,
         token: Token<'file>,
     ) -> Result<SpannedString<'file>, Diagnostic<FileSpan>> {
-        Ok(SpannedString {
-            source: token.span.source(),
-            start: token.span.start(),
-            slice: token.slice,
-        })
+        Ok(token.src)
     }
 
     /// Parse the trailing part of a hole
     fn parse_hole(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
-        Ok(Term::Hole(token.span))
+        Ok(Term::Hole(token.span()))
     }
 
     /// Parse the trailing part of a string literal
@@ -656,11 +640,7 @@ where
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
             kind: LiteralKind::String,
-            src: SpannedString {
-                source: token.span.source(),
-                start: token.span.start(),
-                slice: token.slice,
-            },
+            src: token.src,
         })
     }
 
@@ -671,11 +651,7 @@ where
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
             kind: LiteralKind::Char,
-            src: SpannedString {
-                source: token.span.source(),
-                start: token.span.start(),
-                slice: token.slice,
-            },
+            src: token.src,
         })
     }
 
@@ -686,11 +662,7 @@ where
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
             kind: LiteralKind::Int,
-            src: SpannedString {
-                source: token.span.source(),
-                start: token.span.start(),
-                slice: token.slice,
-            },
+            src: token.src,
         })
     }
 
@@ -701,11 +673,7 @@ where
     ) -> Result<Literal<'file>, Diagnostic<FileSpan>> {
         Ok(Literal {
             kind: LiteralKind::Float,
-            src: SpannedString {
-                source: token.span.source(),
-                start: token.span.start(),
-                slice: token.slice,
-            },
+            src: token.src,
         })
     }
 
@@ -732,7 +700,7 @@ where
                 }
                 if param_names.is_empty() {
                     return Err(Diagnostic::new_error("expected at least one parameter")
-                        .with_label(Label::new_primary(start_param_token.span).with_message(
+                        .with_label(Label::new_primary(start_param_token.span()).with_message(
                             "at least one parameter was expected after this parenthesis",
                         )));
                 }
@@ -740,7 +708,7 @@ where
                 self.expect_match(TokenKind::Colon)?;
                 let param_ty = self.parse_term(Prec(0))?;
                 let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Paren))?;
-                let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
+                let param_span = FileSpan::merge(start_param_token.span(), end_param_token.span());
 
                 params.push(TypeParam::Explicit(param_span, param_names, param_ty));
             } else if let Some(start_param_token) =
@@ -752,7 +720,7 @@ where
                     let param_ty = self.parse_term(Prec(0))?;
                     self.expect_match(TokenKind::Close(DelimKind::Brace))?;
                     let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
+                    let param_span = FileSpan::merge(start_param_token.span(), end_param_token.span());
 
                     params.push(TypeParam::Instance(param_span, param_name, param_ty));
                 } else {
@@ -762,7 +730,7 @@ where
                     }
                     if param_names.is_empty() {
                         return Err(Diagnostic::new_error("expected at least one parameter")
-                            .with_label(Label::new_primary(start_param_token.span).with_message(
+                            .with_label(Label::new_primary(start_param_token.span()).with_message(
                                 "at least one parameter was expected after this brace",
                             )));
                     }
@@ -773,7 +741,7 @@ where
                     };
 
                     let end_param_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    let param_span = FileSpan::merge(start_param_token.span, end_param_token.span);
+                    let param_span = FileSpan::merge(start_param_token.span(), end_param_token.span());
 
                     params.push(TypeParam::Implicit(param_span, param_names, param_ty));
                 }
@@ -785,7 +753,7 @@ where
         if params.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one parameter").with_label(
-                    Label::new_primary(start_token.span)
+                    Label::new_primary(start_token.span())
                         .with_message("at least one parameter was expected after this keyword"),
                 ),
             );
@@ -793,7 +761,7 @@ where
 
         self.expect_match(TokenKind::RArrow)?;
         let body_ty = self.parse_term(Prec(50 - 1))?;
-        let span = FileSpan::merge(start_token.span, body_ty.span());
+        let span = FileSpan::merge(start_token.span(), body_ty.span());
 
         Ok(Term::FunType(span, params, Box::new(body_ty)))
     }
@@ -811,14 +779,14 @@ where
         if params.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one parameters").with_label(
-                    Label::new_primary(start_token.span)
+                    Label::new_primary(start_token.span())
                         .with_message("at least one parameter was expected after this keyword"),
                 ),
             );
         }
         self.expect_match(TokenKind::RFatArrow)?;
         let body = self.parse_term(Prec(0))?;
-        let span = FileSpan::merge(start_token.span, body.span());
+        let span = FileSpan::merge(start_token.span(), body.span());
 
         Ok(Term::FunIntro(span, params, Box::new(body)))
     }
@@ -834,7 +802,7 @@ where
     ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let term = self.parse_term(Prec(0))?;
         let end_token = self.expect_match(TokenKind::Close(DelimKind::Paren))?;
-        let span = FileSpan::merge(start_token.span, end_token.span);
+        let span = FileSpan::merge(start_token.span(), end_token.span());
 
         Ok(Term::Parens(span, Box::new(term)))
     }
@@ -866,7 +834,7 @@ where
                     continue;
                 } else {
                     let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                    let span = FileSpan::merge(start_token.span, end_token.span);
+                    let span = FileSpan::merge(start_token.span(), end_token.span());
 
                     return Ok(Term::RecordType(span, fields));
                 }
@@ -876,7 +844,7 @@ where
         }
 
         let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-        let span = FileSpan::merge(start_token.span, end_token.span);
+        let span = FileSpan::merge(start_token.span(), end_token.span());
 
         Ok(Term::RecordType(span, fields))
     }
@@ -920,14 +888,14 @@ where
                 continue;
             } else {
                 let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                let span = FileSpan::merge(start_token.span, end_token.span);
+                let span = FileSpan::merge(start_token.span(), end_token.span());
 
                 return Ok(Term::RecordIntro(span, fields));
             }
         }
 
         let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-        let span = FileSpan::merge(start_token.span, end_token.span);
+        let span = FileSpan::merge(start_token.span(), end_token.span());
 
         Ok(Term::RecordIntro(span, fields))
     }
@@ -948,7 +916,7 @@ where
         if items.is_empty() {
             return Err(
                 Diagnostic::new_error("expected at least one item").with_label(
-                    Label::new_primary(start_token.span)
+                    Label::new_primary(start_token.span())
                         .with_message("at least one item was expected after this keyword"),
                 ),
             );
@@ -957,7 +925,7 @@ where
         self.expect_match(Keyword("in"))?;
         let body_term = self.parse_term(Prec(0))?;
 
-        let span = FileSpan::merge(start_token.span, body_term.span());
+        let span = FileSpan::merge(start_token.span(), body_term.span());
 
         Ok(Term::Let(span, items, Box::new(body_term)))
     }
@@ -977,7 +945,7 @@ where
         self.expect_match(Keyword("else"))?;
         let alternative = self.parse_term(Prec(0))?;
 
-        let span = FileSpan::merge(start_token.span, alternative.span());
+        let span = FileSpan::merge(start_token.span(), alternative.span());
 
         Ok(Term::If(
             span,
@@ -1015,14 +983,14 @@ where
                 continue;
             } else {
                 let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-                let span = FileSpan::merge(start_token.span, end_token.span);
+                let span = FileSpan::merge(start_token.span(), end_token.span());
 
                 return Ok(Term::Case(span, Box::new(scrutinee), clauses));
             }
         }
 
         let end_token = self.expect_match(TokenKind::Close(DelimKind::Brace))?;
-        let span = FileSpan::merge(start_token.span, end_token.span);
+        let span = FileSpan::merge(start_token.span(), end_token.span());
 
         Ok(Term::Case(span, Box::new(scrutinee), clauses))
     }
@@ -1037,17 +1005,12 @@ where
         start_token: Token<'file>,
     ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         if self.try_match(TokenKind::Caret).is_some() {
-            let integer_token = self.expect_match(TokenKind::IntLiteral)?;
-            let level = SpannedString {
-                source: integer_token.span.source(),
-                start: integer_token.span.start(),
-                slice: integer_token.slice,
-            };
-            let span = FileSpan::merge(start_token.span, integer_token.span);
+            let level_token = self.expect_match(TokenKind::IntLiteral)?;
+            let span = FileSpan::merge(start_token.span(), level_token.span());
 
-            Ok(Term::Universe(span, Some(level)))
+            Ok(Term::Universe(span, Some(level_token.src)))
         } else {
-            Ok(Term::Universe(start_token.span, None))
+            Ok(Term::Universe(start_token.span(), None))
         }
     }
 
@@ -1061,14 +1024,9 @@ where
         start_token: Token<'file>,
     ) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         let name_token = self.expect_match(TokenKind::StringLiteral)?;
-        let span = FileSpan::merge(start_token.span, name_token.span);
-        let name = SpannedString {
-            source: name_token.span.source(),
-            start: name_token.span.start(),
-            slice: name_token.slice,
-        };
+        let span = FileSpan::merge(start_token.span(), name_token.span());
 
-        Ok(Term::Prim(span, name))
+        Ok(Term::Prim(span, name_token.src))
     }
 
     /// Parse the trailing part of a record elimination
