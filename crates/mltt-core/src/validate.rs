@@ -3,6 +3,7 @@
 //! This is used to verify that the core syntax is correctly formed, for
 //! debugging purposes.
 
+use itertools::Itertools;
 use std::error::Error;
 use std::fmt;
 
@@ -125,6 +126,7 @@ pub enum TypeError {
     AmbiguousTerm(RcTerm),
     UnboundVariable,
     UnknownPrim(String),
+    BadLiteralPatterns(Vec<LiteralIntro>),
     NoFieldInType(Label),
     UnexpectedField { found: Label, expected: Label },
     UnexpectedAppMode { found: AppMode, expected: AppMode },
@@ -158,6 +160,11 @@ impl fmt::Display for TypeError {
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
             TypeError::UnboundVariable => write!(f, "unbound variable"),
             TypeError::UnknownPrim(name) => write!(f, "unbound primitive: {:?}", name),
+            TypeError::BadLiteralPatterns(literal_intros) => write!(
+                f,
+                "literal patterns are not sorted properly: {}",
+                literal_intros.iter().format(", "),
+            ),
             TypeError::NoFieldInType(label) => write!(f, "no field in type `{}`", label),
             TypeError::UnexpectedField { found, expected } => write!(
                 f,
@@ -254,8 +261,18 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
         Term::LiteralElim(scrutinee, clauses, default_body) => {
             let scrutinee_ty = synth_term(context, scrutinee)?;
 
-            // TODO: check that clauses are sorted by patterns
-            // TODO: check that patterns aren't duplicated
+            // Check that the clauses are sorted by patterns and that patterns aren't duplicated
+            // TODO: use `Iterator::is_sorted_by` when it is stable
+            if clauses
+                .iter()
+                .tuple_windows()
+                // FIXME: Floating point equality?
+                .any(|((l1, _), (l2, _))| l1 >= l2)
+            {
+                return Err(TypeError::BadLiteralPatterns(
+                    clauses.iter().map(|(l, _)| l.clone()).collect(),
+                ));
+            }
 
             for (literal_intro, body) in clauses.iter() {
                 check_literal(context, literal_intro, &scrutinee_ty)?;

@@ -184,6 +184,12 @@ impl LiteralType {
     }
 }
 
+impl fmt::Display for LiteralType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.to_doc().pretty(1_000_000_000), f)
+    }
+}
+
 /// Literal introductions
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LiteralIntro {
@@ -258,6 +264,12 @@ impl LiteralIntro {
             LiteralIntro::F32(value) => Doc::as_string(&value),
             LiteralIntro::F64(value) => Doc::as_string(&value),
         }
+    }
+}
+
+impl fmt::Display for LiteralIntro {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.to_doc().pretty(1_000_000_000), f)
     }
 }
 

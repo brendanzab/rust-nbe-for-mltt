@@ -125,13 +125,14 @@ pub fn check_case<'file>(
             for literal_clause in literal_clauses {
                 match literal_clause.pattern {
                     Pattern::LiteralIntro(kind, literal) => {
-                        let literal_intro = literal::check(&context, *kind, literal, &scrutinee_ty)?;
+                        let literal_intro =
+                            literal::check(&context, *kind, literal, &scrutinee_ty)?;
                         let body = check_term(&context, &literal_clause.body, expected_ty)?;
 
                         match literal_branches
                             .binary_search_by(|(l, _)| l.partial_cmp(&literal_intro).unwrap()) // NaN?
                         {
-                            Ok(index) => literal_branches.insert(index + 1, (literal_intro, body)),
+                            Ok(_) => {}, // TODO: Warn about duplicated patterns?
                             Err(index) => literal_branches.insert(index, (literal_intro, body)),
                         }
                     },
