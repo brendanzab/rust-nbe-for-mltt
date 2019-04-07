@@ -1,10 +1,9 @@
 //! Elaboration of lists clauses to case trees.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{IntroParam, Pattern, Term};
+use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
 use mltt_core::syntax::{core, domain, AppMode, LiteralIntro};
 use mltt_span::FileSpan;
-use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::{check_term, do_closure_app, literal, synth_term, synth_universe, Context};
@@ -55,18 +54,16 @@ pub fn check_clause(
         clause.concrete_params.split_first(),
     ) {
         let var_name = match check_param_app_mode(head_param, &app_mode)? {
-            None => None,
-            Some(pattern) => {
+            CheckedPattern::Var(None) => None,
+            CheckedPattern::Var(Some(var_name)) => {
                 clause.concrete_params = rest_params;
-                match pattern.as_ref() {
-                    Pattern::Var(var_name) => Some(var_name.to_string()),
-                    Pattern::LiteralIntro(_, literal) => {
-                        return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
-                            DiagnosticLabel::new_primary(literal.span())
-                                .with_message("use a case expression for matching on literals"),
-                        ));
-                    },
-                }
+                Some(var_name.to_string())
+            },
+            CheckedPattern::LiteralIntro(_, literal) => {
+                return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
+                    DiagnosticLabel::new_primary(literal.span())
+                        .with_message("use a case expression for matching on literals"),
+                ));
             },
         };
 
@@ -215,24 +212,38 @@ fn next_expected_param<'ty>(
     }
 }
 
+enum CheckedPattern<'file> {
+    Var(Option<SpannedString<'file>>),
+    LiteralIntro(LiteralKind, SpannedString<'file>),
+}
+
+impl<'file> From<&Pattern<'file>> for CheckedPattern<'file> {
+    fn from(src: &Pattern<'file>) -> CheckedPattern<'file> {
+        match src {
+            Pattern::Var(name) => CheckedPattern::Var(Some(name.clone())),
+            Pattern::LiteralIntro(kind, src) => CheckedPattern::LiteralIntro(*kind, src.clone()),
+        }
+    }
+}
+
 /// Check that a given parameter matches the expected application mode, and
 /// return the pattern inside it.
 fn check_param_app_mode<'param, 'file>(
     param: &'param IntroParam<'file>,
     expected_app_mode: &AppMode,
-) -> Result<Option<Cow<'param, Pattern<'file>>>, Diagnostic<FileSpan>> {
+) -> Result<CheckedPattern<'file>, Diagnostic<FileSpan>> {
     match (param, expected_app_mode) {
-        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(Some(Cow::Borrowed(pattern))),
+        (IntroParam::Explicit(pattern), AppMode::Explicit) => Ok(CheckedPattern::from(pattern)),
         (IntroParam::Implicit(_, intro_label, pattern), AppMode::Implicit(ty_label))
         | (IntroParam::Instance(_, intro_label, pattern), AppMode::Instance(ty_label))
             if intro_label.slice == ty_label.0 =>
         {
             match pattern {
-                None => Ok(Some(Cow::Owned(Pattern::Var(intro_label.clone())))),
-                Some(pattern) => Ok(Some(Cow::Borrowed(pattern))),
+                None => Ok(CheckedPattern::Var(Some(intro_label.clone()))),
+                Some(pattern) => Ok(CheckedPattern::from(pattern)),
             }
         },
-        (_, AppMode::Implicit(_)) | (_, AppMode::Instance(_)) => Ok(None),
+        (_, AppMode::Implicit(_)) | (_, AppMode::Instance(_)) => Ok(CheckedPattern::Var(None)),
         (IntroParam::Implicit(span, _, _), AppMode::Explicit)
         | (IntroParam::Instance(span, _, _), AppMode::Explicit) => {
             let message = "unexpected parameter pattern";
