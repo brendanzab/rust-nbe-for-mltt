@@ -251,9 +251,13 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             None => Err(TypeError::UnknownPrim(name.clone())),
             Some(_) => Ok(()),
         },
-        Term::Let(def, body) => {
+        Term::Let(def, def_ty, body) => {
             let mut body_context = context.clone();
-            body_context.local_define(context.eval(def)?, synth_term(context, def)?);
+            synth_universe(context, def_ty)?;
+            let def_ty = context.eval(def_ty)?;
+            check_term(context, &def, &def_ty)?;
+            let def = context.eval(def)?;
+            body_context.local_define(def, def_ty);
 
             check_term(&body_context, body, expected_ty)
         },
@@ -350,10 +354,13 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             None => Err(TypeError::UnknownPrim(name.clone())),
             Some(_) => Err(TypeError::AmbiguousTerm(term.clone())),
         },
-        Term::Let(def, body) => {
+        Term::Let(def, def_ty, body) => {
             let mut body_context = context.clone();
-            let def_ty = synth_term(context, def)?;
-            body_context.local_define(context.eval(def)?, def_ty);
+            synth_universe(context, def_ty)?;
+            let def_ty = context.eval(def_ty)?;
+            check_term(context, def, &def_ty)?;
+            let def = context.eval(def)?;
+            body_context.local_define(def, def_ty);
 
             synth_term(&body_context, body)
         },

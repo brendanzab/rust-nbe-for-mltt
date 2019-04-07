@@ -68,7 +68,7 @@ pub enum Term {
     Prim(String),
 
     /// Let bindings
-    Let(RcTerm, RcTerm),
+    Let(RcTerm, RcTerm, RcTerm),
 
     /// Literal types
     LiteralType(LiteralType),
@@ -122,8 +122,10 @@ impl Term {
         match (self, other) {
             (Term::Var(index1), Term::Var(index2)) => index1 == index2,
             (Term::Prim(name1), Term::Prim(name2)) => name1 == name2,
-            (Term::Let(def1, body1), Term::Let(def2, body2)) => {
-                Term::alpha_eq(def1, def2) && Term::alpha_eq(body1, body2)
+            (Term::Let(def1, def_ty1, body1), Term::Let(def2, def_ty2, body2)) => {
+                Term::alpha_eq(def1, def2)
+                    && Term::alpha_eq(def_ty1, def_ty2)
+                    && Term::alpha_eq(body1, body2)
             },
 
             (Term::LiteralType(literal_ty1), Term::LiteralType(literal_ty2)) => {
@@ -186,10 +188,14 @@ impl Term {
                 .append("primitive")
                 .append(Doc::space())
                 .append(format!("{:?}", name)),
-            Term::Let(def, body) => Doc::nil()
+            Term::Let(def, def_ty, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
                 .append("_")
+                .append(Doc::space())
+                .append(":")
+                .append(Doc::space())
+                .append(def_ty.to_doc())
                 .append(Doc::space())
                 .append("=")
                 .append(Doc::space())
@@ -473,8 +479,9 @@ impl Term {
                 .append("primitive")
                 .append(Doc::space())
                 .append(format!("{:?}", name)),
-            Term::Let(def, body) => {
+            Term::Let(def, def_ty, body) => {
                 let def_doc = def.to_display_doc(env);
+                let def_ty_doc = def_ty.to_display_doc(env);
                 let def_name = env.fresh_name(None);
                 let body_doc = body.to_display_doc(env);
                 env.pop_name();
@@ -484,6 +491,10 @@ impl Term {
                     .append("let")
                     .append(Doc::space())
                     .append(def_name)
+                    .append(Doc::space())
+                    .append(":")
+                    .append(Doc::space())
+                    .append(def_ty_doc)
                     .append(Doc::space())
                     .append("=")
                     .append(Doc::space())

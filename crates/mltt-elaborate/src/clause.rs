@@ -114,14 +114,11 @@ pub fn check_case<'file>(
         Some((default_clause, literal_clauses)) => {
             let mut context = context.clone();
 
-            let (scrutinee_level, scrutinee_term, scrutinee_ty) = {
-                let scrutinee_level = context.level();
-                let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
-                let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
-                context.local_define(None, scrutinee_value, scrutinee_ty.clone());
-
-                (scrutinee_level, scrutinee_term, scrutinee_ty)
-            };
+            let scrutinee_level = context.level();
+            let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
+            let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
+            let scrutinee_ty_term = context.read_back(None, &scrutinee_ty)?;
+            context.local_define(None, scrutinee_value, scrutinee_ty.clone());
 
             let mut literal_branches =
                 Vec::<(LiteralIntro, core::RcTerm)>::with_capacity(literal_clauses.len());
@@ -169,6 +166,7 @@ pub fn check_case<'file>(
 
             Ok(core::RcTerm::from(core::Term::Let(
                 scrutinee_term,
+                scrutinee_ty_term,
                 core::RcTerm::from(core::Term::LiteralElim(
                     context.read_back(None, &domain::RcValue::var(scrutinee_level))?,
                     Rc::from(literal_branches),

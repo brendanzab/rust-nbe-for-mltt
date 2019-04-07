@@ -426,7 +426,7 @@ pub fn eval(prims: &PrimEnv, env: &Env<RcValue>, term: &RcTerm) -> Result<RcValu
                 None => Ok(RcValue::prim(name.clone())),
             }
         },
-        Term::Let(def, body) => {
+        Term::Let(def, _, body) => {
             let def = eval(prims, env, def)?;
             let mut env = env.clone();
             env.add_entry(def);

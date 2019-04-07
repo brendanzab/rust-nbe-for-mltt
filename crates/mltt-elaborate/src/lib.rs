@@ -433,7 +433,7 @@ pub fn check_term(
 
             Ok(items.into_iter().rev().fold(body, |acc, item| {
                 // TODO: other item fields?
-                core::RcTerm::from(core::Term::Let(item.term, acc))
+                core::RcTerm::from(core::Term::Let(item.term, item.term_ty, acc))
             }))
         },
         Term::If(_, condition, consequent, alternative) => {
@@ -561,7 +561,7 @@ pub fn synth_term(
             Ok((
                 items.into_iter().rev().fold(body, |acc, item| {
                     // TODO: other item fields?
-                    core::RcTerm::from(core::Term::Let(item.term, acc))
+                    core::RcTerm::from(core::Term::Let(item.term, item.term_ty, acc))
                 }),
                 body_ty,
             ))

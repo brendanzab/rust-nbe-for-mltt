@@ -6,9 +6,9 @@ test-let =
         unit : Unit;
         unit = record {};
 
-        -- FIXME:
-        -- id : Fun {A : Type} -> A -> A;
-        -- id {A} a = a;
+        -- The core syntax of this let binding should only be typeable
+        -- if we have annotations in the core syntax.
+        id : Fun {A : Type} -> A -> A;
+        id {A} a = a;
     in
-        -- id {A = Unit}
-            unit;
+        id {A = Unit} unit;
