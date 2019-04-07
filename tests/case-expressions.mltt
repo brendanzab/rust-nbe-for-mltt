@@ -1,6 +1,13 @@
-default : U32 -> String;
-default ignored = case ignored {
-    _ => "the common choice";
+default-pattern : U32 -> String;
+default-pattern ignored = case ignored {
+    _ => "default";
+};
+
+duplicate-patterns : U32 -> String;
+duplicate-patterns ignored = case ignored {
+    42 => "forty-two";
+    42 => "42";
+    _ => "default";
 };
 
 meaning : U32 -> String;
