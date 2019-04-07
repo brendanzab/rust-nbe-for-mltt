@@ -116,7 +116,7 @@ pub fn check_case<'file>(
 
             let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
             let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
-            let scrutinee_var = domain::RcValue::var(context.level());
+            let scrutinee_level = context.level();
             context.local_define(None, scrutinee_value, scrutinee_ty.clone());
 
             let mut literal_branches =
@@ -150,12 +150,8 @@ pub fn check_case<'file>(
             let default = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
-
-                    let var_var = domain::RcValue::var(context.level());
-                    context.local_define(name.to_string(), scrutinee_var.clone(), scrutinee_ty);
-                    let body = check_term(&context, &default_clause.body, expected_ty)?;
-
-                    core::RcTerm::from(core::Term::Let(context.read_back(None, &var_var)?, body))
+                    context.names.insert(name.to_string(), scrutinee_level);
+                    check_term(&context, &default_clause.body, expected_ty)?
                 },
                 _ => {
                     return Err(
@@ -170,7 +166,7 @@ pub fn check_case<'file>(
             Ok(core::RcTerm::from(core::Term::Let(
                 scrutinee_term,
                 core::RcTerm::from(core::Term::LiteralElim(
-                    context.read_back(None, &scrutinee_var)?,
+                    context.read_back(None, &domain::RcValue::var(scrutinee_level))?,
                     Rc::from(literal_branches),
                     default,
                 )),
