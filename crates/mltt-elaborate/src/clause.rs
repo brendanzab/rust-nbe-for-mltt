@@ -77,7 +77,7 @@ pub fn check_clause(
 
     let body = check_clause_body(&context, &clause, &expected_ty)?;
 
-    Ok(done(param_app_modes, body))
+    Ok(done(Vec::new(), param_app_modes, body))
 }
 
 /// The state of a pattern clause, part-way through evaluation
@@ -114,11 +114,18 @@ pub fn check_case<'file>(
         Some((default_clause, literal_clauses)) => {
             let mut context = context.clone();
 
-            let scrutinee_level = context.level();
-            let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
-            let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
-            let scrutinee_ty_term = context.read_back(None, &scrutinee_ty)?;
-            context.local_define(None, scrutinee_value, scrutinee_ty.clone());
+            let (checked_scrutinee, (param_level, param_ty)) = {
+                let scrutinee_level = context.level();
+                let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
+                let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
+                let scrutinee_ty_term = context.read_back(None, &scrutinee_ty)?;
+                context.local_define(None, scrutinee_value, scrutinee_ty.clone());
+
+                (
+                    (scrutinee_term, scrutinee_ty_term),
+                    (scrutinee_level, scrutinee_ty),
+                )
+            };
 
             let mut literal_branches =
                 Vec::<(LiteralIntro, core::RcTerm)>::with_capacity(literal_clauses.len());
@@ -126,8 +133,7 @@ pub fn check_case<'file>(
             for literal_clause in literal_clauses {
                 match literal_clause.pattern {
                     Pattern::LiteralIntro(kind, literal) => {
-                        let literal_intro =
-                            literal::check(&context, *kind, literal, &scrutinee_ty)?;
+                        let literal_intro = literal::check(&context, *kind, literal, &param_ty)?;
                         let body = check_term(&context, &literal_clause.body, expected_ty)?;
 
                         match literal_branches
@@ -151,7 +157,7 @@ pub fn check_case<'file>(
             let default = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
-                    context.names.insert(name.to_string(), scrutinee_level);
+                    context.names.insert(name.to_string(), param_level);
                     check_term(&context, &default_clause.body, expected_ty)?
                 },
                 _ => {
@@ -164,15 +170,13 @@ pub fn check_case<'file>(
                 },
             };
 
-            Ok(core::RcTerm::from(core::Term::Let(
-                scrutinee_term,
-                scrutinee_ty_term,
-                core::RcTerm::from(core::Term::LiteralElim(
-                    context.read_back(None, &domain::RcValue::var(scrutinee_level))?,
-                    Rc::from(literal_branches),
-                    default,
-                )),
-            )))
+            let body = core::RcTerm::from(core::Term::LiteralElim(
+                context.read_back(None, &domain::RcValue::var(param_level))?,
+                Rc::from(literal_branches),
+                default,
+            ));
+
+            Ok(done(vec![checked_scrutinee], Vec::new(), body))
         },
     }
 }
@@ -276,11 +280,22 @@ fn synth_clause_body(
 }
 
 /// Finish elaborating the patterns into a case tree.
-fn done(param_app_modes: Vec<AppMode>, body: core::RcTerm) -> core::RcTerm {
-    param_app_modes
+fn done(
+    scrutinees: Vec<(core::RcTerm, core::RcTerm)>,
+    param_app_modes: Vec<AppMode>,
+    body: core::RcTerm,
+) -> core::RcTerm {
+    let body = param_app_modes
         .into_iter()
         .rev()
         .fold(body, |acc, app_mode| {
             core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
+        });
+
+    scrutinees
+        .into_iter()
+        .rev()
+        .fold(body, |acc, (scrutinee, scrutinee_ty)| {
+            core::RcTerm::from(core::Term::Let(scrutinee, scrutinee_ty, acc))
         })
 }
