@@ -424,7 +424,7 @@ pub fn check_term(
             match context.prims().lookup_entry(&parsed_name) {
                 None => Err(Diagnostic::new_error("unknown primitive")
                     .with_label(DiagnosticLabel::new_primary(name.span()))),
-                Some(_) => Ok(core::RcTerm::from(core::Term::Prim(parsed_name))),
+                Some(_) => Ok(core::RcTerm::prim(parsed_name)),
             }
         },
         Term::Parens(_, concrete_term) => check_term(context, concrete_term, expected_ty),
@@ -461,7 +461,7 @@ pub fn check_term(
 
         Term::LiteralIntro(kind, literal) => {
             let literal_intro = literal::check(context, *kind, literal, expected_ty)?;
-            Ok(core::RcTerm::from(core::Term::LiteralIntro(literal_intro)))
+            Ok(core::RcTerm::literal_intro(literal_intro))
         },
 
         Term::FunIntro(_, concrete_params, concrete_body) => {
@@ -534,7 +534,7 @@ pub fn synth_term(
         Term::Var(name) => match context.lookup_binder(name.slice) {
             None => Err(Diagnostic::new_error("unbound variable")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
-            Some((index, ann)) => Ok((core::RcTerm::from(core::Term::Var(index)), ann.clone())),
+            Some((index, ann)) => Ok((core::RcTerm::var(index), ann.clone())),
         },
         Term::Prim(span, name) => match context.prims().lookup_entry(&literal::parse_string(name)?)
         {
@@ -577,7 +577,7 @@ pub fn synth_term(
 
         Term::LiteralIntro(kind, literal) => {
             let (literal_intro, ty) = literal::synth(*kind, literal)?;
-            let term = core::RcTerm::from(core::Term::LiteralIntro(literal_intro));
+            let term = core::RcTerm::literal_intro(literal_intro);
 
             Ok((term, ty))
         },

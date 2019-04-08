@@ -120,6 +120,28 @@ pub struct RcTerm {
     pub inner: Rc<Term>,
 }
 
+impl RcTerm {
+    /// Construct a variable.
+    pub fn var(index: impl Into<VarIndex>) -> RcTerm {
+        RcTerm::from(Term::var(index))
+    }
+
+    /// Construct a primitive.
+    pub fn prim(name: impl Into<String>) -> RcTerm {
+        RcTerm::from(Term::prim(name.into()))
+    }
+
+    /// Construct a literal type.
+    pub fn literal_ty(ty: impl Into<LiteralType>) -> RcTerm {
+        RcTerm::from(Term::literal_ty(ty))
+    }
+
+    /// Construct a literal introduction.
+    pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcTerm {
+        RcTerm::from(Term::literal_intro(value))
+    }
+}
+
 impl From<Term> for RcTerm {
     fn from(src: Term) -> RcTerm {
         RcTerm {
@@ -196,6 +218,26 @@ pub enum Term {
 }
 
 impl Term {
+    /// Construct a variable.
+    pub fn var(index: impl Into<VarIndex>) -> Term {
+        Term::Var(index.into())
+    }
+
+    /// Construct a primitive.
+    pub fn prim(name: impl Into<String>) -> Term {
+        Term::Prim(name.into())
+    }
+
+    /// Construct a literal type.
+    pub fn literal_ty(ty: impl Into<LiteralType>) -> Term {
+        Term::LiteralType(ty.into())
+    }
+
+    /// Construct a literal introduction.
+    pub fn literal_intro(value: impl Into<LiteralIntro>) -> Term {
+        Term::LiteralIntro(value.into())
+    }
+
     /// Checks if a term is _alpha equivalent_ to another term.
     ///
     /// This means that the two terms share the same binding structure, while

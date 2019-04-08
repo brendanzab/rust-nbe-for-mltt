@@ -11,7 +11,7 @@ use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{
     AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value,
 };
-use crate::syntax::{AppMode, Env, Label, LiteralIntro, VarIndex, VarLevel};
+use crate::syntax::{AppMode, Env, Label, LiteralIntro, VarLevel};
 
 /// An error produced during normalization
 ///
@@ -506,10 +506,8 @@ pub fn read_back_term(
         Value::Neutral(head, spine) => read_back_neutral(prims, level, head, spine),
 
         // Literals
-        Value::LiteralType(literal_ty) => Ok(RcTerm::from(Term::LiteralType(literal_ty.clone()))),
-        Value::LiteralIntro(literal_intro) => {
-            Ok(RcTerm::from(Term::LiteralIntro(literal_intro.clone())))
-        },
+        Value::LiteralType(literal_ty) => Ok(RcTerm::literal_ty(literal_ty.clone())),
+        Value::LiteralIntro(literal_intro) => Ok(RcTerm::literal_intro(literal_intro.clone())),
 
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
@@ -575,10 +573,7 @@ pub fn read_back_neutral(
     spine: &Spine,
 ) -> Result<RcTerm, NbeError> {
     let (head, spine) = match head {
-        Head::Var(var_level) => (
-            RcTerm::from(Term::Var(VarIndex(level.0 - (var_level.0 + 1)))),
-            spine.as_slice(),
-        ),
+        Head::Var(var_level) => (RcTerm::var(level.0 - (var_level.0 + 1)), spine.as_slice()),
         Head::Prim(name) => {
             let prim = prims
                 .lookup_entry(name)
@@ -589,7 +584,7 @@ pub fn read_back_neutral(
                     let (value, rest_spine) = result?;
                     (read_back_term(prims, level, &value)?, rest_spine)
                 },
-                None => (RcTerm::from(Term::Prim(name.clone())), spine.as_slice()),
+                None => (RcTerm::prim(name.clone()), spine.as_slice()),
             }
         },
     };
