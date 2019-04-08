@@ -10,7 +10,7 @@
 | [`mltt-elaborate`]      | Elaboration from the concrete syntax to the core syntax           |
 | [`mltt-core`]           | Core syntax, NbE, and validation                                  |
 | [`mltt-span`]           | Data structures for tracking source positions                     |
-| [`mltt-test`]           | Integration tests                                                 |
+| [`mltt-test`]           | Integration test harness                                          |
 
 [`mltt-cli`]: /crates/mltt-cli
 [`mltt-parse`]: /crates/mltt-parse
