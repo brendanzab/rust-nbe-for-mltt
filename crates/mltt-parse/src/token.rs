@@ -70,13 +70,6 @@ impl Token<'_> {
 
 impl fmt::Debug for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{kind:?}@[{start}, {end}) {slice:?}",
-            kind = self.kind,
-            start = self.src.span().start().to_usize(),
-            end = self.src.span().end().to_usize(),
-            slice = self.src.slice,
-        )
+        write!(f, "{kind:?}@{src:?}", kind = self.kind, src = self.src)
     }
 }

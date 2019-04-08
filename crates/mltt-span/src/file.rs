@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops;
 
 use crate::{ByteIndex, ColumnIndex, LineIndex, Location, Span};
@@ -5,6 +6,12 @@ use crate::{ByteIndex, ColumnIndex, LineIndex, Location, Span};
 /// A handle that points to a file in the database.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileId(usize);
+
+impl fmt::Display for FileId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
 
 /// A span in a file.
 pub type FileSpan = Span<FileId>;

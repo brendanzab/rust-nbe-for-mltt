@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{ByteIndex, ByteSize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span<Source> {
     source: Source,
     start: ByteIndex,
@@ -92,5 +92,17 @@ impl<Source: Copy + fmt::Debug> language_reporting::ReportingSpan for Span<Sourc
 
     fn end(&self) -> usize {
         Span::end(self).to_usize()
+    }
+}
+
+impl<Source: Copy + fmt::Debug> fmt::Debug for Span<Source> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{source:?}:[{start}, {end})",
+            source = self.source,
+            start = self.start().to_usize(),
+            end = self.end().to_usize(),
+        )
     }
 }

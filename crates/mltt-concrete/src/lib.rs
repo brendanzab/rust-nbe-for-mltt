@@ -129,7 +129,7 @@ impl<'file> Definition<'file> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SpannedString<'file> {
     pub source: FileId,
     pub start: ByteIndex,
@@ -160,6 +160,17 @@ impl<'file> SpannedString<'file> {
     /// Convert the string into a pretty-printable document
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::text(self.slice)
+    }
+}
+
+impl<'file> fmt::Debug for SpannedString<'file> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{span:?} {slice:?}",
+            span = self.span(),
+            slice = self.slice,
+        )
     }
 }
 
