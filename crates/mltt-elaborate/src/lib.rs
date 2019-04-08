@@ -228,10 +228,12 @@ impl Default for Context {
 pub fn check_module(
     context: &Context,
     concrete_items: &[Item<'_>],
-) -> Result<Vec<core::Item>, Diagnostic<FileSpan>> {
+) -> Result<core::Module, Diagnostic<FileSpan>> {
     // The local elaboration context
     let mut context = context.clone();
-    check_items(&mut context, concrete_items)
+    let items = check_items(&mut context, concrete_items)?;
+
+    Ok(core::Module { items })
 }
 
 /// Check the given items and add them to the context.
@@ -334,7 +336,7 @@ fn check_items(
                 context.local_define(label.to_owned(), value, ty);
                 core_items.push(core::Item {
                     doc,
-                    label: label.to_owned(),
+                    label: Label(label.to_owned()),
                     term_ty,
                     term,
                 });

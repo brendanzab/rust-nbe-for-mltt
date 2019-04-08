@@ -10,13 +10,109 @@ use crate::syntax::{
     AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
 };
 
+#[derive(Clone, PartialEq)]
+pub struct Module {
+    pub items: Vec<Item>,
+}
+
+impl Module {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::concat(self.items.iter().map(|item| {
+            Doc::group(item.to_doc().append(";"))
+                .append(Doc::newline())
+                .append(Doc::newline())
+        }))
+    }
+
+    pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::concat(self.items.iter().map(|item| {
+            Doc::group(item.to_display_doc(env).append(";"))
+                .append(Doc::newline())
+                .append(Doc::newline())
+        }))
+    }
+}
+
+impl fmt::Debug for Module {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let doc = self.to_doc().group();
+        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
+    }
+}
+
+impl fmt::Display for Module {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let doc = self.to_display_doc(&mut DisplayEnv::new()).group();
+        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
+    }
+}
+
 /// Top-level items
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Item {
     pub doc: DocString,
-    pub label: String,
+    pub label: Label,
     pub term_ty: RcTerm,
     pub term: RcTerm,
+}
+
+impl Item {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::nil()
+            .append(self.label.to_doc())
+            .append(Doc::space())
+            .append(":")
+            .group()
+            .append(
+                Doc::nil()
+                    .append(Doc::space())
+                    .append(self.term_ty.to_doc())
+                    .group()
+                    .nest(4),
+            )
+            .append(Doc::space())
+            .append("=")
+            .group()
+            .append(Doc::newline().append(self.term.to_doc()).group().nest(4))
+    }
+
+    pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::nil()
+            .append(self.label.to_doc())
+            .append(Doc::space())
+            .append(":")
+            .group()
+            .append(
+                Doc::nil()
+                    .append(Doc::space())
+                    .append(self.term_ty.to_display_doc(env))
+                    .group()
+                    .nest(4),
+            )
+            .append(Doc::space())
+            .append("=")
+            .group()
+            .append(
+                Doc::newline()
+                    .append(self.term.to_display_doc(env))
+                    .group()
+                    .nest(4),
+            )
+    }
+}
+
+impl fmt::Debug for Item {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let doc = self.to_doc().group();
+        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
+    }
+}
+
+impl fmt::Display for Item {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let doc = self.to_display_doc(&mut DisplayEnv::new()).group();
+        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -191,35 +287,41 @@ impl Term {
             Term::Let(def, def_ty, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
-                .append("_")
-                .append(Doc::space())
-                .append(":")
+                .append(Doc::text("_").append(Doc::space()).append(":").group())
                 .append(Doc::space())
                 .append(def_ty.to_doc())
                 .append(Doc::space())
                 .append("=")
-                .append(Doc::space())
-                .append(def.to_doc())
-                .append(";")
+                .group()
+                .append(
+                    Doc::space()
+                        .append(def.to_doc())
+                        .append(";")
+                        .group()
+                        .nest(4),
+                )
                 .append(Doc::space())
                 .append("in")
-                .append(Doc::space())
-                .append(body.to_doc()),
+                .append(Doc::space().append(body.to_doc()).group().nest(4)),
 
             Term::LiteralType(literal_ty) => literal_ty.to_doc(),
             Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
             Term::LiteralElim(scrutinee, clauses, default_body) => {
-                let clauses = Doc::intersperse(
-                    clauses.iter().map(|(literal_intro, body)| {
+                let clauses = if clauses.is_empty() {
+                    Doc::nil()
+                } else {
+                    Doc::concat(clauses.iter().map(|(literal_intro, body)| {
                         Doc::nil()
                             .append(literal_intro.to_doc())
                             .append(Doc::space())
                             .append("=>")
                             .append(Doc::space())
                             .append(body.to_doc())
-                    }),
-                    Doc::text(";").append(Doc::space()),
-                );
+                            .append(";")
+                            .group()
+                            .append(Doc::space())
+                    }))
+                };
 
                 Doc::nil()
                     .append("case")
@@ -227,15 +329,24 @@ impl Term {
                     .append(scrutinee.to_arg_doc())
                     .append(Doc::space())
                     .append("{")
-                    .append(Doc::space())
-                    .append(clauses)
-                    .append(";")
-                    .append(Doc::space())
-                    .append("_")
-                    .append(Doc::space())
-                    .append("=>")
-                    .append(Doc::space())
-                    .append(default_body.to_doc())
+                    .group()
+                    .append(
+                        Doc::nil()
+                            .append(Doc::space())
+                            .append(clauses)
+                            .append(
+                                Doc::nil()
+                                    .append("_")
+                                    .append(Doc::space())
+                                    .append("=>")
+                                    .append(Doc::space())
+                                    .append(default_body.to_doc())
+                                    .append(";")
+                                    .group(),
+                            )
+                            .group()
+                            .nest(4),
+                    )
                     .append(Doc::space())
                     .append("}")
             },
@@ -269,15 +380,19 @@ impl Term {
                 };
 
                 Doc::nil()
-                    .append(Doc::group(
-                        Doc::text("Fun").append(Doc::space()).append(param),
-                    ))
+                    .append(Doc::text("Fun"))
+                    .append(Doc::space())
+                    .append(param.group())
                     .append(Doc::space())
                     .append("->")
-                    .append(Doc::space())
-                    .append("(")
-                    .append(body_ty.to_doc())
-                    .append(")")
+                    .group()
+                    .append(
+                        Doc::space()
+                            .append("(")
+                            .append(body_ty.to_doc().group())
+                            .append(")")
+                            .nest(4),
+                    )
             },
             Term::FunIntro(app_mode, body) => {
                 let param = match app_mode {
@@ -303,11 +418,11 @@ impl Term {
                 Doc::nil()
                     .append("fun")
                     .append(Doc::space())
-                    .append(param)
+                    .append(param.group())
                     .append(Doc::space())
                     .append("=>")
-                    .append(Doc::space())
-                    .append(body.to_doc())
+                    .group()
+                    .append(Doc::space().append(body.to_doc()).group().nest(4))
             },
             Term::FunElim(fun, app_mode, arg) => {
                 let arg = match app_mode {
@@ -333,7 +448,7 @@ impl Term {
                 Doc::nil()
                     .append(fun.to_arg_doc())
                     .append(Doc::space())
-                    .append(arg)
+                    .append(arg.group())
             },
 
             Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
@@ -341,44 +456,59 @@ impl Term {
                 .append("Record")
                 .append(Doc::space())
                 .append("{")
-                .append(Doc::newline())
+                .group()
                 .append(
-                    Doc::intersperse(
-                        ty_fields.iter().map(|(_, label, ty)| {
-                            Doc::nil()
-                                .append(label.to_doc())
-                                .append(Doc::space())
-                                .append(":")
-                                .append(Doc::space())
-                                .append(ty.to_doc())
-                                .append(";")
-                        }),
-                        Doc::newline(),
-                    )
-                    .nest(4),
+                    Doc::nil()
+                        .append(Doc::space())
+                        .append(Doc::intersperse(
+                            ty_fields.iter().map(|(_, label, ty)| {
+                                Doc::nil()
+                                    .append(label.to_doc())
+                                    .append(Doc::space())
+                                    .append(":")
+                                    .append(
+                                        Doc::space()
+                                            .append(ty.to_doc())
+                                            .append(";")
+                                            .group()
+                                            .nest(4),
+                                    )
+                                    .group()
+                            }),
+                            Doc::space(),
+                        ))
+                        .nest(4),
                 )
-                .append(Doc::newline())
+                .append(Doc::space())
                 .append("}"),
             Term::RecordIntro(intro_fields) if intro_fields.is_empty() => Doc::text("record {}"),
             Term::RecordIntro(intro_fields) => Doc::nil()
                 .append("record")
                 .append(Doc::space())
                 .append("{")
-                .append(Doc::newline())
+                .group()
                 .append(
-                    Doc::intersperse(
-                        intro_fields.iter().map(|(label, term)| {
-                            Doc::nil()
-                                .append(label.to_doc())
-                                .append(Doc::space())
-                                .append("=")
-                                .append(Doc::space())
-                                .append(term.to_doc())
-                                .append(";")
-                        }),
-                        Doc::newline(),
-                    )
-                    .nest(4),
+                    Doc::nil()
+                        .append(Doc::newline())
+                        .append(Doc::intersperse(
+                            intro_fields.iter().map(|(label, term)| {
+                                Doc::nil()
+                                    .append(label.to_doc())
+                                    .append(Doc::space())
+                                    .append("=")
+                                    .group()
+                                    .append(
+                                        Doc::space()
+                                            .append(term.to_doc().group())
+                                            .append(";")
+                                            .group()
+                                            .nest(4),
+                                    )
+                                    .group()
+                            }),
+                            Doc::newline(),
+                        ))
+                        .nest(4),
                 )
                 .append(Doc::newline())
                 .append("}"),
@@ -490,37 +620,43 @@ impl Term {
                 Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append(def_name)
-                    .append(Doc::space())
-                    .append(":")
+                    .append(
+                        Doc::nil()
+                            .append(def_name)
+                            .append(Doc::space())
+                            .append(":")
+                            .group(),
+                    )
                     .append(Doc::space())
                     .append(def_ty_doc)
                     .append(Doc::space())
                     .append("=")
-                    .append(Doc::space())
-                    .append(def_doc)
-                    .append(";")
+                    .group()
+                    .append(Doc::space().append(def_doc).append(";").group().nest(4))
                     .append(Doc::space())
                     .append("in")
-                    .append(Doc::space())
-                    .append(body_doc)
+                    .append(Doc::space().append(body_doc).group().nest(4))
             },
 
             Term::LiteralType(literal_ty) => literal_ty.to_doc(),
             Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
             Term::LiteralElim(scrutinee, clauses, default_body) => {
                 let scrutinee = scrutinee.to_display_arg_doc(env);
-                let clauses = Doc::intersperse(
-                    clauses.iter().map(|(literal_intro, body)| {
+                let clauses = if clauses.is_empty() {
+                    Doc::nil()
+                } else {
+                    Doc::concat(clauses.iter().map(|(literal_intro, body)| {
                         Doc::nil()
                             .append(literal_intro.to_doc())
                             .append(Doc::space())
                             .append("=>")
                             .append(Doc::space())
                             .append(body.to_display_doc(env))
-                    }),
-                    Doc::text(";").append(Doc::space()),
-                );
+                            .append(";")
+                            .group()
+                            .append(Doc::space())
+                    }))
+                };
 
                 Doc::nil()
                     .append("case")
@@ -528,15 +664,24 @@ impl Term {
                     .append(scrutinee)
                     .append(Doc::space())
                     .append("{")
-                    .append(Doc::space())
-                    .append(clauses)
-                    .append(";")
-                    .append(Doc::space())
-                    .append("_")
-                    .append(Doc::space())
-                    .append("=>")
-                    .append(Doc::space())
-                    .append(default_body.to_display_doc(env))
+                    .group()
+                    .append(
+                        Doc::nil()
+                            .append(Doc::space())
+                            .append(clauses)
+                            .append(
+                                Doc::nil()
+                                    .append("_")
+                                    .append(Doc::space())
+                                    .append("=>")
+                                    .append(Doc::space())
+                                    .append(default_body.to_display_doc(env))
+                                    .append(";")
+                                    .group(),
+                            )
+                            .group()
+                            .nest(4),
+                    )
                     .append(Doc::space())
                     .append("}")
             },
@@ -597,15 +742,19 @@ impl Term {
                 // TODO: use non-dependent function if possible
                 // TODO: flatten params
                 Doc::nil()
-                    .append(Doc::group(
-                        Doc::text("Fun").append(Doc::space()).append(param_doc),
-                    ))
+                    .append(Doc::text("Fun"))
+                    .append(Doc::space())
+                    .append(param_doc.group())
                     .append(Doc::space())
                     .append("->")
-                    .append(Doc::space())
-                    .append("(")
-                    .append(body_ty_doc)
-                    .append(")")
+                    .group()
+                    .append(
+                        Doc::space()
+                            .append("(")
+                            .append(body_ty_doc.group())
+                            .append(")")
+                            .nest(4),
+                    )
             },
             Term::FunIntro(app_mode, body) => {
                 let param_doc = match app_mode {
@@ -651,11 +800,11 @@ impl Term {
                 Doc::nil()
                     .append("fun")
                     .append(Doc::space())
-                    .append(param_doc)
+                    .append(param_doc.group())
                     .append(Doc::space())
                     .append("=>")
-                    .append(Doc::space())
-                    .append(body_doc)
+                    .group()
+                    .append(Doc::space().append(body_doc).group().nest(4))
             },
             Term::FunElim(fun, app_mode, arg) => {
                 let arg = match app_mode {
@@ -681,7 +830,7 @@ impl Term {
                 Doc::nil()
                     .append(fun.to_display_arg_doc(env))
                     .append(Doc::space())
-                    .append(arg)
+                    .append(arg.group())
             },
 
             Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
@@ -701,12 +850,13 @@ impl Term {
                                 // TODO: only use `as` if `label != param_name`
                                 .append("as")
                                 .append(Doc::space())
+                                .group()
                                 .append(name)
                                 .append(Doc::space())
                                 .append(":")
-                                .append(Doc::space())
-                                .append(ty_doc)
-                                .append(";")
+                                .group()
+                                .append(Doc::space().append(ty_doc).append(";").group().nest(4))
+                                .group()
                         }),
                         Doc::space(),
                     )
@@ -720,8 +870,8 @@ impl Term {
                     .append("Record")
                     .append(Doc::space())
                     .append("{")
-                    .append(Doc::space())
-                    .append(fields_doc.nest(4))
+                    .group()
+                    .append(Doc::space().append(fields_doc).nest(4))
                     .append(Doc::space())
                     .append("}")
             },
@@ -730,22 +880,30 @@ impl Term {
                 .append("record")
                 .append(Doc::space())
                 .append("{")
-                .append(Doc::space())
+                .group()
                 .append(
-                    Doc::intersperse(
-                        intro_fields.iter().map(|(label, term)| {
-                            // TODO: parameter sugar
-                            Doc::nil()
-                                .append(label.to_doc())
-                                .append(Doc::space())
-                                .append("=")
-                                .append(Doc::space())
-                                .append(term.to_display_doc(env))
-                                .append(";")
-                        }),
-                        Doc::space(),
-                    )
-                    .nest(4),
+                    Doc::nil()
+                        .append(Doc::space())
+                        .append(Doc::intersperse(
+                            intro_fields.iter().map(|(label, term)| {
+                                // TODO: parameter sugar
+                                Doc::nil()
+                                    .append(label.to_doc())
+                                    .append(Doc::space())
+                                    .append("=")
+                                    .group()
+                                    .append(
+                                        Doc::space()
+                                            .append(term.to_display_doc(env))
+                                            .append(";")
+                                            .group()
+                                            .nest(4),
+                                    )
+                                    .group()
+                            }),
+                            Doc::space(),
+                        ))
+                        .nest(4),
                 )
                 .append(Doc::space())
                 .append("}"),

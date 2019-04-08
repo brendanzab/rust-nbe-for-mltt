@@ -4,7 +4,7 @@ default-pattern ignored = case ignored {
 };
 
 duplicate-patterns : U32 -> String;
-duplicate-patterns ignored = case ignored {
+duplicate-patterns number = case number {
     42 => "forty-two";
     42 => "42";
     _ => "default";
@@ -23,4 +23,3 @@ hi-to-bye value = case value {
     "hi" => "bye";
     other => other;
 };
-

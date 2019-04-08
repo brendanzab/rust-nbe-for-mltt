@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::nbe::{self, NbeError};
-use crate::syntax::core::{Item, RcTerm, Term};
+use crate::syntax::core::{Module, RcTerm, Term};
 use crate::syntax::domain::{RcType, RcValue, Value};
 use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
 
@@ -184,10 +184,10 @@ impl fmt::Display for TypeError {
 }
 
 /// Check that this is a valid module.
-pub fn check_module(context: &Context, items: &[Item]) -> Result<(), TypeError> {
+pub fn check_module(context: &Context, module: &Module) -> Result<(), TypeError> {
     let mut context = context.clone();
 
-    for item in items {
+    for item in &module.items {
         log::trace!("checking item:\t\t{}", item.label);
 
         log::trace!("checking declaration:\t{}", item.term_ty);
