@@ -8,7 +8,10 @@ use std::ops;
 use std::rc::Rc;
 
 pub mod core;
+pub mod doc;
 pub mod domain;
+
+pub use self::doc::DisplayEnv;
 
 /// Reference counted documentation string
 pub type DocString = Rc<str>;
