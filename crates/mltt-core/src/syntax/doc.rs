@@ -220,24 +220,24 @@ impl core::Term {
                         .append("_")
                         .append(Doc::space())
                         .append(":")
-                        .append(Doc::space())
-                        .append(param_ty.to_debug_doc())
+                        .group()
+                        .append(Doc::space().append(param_ty.to_debug_doc()).nest(4))
                         .append(")"),
                     AppMode::Implicit(label) => Doc::nil()
                         .append("{")
                         .append(label.to_doc())
                         .append(Doc::space())
                         .append(":")
-                        .append(Doc::space())
-                        .append(param_ty.to_debug_doc())
+                        .group()
+                        .append(Doc::space().append(param_ty.to_debug_doc()).nest(4))
                         .append("}"),
                     AppMode::Instance(label) => Doc::nil()
                         .append("{{")
                         .append(label.to_doc())
                         .append(Doc::space())
                         .append(":")
-                        .append(Doc::space())
-                        .append(param_ty.to_debug_doc())
+                        .group()
+                        .append(Doc::space().append(param_ty.to_debug_doc()).nest(4))
                         .append("}}"),
                 };
 
@@ -264,16 +264,16 @@ impl core::Term {
                         .append(label.to_doc())
                         .append(Doc::space())
                         .append("=")
-                        .append(Doc::space())
-                        .append("_")
+                        .group()
+                        .append(Doc::space().append("_").nest(4))
                         .append("}"),
                     AppMode::Instance(label) => Doc::nil()
                         .append("{{")
                         .append(label.to_doc())
                         .append(Doc::space())
                         .append("=")
-                        .append(Doc::space())
-                        .append("_")
+                        .group()
+                        .append(Doc::space().append("_").nest(4))
                         .append("}}"),
                 };
 
@@ -294,16 +294,16 @@ impl core::Term {
                         .append(label.to_doc())
                         .append(Doc::space())
                         .append("=")
-                        .append(Doc::space())
-                        .append(arg.to_debug_doc())
+                        .group()
+                        .append(Doc::space().append(arg.to_debug_doc()).nest(4))
                         .append("}"),
                     AppMode::Instance(label) => Doc::nil()
                         .append("{{")
                         .append(label.to_doc())
                         .append(Doc::space())
                         .append("=")
-                        .append(Doc::space())
-                        .append(arg.to_debug_doc())
+                        .group()
+                        .append(Doc::space().append(arg.to_debug_doc()).nest(4))
                         .append("}}"),
                 };
 
@@ -389,6 +389,7 @@ impl core::Term {
             core::Term::Var(_)
             | core::Term::LiteralIntro(_)
             | core::Term::LiteralType(_)
+            | core::Term::RecordElim(_, _)
             | core::Term::Universe(_) => self.to_debug_doc(),
             _ => Doc::nil()
                 .append("(")
@@ -483,64 +484,82 @@ impl core::Term {
             },
 
             core::Term::FunType(app_mode, param_ty, body_ty) => {
-                let param_ty_doc = param_ty.to_display_doc(env);
-                let param_doc = match app_mode {
-                    AppMode::Explicit => {
-                        let param_name = env.fresh_name(None);
+                let mut body_ty = body_ty;
+                let mut params = vec![(app_mode, param_ty)];
+                while let core::Term::FunType(app_mode, param_ty, next_body_ty) = body_ty.as_ref() {
+                    params.push((app_mode, param_ty));
+                    body_ty = next_body_ty;
+                }
 
-                        Doc::nil()
-                            .append("(")
-                            .append(param_name)
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(param_ty_doc)
-                            .append(")")
-                    },
-                    AppMode::Implicit(label) => {
-                        let param_name = env.fresh_name(Some(&label.0));
+                let params_doc = Doc::intersperse(
+                    params.iter().map(|(app_mode, param_ty)| {
+                        let param_ty_doc = param_ty.to_display_doc(env);
+                        match app_mode {
+                            AppMode::Explicit => {
+                                let param_name = env.fresh_name(None);
 
-                        Doc::nil()
-                            .append("{")
-                            .append(label.to_doc())
-                            .append(Doc::space())
-                            // TODO: only use `as` if `label.0 != param_name`
-                            .append("as")
-                            .append(Doc::space())
-                            .append(param_name)
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(param_ty_doc)
-                            .append("}")
-                    },
-                    AppMode::Instance(label) => {
-                        let param_name = env.fresh_name(Some(&label.0));
+                                Doc::nil()
+                                    .append("(")
+                                    .append(param_name)
+                                    .append(Doc::space())
+                                    .append(":")
+                                    .group()
+                                    .append(Doc::space().append(param_ty_doc).nest(4))
+                                    .append(")")
+                                    .group()
+                            },
+                            AppMode::Implicit(label) => {
+                                let param_name = env.fresh_name(Some(&label.0));
 
-                        Doc::nil()
-                            .append("{{")
-                            .append(label.to_doc())
-                            .append(Doc::space())
-                            // TODO: only use `as` if `label.0 != param_name`
-                            .append("as")
-                            .append(Doc::space())
-                            .append(param_name)
-                            .append(Doc::space())
-                            .append(":")
-                            .append(Doc::space())
-                            .append(param_ty_doc)
-                            .append("}}")
-                    },
-                };
+                                Doc::nil()
+                                    .append("{")
+                                    .append(label.to_doc())
+                                    .append(Doc::space())
+                                    // TODO: only use `as` if `label.0 != param_name`
+                                    .append("as")
+                                    .append(Doc::space())
+                                    .append(param_name)
+                                    .append(Doc::space())
+                                    .append(":")
+                                    .group()
+                                    .append(Doc::space().append(param_ty_doc).nest(4))
+                                    .append("}")
+                                    .group()
+                            },
+                            AppMode::Instance(label) => {
+                                let param_name = env.fresh_name(Some(&label.0));
+
+                                Doc::nil()
+                                    .append("{{")
+                                    .append(label.to_doc())
+                                    .append(Doc::space())
+                                    // TODO: only use `as` if `label.0 != param_name`
+                                    .append("as")
+                                    .append(Doc::space())
+                                    .append(param_name)
+                                    .append(Doc::space())
+                                    .append(":")
+                                    .group()
+                                    .append(Doc::space().append(param_ty_doc).nest(4))
+                                    .append("}}")
+                                    .group()
+                            },
+                        }
+                    }),
+                    Doc::space(),
+                );
+
                 let body_ty_doc = body_ty.to_display_doc(env);
-                env.pop_name();
+
+                for _ in params {
+                    env.pop_name();
+                }
 
                 // TODO: use non-dependent function if possible
                 // TODO: flatten params
                 Doc::nil()
                     .append(Doc::text("Fun"))
-                    .append(Doc::space())
-                    .append(param_doc.group())
+                    .append(Doc::space().append(params_doc).nest(4))
                     .append(Doc::space())
                     .append("->")
                     .group()
@@ -553,80 +572,99 @@ impl core::Term {
                     )
             },
             core::Term::FunIntro(app_mode, body) => {
-                let param_doc = match app_mode {
-                    AppMode::Explicit => Doc::as_string(env.fresh_name(None)),
-                    AppMode::Implicit(label) => {
-                        let param_name = env.fresh_name(Some(&label.0));
+                let mut body = body;
+                let mut app_modes = vec![app_mode];
+                while let core::Term::FunIntro(app_mode, next_body) = body.as_ref() {
+                    app_modes.push(app_mode);
+                    body = next_body;
+                }
 
-                        Doc::nil()
-                            .append("{")
-                            .append(label.to_doc())
-                            .append(Doc::space())
-                            // TODO: only use `as` if `label.0 != param_name`
-                            .append("as")
-                            .append(Doc::space())
-                            .append(param_name)
-                            .append(Doc::space())
-                            .append("=")
-                            .append(Doc::space())
-                            .append("_")
-                            .append("}")
-                    },
-                    AppMode::Instance(label) => {
-                        let param_name = env.fresh_name(Some(&label.0));
+                let params_doc = Doc::intersperse(
+                    app_modes.iter().map(|app_mode| match app_mode {
+                        AppMode::Explicit => Doc::as_string(env.fresh_name(None)).group(),
+                        AppMode::Implicit(label) => {
+                            let param_name = env.fresh_name(Some(&label.0));
 
-                        Doc::nil()
-                            .append("{{")
-                            .append(label.to_doc())
-                            .append(Doc::space())
-                            // TODO: only use `as` if `label.0 != param_name`
-                            .append("as")
-                            .append(Doc::space())
-                            .append(param_name)
-                            .append(Doc::space())
-                            .append("=")
-                            .append(Doc::space())
-                            .append("_")
-                            .append("}}")
-                    },
-                };
+                            Doc::nil()
+                                .append("{")
+                                .append(label.to_doc())
+                                .append(Doc::space())
+                                // TODO: only use `=` if `label.0 != param_name`
+                                .append("=")
+                                .group()
+                                .append(Doc::space().append(param_name).nest(4))
+                                .append("}")
+                                .group()
+                        },
+                        AppMode::Instance(label) => {
+                            let param_name = env.fresh_name(Some(&label.0));
+
+                            Doc::nil()
+                                .append("{{")
+                                .append(label.to_doc())
+                                .append(Doc::space())
+                                // TODO: only use `=` if `label.0 != param_name`
+                                .append("=")
+                                .group()
+                                .append(Doc::space().append(param_name).nest(4))
+                                .append("}}")
+                                .group()
+                        },
+                    }),
+                    Doc::space(),
+                );
+
                 let body_doc = body.to_display_doc(env);
-                env.pop_name();
+
+                for _ in app_modes {
+                    env.pop_name();
+                }
 
                 Doc::nil()
                     .append("fun")
                     .append(Doc::space())
-                    .append(param_doc.group())
+                    .append(params_doc)
                     .append(Doc::space())
                     .append("=>")
                     .group()
                     .append(Doc::space().append(body_doc).group().nest(4))
             },
             core::Term::FunElim(fun, app_mode, arg) => {
-                let arg = match app_mode {
-                    AppMode::Explicit => arg.to_display_arg_doc(env),
-                    AppMode::Implicit(label) => Doc::nil()
-                        .append("{")
-                        .append(label.to_doc())
-                        .append(Doc::space())
-                        .append("=")
-                        .append(Doc::space())
-                        .append(arg.to_display_doc(env))
-                        .append("}"),
-                    AppMode::Instance(label) => Doc::nil()
-                        .append("{{")
-                        .append(label.to_doc())
-                        .append(Doc::space())
-                        .append("=")
-                        .append(Doc::space())
-                        .append(arg.to_display_doc(env))
-                        .append("}}"),
-                };
+                let mut fun = fun;
+                let mut args = vec![(app_mode, arg)];
+                while let core::Term::FunElim(next_fun, app_mode, arg) = fun.as_ref() {
+                    args.push((app_mode, arg));
+                    fun = next_fun;
+                }
+
+                let args_doc = Doc::intersperse(
+                    args.iter().rev().map(|(app_mode, arg)| match app_mode {
+                        AppMode::Explicit => arg.to_display_arg_doc(env).group(),
+                        AppMode::Implicit(label) => Doc::nil()
+                            .append("{")
+                            .append(label.to_doc())
+                            .append(Doc::space())
+                            .append("=")
+                            .group()
+                            .append(Doc::space().append(arg.to_display_doc(env)).nest(4))
+                            .append("}")
+                            .group(),
+                        AppMode::Instance(label) => Doc::nil()
+                            .append("{{")
+                            .append(label.to_doc())
+                            .append(Doc::space())
+                            .append("=")
+                            .group()
+                            .append(Doc::space().append(arg.to_display_doc(env)).nest(4))
+                            .append("}}")
+                            .group(),
+                    }),
+                    Doc::space(),
+                );
 
                 Doc::nil()
                     .append(fun.to_display_arg_doc(env))
-                    .append(Doc::space())
-                    .append(arg.group())
+                    .append(Doc::space().append(args_doc).nest(4))
             },
 
             core::Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
@@ -719,6 +757,7 @@ impl core::Term {
             core::Term::Var(_)
             | core::Term::LiteralIntro(_)
             | core::Term::LiteralType(_)
+            | core::Term::RecordElim(_, _)
             | core::Term::Universe(_) => self.to_display_doc(env),
             _ => Doc::nil()
                 .append("(")
