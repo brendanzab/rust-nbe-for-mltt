@@ -1,8 +1,10 @@
 # rust-nbe-for-mltt
 
-Danny Gratzer's implementation of [Normalization by Evaluation for Martin-Löf
-Type Theory][nbe-for-mltt], ported to Rust. This will probably become the basis
-for a new front-end for [Pikelet](https://github.com/pikelet-lang/pikelet).
+This originally started as a Rust port of Danny Gratzer's implementation of
+[Normalization by Evaluation for Martin-Löf Type Theory][nbe-for-mltt], but it
+has a slightly different architecture and some additional language features.
+It will probably become the basis for a new front-end for
+[Pikelet](https://github.com/pikelet-lang/pikelet).
 
 In traditional type checking and normalization that uses [DeBruijn indices][de-bruijn-indices],
 you are required to shift variable indices whenever you open up binders. This
