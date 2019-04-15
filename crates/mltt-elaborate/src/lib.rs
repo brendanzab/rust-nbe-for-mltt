@@ -12,7 +12,6 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
-use mltt_core::nbe;
 use mltt_core::syntax::{
     core, domain, AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
     VarLevel,
@@ -25,6 +24,7 @@ use crate::clause::{CaseClause, Clause};
 
 mod clause;
 mod literal;
+mod nbe;
 
 /// Local elaboration context.
 #[derive(Debug, Clone)]
@@ -116,7 +116,6 @@ impl Context {
         arg: domain::RcValue,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
         nbe::app_closure(self.prims(), closure, arg)
-            .map_err(|error| Diagnostic::new_bug(format!("failed closure application: {}", error)))
     }
 
     /// Evaluate a term using the evaluation environment
@@ -125,11 +124,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::eval_term(self.prims(), self.values(), term).map_err(|error| match span.into() {
-            None => Diagnostic::new_bug(format!("failed to evaluate term: {}", error)),
-            Some(span) => Diagnostic::new_bug("failed to evaluate term")
-                .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
-        })
+        nbe::eval_term(self.prims(), self.values(), span, term)
     }
 
     /// Read a value back into the core syntax, normalizing as required.
@@ -138,12 +133,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        let env_size = self.values().size();
-        nbe::read_back_value(self.prims(), env_size, value).map_err(|error| match span.into() {
-            None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
-            Some(span) => Diagnostic::new_bug("failed to read-back value")
-                .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
-        })
+        nbe::read_back_value(self.prims(), self.values().size(), span, value)
     }
 
     /// Fully normalize a term by first evaluating it, then reading it back.
@@ -152,11 +142,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        nbe::normalize_term(self.prims(), self.values(), term).map_err(|error| match span.into() {
-            None => Diagnostic::new_bug(format!("failed to normalize term: {}", error)),
-            Some(span) => Diagnostic::new_bug("failed to normalize term")
-                .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
-        })
+        nbe::normalize_term(self.prims(), self.values(), span, term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
@@ -166,20 +152,7 @@ impl Context {
         ty1: &domain::RcType,
         ty2: &domain::RcType,
     ) -> Result<(), Diagnostic<FileSpan>> {
-        match nbe::check_subtype(self.prims(), self.values().size(), ty1, ty2) {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(Diagnostic::new_error("not a subtype").with_label(
-                DiagnosticLabel::new_primary(span).with_message(format!(
-                    "`{}` is not a subtype of `{}`",
-                    self.read_back_value(None, ty1).unwrap(),
-                    self.read_back_value(None, ty2).unwrap(),
-                )),
-            )),
-            Err(error) => {
-                let message = format!("failed subtype check: {}", error);
-                Err(Diagnostic::new_bug(message))
-            },
-        }
+        nbe::expect_subtype(self.prims(), self.values().size(), span, ty1, ty2)
     }
 }
 
