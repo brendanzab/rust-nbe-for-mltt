@@ -512,13 +512,17 @@ impl core::Term {
                                 let param_name = env.fresh_name(Some(&label.0));
 
                                 Doc::nil()
-                                    .append("{")
-                                    .append(label.to_doc())
-                                    .append(Doc::space())
-                                    // TODO: only use `=` if `label.0 != param_name`
-                                    .append("=")
-                                    .append(Doc::space())
-                                    .append(param_name)
+                                    .append(if label.0 == param_name {
+                                        Doc::text("{").append(label.to_doc()).group()
+                                    } else {
+                                        Doc::nil()
+                                            .append("{")
+                                            .append(label.to_doc())
+                                            .append(Doc::space())
+                                            .append("=")
+                                            .group()
+                                            .append(Doc::space().append(param_name).nest(4))
+                                    })
                                     .append(Doc::space())
                                     .append(":")
                                     .group()
@@ -530,13 +534,17 @@ impl core::Term {
                                 let param_name = env.fresh_name(Some(&label.0));
 
                                 Doc::nil()
-                                    .append("{{")
-                                    .append(label.to_doc())
-                                    .append(Doc::space())
-                                    // TODO: only use `=` if `label.0 != param_name`
-                                    .append("=")
-                                    .append(Doc::space())
-                                    .append(param_name)
+                                    .append(if label.0 == param_name {
+                                        Doc::text("{{").append(label.to_doc()).group()
+                                    } else {
+                                        Doc::nil()
+                                            .append("{{")
+                                            .append(label.to_doc())
+                                            .append(Doc::space())
+                                            .append("=")
+                                            .group()
+                                            .append(Doc::space().append(param_name).nest(4))
+                                    })
                                     .append(Doc::space())
                                     .append(":")
                                     .group()
@@ -586,13 +594,17 @@ impl core::Term {
                             let param_name = env.fresh_name(Some(&label.0));
 
                             Doc::nil()
-                                .append("{")
-                                .append(label.to_doc())
-                                .append(Doc::space())
-                                // TODO: only use `=` if `label.0 != param_name`
-                                .append("=")
-                                .group()
-                                .append(Doc::space().append(param_name).nest(4))
+                                .append(if label.0 == param_name {
+                                    Doc::text("{").append(label.to_doc()).group()
+                                } else {
+                                    Doc::nil()
+                                        .append("{")
+                                        .append(label.to_doc())
+                                        .append(Doc::space())
+                                        .append("=")
+                                        .group()
+                                        .append(Doc::space().append(param_name).nest(4))
+                                })
                                 .append("}")
                                 .group()
                         },
@@ -600,13 +612,17 @@ impl core::Term {
                             let param_name = env.fresh_name(Some(&label.0));
 
                             Doc::nil()
-                                .append("{{")
-                                .append(label.to_doc())
-                                .append(Doc::space())
-                                // TODO: only use `=` if `label.0 != param_name`
-                                .append("=")
-                                .group()
-                                .append(Doc::space().append(param_name).nest(4))
+                                .append(if label.0 == param_name {
+                                    Doc::text("{{").append(label.to_doc()).group()
+                                } else {
+                                    Doc::nil()
+                                        .append("{{")
+                                        .append(label.to_doc())
+                                        .append(Doc::space())
+                                        .append("=")
+                                        .group()
+                                        .append(Doc::space().append(param_name).nest(4))
+                                })
                                 .append("}}")
                                 .group()
                         },
@@ -675,17 +691,21 @@ impl core::Term {
                     Doc::intersperse(
                         ty_fields.iter().map(|(_, label, ty)| {
                             let ty_doc = ty.to_display_doc(env);
-                            let name = env.fresh_name(Some(&label.0));
+                            let field_name = env.fresh_name(Some(&label.0));
                             field_count += 1;
 
                             Doc::nil()
-                                .append(label.to_doc())
-                                .append(Doc::space())
-                                // TODO: only use `=` if `label != param_name`
-                                .append("=")
-                                .append(Doc::space())
-                                .group()
-                                .append(name)
+                                .append(if label.0 == field_name {
+                                    label.to_doc()
+                                } else {
+                                    Doc::nil()
+                                        .append(label.to_doc())
+                                        .append(Doc::space())
+                                        .append("=")
+                                        .group()
+                                        .append(Doc::space().append(field_name))
+                                        .group()
+                                })
                                 .append(Doc::space())
                                 .append(":")
                                 .group()
