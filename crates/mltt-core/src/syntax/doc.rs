@@ -515,8 +515,8 @@ impl core::Term {
                                     .append("{")
                                     .append(label.to_doc())
                                     .append(Doc::space())
-                                    // TODO: only use `as` if `label.0 != param_name`
-                                    .append("as")
+                                    // TODO: only use `=` if `label.0 != param_name`
+                                    .append("=")
                                     .append(Doc::space())
                                     .append(param_name)
                                     .append(Doc::space())
@@ -533,8 +533,8 @@ impl core::Term {
                                     .append("{{")
                                     .append(label.to_doc())
                                     .append(Doc::space())
-                                    // TODO: only use `as` if `label.0 != param_name`
-                                    .append("as")
+                                    // TODO: only use `=` if `label.0 != param_name`
+                                    .append("=")
                                     .append(Doc::space())
                                     .append(param_name)
                                     .append(Doc::space())
@@ -681,8 +681,8 @@ impl core::Term {
                             Doc::nil()
                                 .append(label.to_doc())
                                 .append(Doc::space())
-                                // TODO: only use `as` if `label != param_name`
-                                .append("as")
+                                // TODO: only use `=` if `label != param_name`
+                                .append("=")
                                 .append(Doc::space())
                                 .group()
                                 .append(name)
