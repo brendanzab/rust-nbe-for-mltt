@@ -624,19 +624,19 @@ pub fn check_subtype(
     ty1: &RcType,
     ty2: &RcType,
 ) -> Result<bool, NbeError> {
-    match (&ty1.as_ref(), &ty2.as_ref()) {
-        (&Value::Neutral(head1, spine1), &Value::Neutral(head2, spine2)) => {
+    match (ty1.as_ref(), ty2.as_ref()) {
+        (Value::Neutral(head1, spine1), Value::Neutral(head2, spine2)) => {
             let term1 = read_back_neutral(prims, level, head1, spine1)?;
             let term2 = read_back_neutral(prims, level, head2, spine2)?;
 
             Ok(Term::alpha_eq(&term1, &term2))
         },
-        (&Value::LiteralType(literal_ty1), &Value::LiteralType(literal_ty2)) => {
+        (Value::LiteralType(literal_ty1), Value::LiteralType(literal_ty2)) => {
             Ok(literal_ty1 == literal_ty2)
         },
         (
-            &Value::FunType(app_mode1, param_ty1, body_ty1),
-            &Value::FunType(app_mode2, param_ty2, body_ty2),
+            Value::FunType(app_mode1, param_ty1, body_ty1),
+            Value::FunType(app_mode2, param_ty2, body_ty2),
         ) if app_mode1 == app_mode2 => {
             let param = RcValue::var(level);
 
@@ -647,8 +647,8 @@ pub fn check_subtype(
             })
         },
         (
-            &Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
-            &Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
+            Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
+            Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
         ) => {
             let term = RcValue::var(level);
 
@@ -661,8 +661,8 @@ pub fn check_subtype(
                 },
             )
         },
-        (&Value::RecordTypeEmpty, &Value::RecordTypeEmpty) => Ok(true),
-        (&Value::Universe(level1), &Value::Universe(level2)) => Ok(level1 <= level2),
+        (Value::RecordTypeEmpty, Value::RecordTypeEmpty) => Ok(true),
+        (Value::Universe(level1), Value::Universe(level2)) => Ok(level1 <= level2),
         _ => Ok(false),
     }
 }
