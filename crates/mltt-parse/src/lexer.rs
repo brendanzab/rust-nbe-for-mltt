@@ -48,7 +48,7 @@ fn is_symbol(ch: char) -> bool {
 
 fn is_identifier_start(ch: char) -> bool {
     match ch {
-        'a'..='z' | 'A'..='Z' | '_' | '-' => true,
+        'a'..='z' | 'A'..='Z' | '_' => true,
         _ => false,
     }
 }
@@ -271,6 +271,7 @@ impl<'file> Lexer<'file> {
             "=" => TokenKind::Equals,
             "->" => TokenKind::RArrow,
             "=>" => TokenKind::RFatArrow,
+            "-" => self.consume_neg_number(),
             slice if slice.starts_with("|||") => self.consume_line_doc(),
             slice if slice.starts_with("--") => self.consume_line_comment(),
             _ => TokenKind::Symbol,
@@ -410,6 +411,25 @@ impl<'file> Lexer<'file> {
             }
         }
         digits
+    }
+
+    /// Consume a number starting with a negative sign
+    fn consume_neg_number(&mut self) -> TokenKind {
+        match self.expect_advance() {
+            Ok('0') => self.consume_zero_number(),
+            Ok(ch) if is_dec_digit(ch) => self.consume_dec_literal(),
+            Ok(ch) => {
+                self.add_diagnostic(
+                    Diagnostic::new_error(format!("unexpected character `{}`", ch))
+                        .with_label(Label::new_primary(self.token_span())),
+                );
+                TokenKind::Error
+            },
+            Err(err) => {
+                self.add_diagnostic(err);
+                TokenKind::Error
+            }
+        }
     }
 
     /// Consume a number starting with zero

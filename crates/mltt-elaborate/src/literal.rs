@@ -182,8 +182,9 @@ fn parse_escape(
 /// Helper trait for defining `parse_int`
 pub trait ParseIntLiteral: Sized {
     fn from_u8(num: u8) -> Self;
-    fn checked_mul(self, other: Self) -> Option<Self>;
+    fn checked_neg(self) -> Option<Self>;
     fn checked_add(self, other: Self) -> Option<Self>;
+    fn checked_mul(self, other: Self) -> Option<Self>;
 }
 
 macro_rules! impl_parse_int_literal {
@@ -193,12 +194,16 @@ macro_rules! impl_parse_int_literal {
                 num as $T
             }
 
-            fn checked_mul(self, other: $T) -> Option<$T> {
-                $T::checked_mul(self, other)
+            fn checked_neg(self) -> Option<$T> {
+                $T::checked_neg(self)
             }
 
             fn checked_add(self, other: $T) -> Option<$T> {
                 $T::checked_add(self, other)
+            }
+
+            fn checked_mul(self, other: $T) -> Option<$T> {
+                $T::checked_mul(self, other)
             }
         }
     };
@@ -214,46 +219,80 @@ impl_parse_int_literal!(i32);
 impl_parse_int_literal!(i64);
 
 pub fn parse_int<T: ParseIntLiteral>(src: &SpannedString<'_>) -> Result<T, Diagnostic<FileSpan>> {
+    let span = src.span();
     let mut chars = src.slice.chars();
 
-    fn from_char<T: ParseIntLiteral>(ch: char, ch_diff: char, off: u8) -> T {
-        T::from_u8(ch as u8 - ch_diff as u8 + off)
+    fn expect_base(
+        span: FileSpan,
+        is_neg: bool,
+        chars: &mut impl Iterator<Item = char>,
+    ) -> Result<(bool, u8, Option<char>), Diagnostic<FileSpan>> {
+        match chars.next() {
+            None => Ok((is_neg, 10, None)),
+            Some('b') => Ok((is_neg, 2, None)),
+            Some('o') => Ok((is_neg, 8, None)),
+            Some('x') => Ok((is_neg, 16, None)),
+            Some('_') => Ok((is_neg, 10, None)),
+            Some(ch @ '0'..='9') => Ok((is_neg, 10, Some(ch))),
+            Some(_) => literal_bug(span, "unexpected character")?,
+        }
     }
 
-    let (base, mut number) = match expect_char(src.span(), &mut chars)? {
-        '0' => match chars.next() {
-            None => (10, T::from_u8(0)),
-            Some('b') => (2, T::from_u8(0)),
-            Some('o') => (8, T::from_u8(0)),
-            Some('x') => (16, T::from_u8(0)),
-            Some('_') => (10, T::from_u8(0)),
-            Some(ch @ '0'..='9') => (10, from_char(ch, '0', 0)),
-            Some(_) => literal_bug(src.span(), "unexpected character")?,
+    let (is_neg, base, mut first_digit) = match expect_char(span, &mut chars)? {
+        '-' => match expect_char(span, &mut chars)? {
+            '0' => expect_base(span, true, &mut chars)?,
+            ch @ '0'..='9' => (true, 10, Some(ch)),
+            _ => literal_bug(span, "unexpected character")?,
         },
-        ch @ '0'..='9' => (10, T::from_u8(ch as u8 - '0' as u8)),
-        _ => literal_bug(src.span(), "unexpected character")?,
+        '0' => expect_base(span, false, &mut chars)?,
+        ch @ '0'..='9' => (false, 10, Some(ch)),
+        _ => literal_bug(span, "unexpected character")?,
+    };
+
+    let from_char = |ch: char, ch_diff: char, off: u8| {
+        let number = T::from_u8(ch as u8 - ch_diff as u8 + off);
+
+        if is_neg {
+            number.checked_neg().ok_or_else(|| {
+                Diagnostic::new_error("overflowing literal")
+                    .with_label(DiagnosticLabel::new_primary(span))
+            })
+        } else {
+            Ok(number)
+        }
     };
 
     let acc = |prev: T, base: u8, inc: T| {
-        prev.checked_mul(T::from_u8(base))
-            .and_then(|prev| prev.checked_add(inc))
-            .ok_or_else(|| {
-                Diagnostic::new_error("overflowing literal")
-                    .with_label(DiagnosticLabel::new_primary(src.span()))
-            })
+        if is_neg {
+            prev.checked_mul(T::from_u8(base))
+                .and_then(|prev| prev.checked_add(inc))
+                .ok_or_else(|| {
+                    Diagnostic::new_error("underflowing literal")
+                        .with_label(DiagnosticLabel::new_primary(span))
+                })
+        } else {
+            prev.checked_mul(T::from_u8(base))
+                .and_then(|prev| prev.checked_add(inc))
+                .ok_or_else(|| {
+                    Diagnostic::new_error("overflowing literal")
+                        .with_label(DiagnosticLabel::new_primary(span))
+                })
+        }
     };
 
-    while let Some(ch) = chars.next() {
-        match (base, ch) {
-            (2, ch @ '0'..='1') => number = acc(number, base, from_char(ch, '0', 0))?,
-            (8, ch @ '0'..='7') => number = acc(number, base, from_char(ch, '0', 0))?,
-            (10, ch @ '0'..='9') => number = acc(number, base, from_char(ch, '0', 0))?,
-            (16, ch @ '0'..='9') => number = acc(number, base, from_char(ch, '0', 0))?,
-            (16, ch @ 'a'..='f') => number = acc(number, base, from_char(ch, 'a', 10))?,
-            (16, ch @ 'A'..='F') => number = acc(number, base, from_char(ch, 'A', 10))?,
+    let mut number = T::from_u8(0);
+
+    while let Some(ch) = first_digit.take().or_else(|| chars.next()) {
+        number = match (base, ch) {
+            (2, ch @ '0'..='1') => acc(number, base, from_char(ch, '0', 0)?)?,
+            (8, ch @ '0'..='7') => acc(number, base, from_char(ch, '0', 0)?)?,
+            (10, ch @ '0'..='9') => acc(number, base, from_char(ch, '0', 0)?)?,
+            (16, ch @ '0'..='9') => acc(number, base, from_char(ch, '0', 0)?)?,
+            (16, ch @ 'a'..='f') => acc(number, base, from_char(ch, 'a', 10)?)?,
+            (16, ch @ 'A'..='F') => acc(number, base, from_char(ch, 'A', 10)?)?,
             (_, '_') => continue,
-            (_, _) => literal_bug(src.span(), "unexpected character")?,
-        }
+            (_, _) => literal_bug(span, "unexpected character")?,
+        };
     }
 
     Ok(number)

@@ -86,66 +86,76 @@ fn char_literal() {
 #[test]
 fn bin_literal() {
     test! {
-        "  0b010110  ",
-        "~~          " => TokenKind::Whitespace,
-        "  ~~~~~~~~  " => TokenKind::IntLiteral,
-        "          ~~" => TokenKind::Whitespace,
+        "  0b010110  -0b010110  ",
+        "~~                     " => TokenKind::Whitespace,
+        "  ~~~~~~~~             " => TokenKind::IntLiteral,
+        "          ~~           " => TokenKind::Whitespace,
+        "            ~~~~~~~~~  " => TokenKind::IntLiteral,
+        "                     ~~" => TokenKind::Whitespace,
     };
 }
 
 #[test]
 fn oct_literal() {
     test! {
-        "  0o12371  ",
-        "~~         " => TokenKind::Whitespace,
-        "  ~~~~~~~  " => TokenKind::IntLiteral,
-        "         ~~" => TokenKind::Whitespace,
+        "  0o12371  -0o12371  ",
+        "~~                   " => TokenKind::Whitespace,
+        "  ~~~~~~~            " => TokenKind::IntLiteral,
+        "         ~~          " => TokenKind::Whitespace,
+        "           ~~~~~~~~  " => TokenKind::IntLiteral,
+        "                   ~~" => TokenKind::Whitespace,
     };
 }
 
 #[test]
 fn dec_literal() {
     test! {
-        "  123 0 1 2345_65_32  ",
-        "~~                    " => TokenKind::Whitespace,
-        "  ~~~                 " => TokenKind::IntLiteral,
-        "     ~                " => TokenKind::Whitespace,
-        "      ~               " => TokenKind::IntLiteral,
-        "       ~              " => TokenKind::Whitespace,
-        "        ~             " => TokenKind::IntLiteral,
-        "         ~            " => TokenKind::Whitespace,
-        "          ~~~~~~~~~~  " => TokenKind::IntLiteral,
-        "                    ~~" => TokenKind::Whitespace,
+        "  123 0 1 2345_65_32 -2345_65_32  ",
+        "~~                                " => TokenKind::Whitespace,
+        "  ~~~                             " => TokenKind::IntLiteral,
+        "     ~                            " => TokenKind::Whitespace,
+        "      ~                           " => TokenKind::IntLiteral,
+        "       ~                          " => TokenKind::Whitespace,
+        "        ~                         " => TokenKind::IntLiteral,
+        "         ~                        " => TokenKind::Whitespace,
+        "          ~~~~~~~~~~              " => TokenKind::IntLiteral,
+        "                    ~             " => TokenKind::Whitespace,
+        "                     ~~~~~~~~~~~  " => TokenKind::IntLiteral,
+        "                                ~~" => TokenKind::Whitespace,
     };
 }
 
 #[test]
 fn hex_literal() {
     test! {
-        "  0x123AF  ",
-        "~~         " => TokenKind::Whitespace,
-        "  ~~~~~~~  " => TokenKind::IntLiteral,
-        "         ~~" => TokenKind::Whitespace,
+        "  0x123AF  -0x123AF  ",
+        "~~                   " => TokenKind::Whitespace,
+        "  ~~~~~~~            " => TokenKind::IntLiteral,
+        "         ~~          " => TokenKind::Whitespace,
+        "           ~~~~~~~~  " => TokenKind::IntLiteral,
+        "                   ~~" => TokenKind::Whitespace,
     };
 }
 
 #[test]
 fn float_literal() {
     test! {
-        "  122.345 1.0 0e1 0E2 0.3e-2_3 0_1.0e_1_  ",
-        "~~                                        " => TokenKind::Whitespace,
-        "  ~~~~~~~                                 " => TokenKind::FloatLiteral,
-        "         ~                                " => TokenKind::Whitespace,
-        "          ~~~                             " => TokenKind::FloatLiteral,
-        "             ~                            " => TokenKind::Whitespace,
-        "              ~~~                         " => TokenKind::FloatLiteral,
-        "                 ~                        " => TokenKind::Whitespace,
-        "                  ~~~                     " => TokenKind::FloatLiteral,
-        "                     ~                    " => TokenKind::Whitespace,
-        "                      ~~~~~~~~            " => TokenKind::FloatLiteral,
-        "                              ~           " => TokenKind::Whitespace,
-        "                               ~~~~~~~~~  " => TokenKind::FloatLiteral,
-        "                                        ~~" => TokenKind::Whitespace,
+        "  122.345 1.0 0e1 0E2 0.3e-2_3 0_1.0e_1_ -1.0  ",
+        "~~                                             " => TokenKind::Whitespace,
+        "  ~~~~~~~                                      " => TokenKind::FloatLiteral,
+        "         ~                                     " => TokenKind::Whitespace,
+        "          ~~~                                  " => TokenKind::FloatLiteral,
+        "             ~                                 " => TokenKind::Whitespace,
+        "              ~~~                              " => TokenKind::FloatLiteral,
+        "                 ~                             " => TokenKind::Whitespace,
+        "                  ~~~                          " => TokenKind::FloatLiteral,
+        "                     ~                         " => TokenKind::Whitespace,
+        "                      ~~~~~~~~                 " => TokenKind::FloatLiteral,
+        "                              ~                " => TokenKind::Whitespace,
+        "                               ~~~~~~~~~       " => TokenKind::FloatLiteral,
+        "                                        ~      " => TokenKind::Whitespace,
+        "                                         ~~~~  " => TokenKind::FloatLiteral,
+        "                                             ~~" => TokenKind::Whitespace,
     };
 }
 
