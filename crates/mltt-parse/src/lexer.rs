@@ -428,7 +428,7 @@ impl<'file> Lexer<'file> {
             Err(err) => {
                 self.add_diagnostic(err);
                 TokenKind::Error
-            }
+            },
         }
     }
 

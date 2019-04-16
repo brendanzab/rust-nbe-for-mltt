@@ -196,7 +196,7 @@ impl fmt::Display for LiteralType {
 /// Literal introductions
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LiteralIntro {
-    String(String),
+    String(Rc<str>),
     Char(char),
     Bool(bool),
     U8(u8),
@@ -286,7 +286,7 @@ macro_rules! impl_from_to_literal_intro {
     };
 }
 
-impl_from_to_literal_intro!(String, String);
+impl_from_to_literal_intro!(Rc<str>, String);
 impl_from_to_literal_intro!(char, Char);
 impl_from_to_literal_intro!(bool, Bool);
 impl_from_to_literal_intro!(u8, U8);
@@ -299,6 +299,18 @@ impl_from_to_literal_intro!(i32, S32);
 impl_from_to_literal_intro!(i64, S64);
 impl_from_to_literal_intro!(f32, F32);
 impl_from_to_literal_intro!(f64, F64);
+
+impl<'a> From<&'a str> for LiteralIntro {
+    fn from(src: &'a str) -> LiteralIntro {
+        LiteralIntro::String(Rc::from(src))
+    }
+}
+
+impl From<String> for LiteralIntro {
+    fn from(src: String) -> LiteralIntro {
+        LiteralIntro::String(Rc::from(src))
+    }
+}
 
 /// A label
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

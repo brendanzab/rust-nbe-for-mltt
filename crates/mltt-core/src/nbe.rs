@@ -6,6 +6,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::rc::Rc;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{
@@ -133,7 +134,7 @@ macro_rules! impl_try_from_value_literal {
     };
 }
 
-impl_try_from_value_literal!(String, String);
+impl_try_from_value_literal!(Rc<str>, String);
 impl_try_from_value_literal!(char, Char);
 impl_try_from_value_literal!(bool, Bool);
 impl_try_from_value_literal!(u8, U8);
@@ -176,9 +177,9 @@ impl Default for PrimEnv {
 
         PrimEnv {
             entries: im::hashmap! {
-                "abort".to_owned() => prim!(|message: String| Err(NbeError::new(message.clone()))),
+                "abort".to_owned() => prim!(|message: Rc<str>| Err(NbeError::new(message.to_string()))),
 
-                "string-eq".to_owned() => prim!(|lhs: String, rhs: String| Ok(RcValue::literal_intro(lhs == rhs))),
+                "string-eq".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs == rhs))),
                 "char-eq".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs == rhs))),
                 "u8-eq".to_owned() => prim!(|lhs: u8, rhs: u8| Ok(RcValue::literal_intro(lhs == rhs))),
                 "u16-eq".to_owned() => prim!(|lhs: u16, rhs: u16| Ok(RcValue::literal_intro(lhs == rhs))),
@@ -191,7 +192,7 @@ impl Default for PrimEnv {
                 "f32-eq".to_owned() => prim!(|lhs: f32, rhs: f32| Ok(RcValue::literal_intro(lhs == rhs))),
                 "f64-eq".to_owned() => prim!(|lhs: f64, rhs: f64| Ok(RcValue::literal_intro(lhs == rhs))),
 
-                "string-ne".to_owned() => prim!(|lhs: String, rhs: String| Ok(RcValue::literal_intro(lhs != rhs))),
+                "string-ne".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs != rhs))),
                 "char-ne".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs != rhs))),
                 "u8-ne".to_owned() => prim!(|lhs: u8, rhs: u8| Ok(RcValue::literal_intro(lhs != rhs))),
                 "u16-ne".to_owned() => prim!(|lhs: u16, rhs: u16| Ok(RcValue::literal_intro(lhs != rhs))),
@@ -204,7 +205,7 @@ impl Default for PrimEnv {
                 "f32-ne".to_owned() => prim!(|lhs: f32, rhs: f32| Ok(RcValue::literal_intro(lhs != rhs))),
                 "f64-ne".to_owned() => prim!(|lhs: f64, rhs: f64| Ok(RcValue::literal_intro(lhs != rhs))),
 
-                "string-lt".to_owned() => prim!(|lhs: String, rhs: String| Ok(RcValue::literal_intro(lhs < rhs))),
+                "string-lt".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs < rhs))),
                 "char-lt".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs < rhs))),
                 "u8-lt".to_owned() => prim!(|lhs: u8, rhs: u8| Ok(RcValue::literal_intro(lhs < rhs))),
                 "u16-lt".to_owned() => prim!(|lhs: u16, rhs: u16| Ok(RcValue::literal_intro(lhs < rhs))),
@@ -217,7 +218,7 @@ impl Default for PrimEnv {
                 "f32-lt".to_owned() => prim!(|lhs: f32, rhs: f32| Ok(RcValue::literal_intro(lhs < rhs))),
                 "f64-lt".to_owned() => prim!(|lhs: f64, rhs: f64| Ok(RcValue::literal_intro(lhs < rhs))),
 
-                "string-le".to_owned() => prim!(|lhs: String, rhs: String| Ok(RcValue::literal_intro(lhs <= rhs))),
+                "string-le".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs <= rhs))),
                 "char-le".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs <= rhs))),
                 "u8-le".to_owned() => prim!(|lhs: u8, rhs: u8| Ok(RcValue::literal_intro(lhs <= rhs))),
                 "u16-le".to_owned() => prim!(|lhs: u16, rhs: u16| Ok(RcValue::literal_intro(lhs <= rhs))),
@@ -230,7 +231,7 @@ impl Default for PrimEnv {
                 "f32-le".to_owned() => prim!(|lhs: f32, rhs: f32| Ok(RcValue::literal_intro(lhs <= rhs))),
                 "f64-le".to_owned() => prim!(|lhs: f64, rhs: f64| Ok(RcValue::literal_intro(lhs <= rhs))),
 
-                "string-ge".to_owned() => prim!(|lhs: String, rhs: String| Ok(RcValue::literal_intro(lhs >= rhs))),
+                "string-ge".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs >= rhs))),
                 "char-ge".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs >= rhs))),
                 "u8-ge".to_owned() => prim!(|lhs: u8, rhs: u8| Ok(RcValue::literal_intro(lhs >= rhs))),
                 "u16-ge".to_owned() => prim!(|lhs: u16, rhs: u16| Ok(RcValue::literal_intro(lhs >= rhs))),
@@ -243,7 +244,7 @@ impl Default for PrimEnv {
                 "f32-ge".to_owned() => prim!(|lhs: f32, rhs: f32| Ok(RcValue::literal_intro(lhs >= rhs))),
                 "f64-ge".to_owned() => prim!(|lhs: f64, rhs: f64| Ok(RcValue::literal_intro(lhs >= rhs))),
 
-                "string-gt".to_owned() => prim!(|lhs: String, rhs: String| Ok(RcValue::literal_intro(lhs > rhs))),
+                "string-gt".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs > rhs))),
                 "char-gt".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs > rhs))),
                 "u8-gt".to_owned() => prim!(|lhs: u8, rhs: u8| Ok(RcValue::literal_intro(lhs > rhs))),
                 "u16-gt".to_owned() => prim!(|lhs: u16, rhs: u16| Ok(RcValue::literal_intro(lhs > rhs))),

@@ -13,6 +13,7 @@ use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{LiteralKind, SpannedString};
 use mltt_core::syntax::{domain, LiteralIntro};
 use mltt_span::FileSpan;
+use std::rc::Rc;
 
 use super::Context;
 
@@ -27,7 +28,9 @@ pub fn check(
     use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
 
     match (kind, expected_ty.as_ref()) {
-        (Lk::String, Value::LiteralType(Lt::String)) => parse_string(src).map(Li::String),
+        (Lk::String, Value::LiteralType(Lt::String)) => {
+            parse_string(src).map(|s| Li::String(Rc::from(s)))
+        },
         (Lk::Char, Value::LiteralType(Lt::Char)) => parse_char(src).map(Li::Char),
         (Lk::Int, Value::LiteralType(Lt::U8)) => parse_int::<u8>(src).map(Li::U8),
         (Lk::Int, Value::LiteralType(Lt::U16)) => parse_int::<u16>(src).map(Li::U16),
@@ -58,7 +61,7 @@ pub fn synth(
     use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
 
     let (literal_intro, literal_ty) = match kind {
-        Lk::String => (Li::String(parse_string(src)?), Lt::String),
+        Lk::String => (Li::String(Rc::from(parse_string(src)?)), Lt::String),
         Lk::Char => (Li::Char(parse_char(src)?), Lt::Char),
         Lk::Int | Lk::Float => {
             return Err(Diagnostic::new_error("ambiguous literal")
