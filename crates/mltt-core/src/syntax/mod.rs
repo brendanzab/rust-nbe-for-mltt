@@ -103,6 +103,11 @@ impl<Entry: Clone> Env<Entry> {
         }
     }
 
+    /// Get the level of the environment.
+    pub fn level(&self) -> VarLevel {
+        VarLevel(self.entries.len() as u32)
+    }
+
     /// Lookup an entry in the environment.
     pub fn lookup_entry(&self, index: VarIndex) -> Option<&Entry> {
         self.entries.get(index.0 as usize)

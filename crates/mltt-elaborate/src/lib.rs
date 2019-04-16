@@ -29,14 +29,10 @@ mod literal;
 /// Local elaboration context.
 #[derive(Debug, Clone)]
 pub struct Context {
-    /// Number of local entries.
-    level: VarLevel,
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
     values: Env<domain::RcValue>,
-    /// Type annotations of the binders we have passed over.
-    tys: Env<domain::RcType>,
     /// A mapping from the user-defined names to the level in which they were
     /// bound.
     ///
@@ -44,7 +40,7 @@ pub struct Context {
     /// correct debruijn index once we reach a variable name in a nested scope.
     /// Not all entries in the context will have a corresponding name - for
     /// example we don't define a name for non-dependent function types.
-    names: im::HashMap<String, VarLevel>,
+    binders: im::HashMap<String, (VarLevel, domain::RcType)>,
 }
 
 fn do_closure_app(
@@ -60,17 +56,10 @@ impl Context {
     /// Create a new, empty context
     pub fn new() -> Context {
         Context {
-            level: VarLevel(0),
             prims: nbe::PrimEnv::new(),
             values: Env::new(),
-            tys: Env::new(),
-            names: im::HashMap::new(),
+            binders: im::HashMap::new(),
         }
-    }
-
-    /// Number of local entries in the context
-    pub fn level(&self) -> VarLevel {
-        self.level
     }
 
     /// Primitive entries.
@@ -81,11 +70,6 @@ impl Context {
     /// Values to be used during evaluation
     pub fn values(&self) -> &Env<domain::RcValue> {
         &self.values
-    }
-
-    /// Types of the entries in the context
-    pub fn tys(&self) -> &Env<domain::RcType> {
-        &self.tys
     }
 
     /// Add a local definition to the context.
@@ -99,12 +83,10 @@ impl Context {
             None => log::trace!("insert fresh local"),
             Some(name) => {
                 log::trace!("insert named local: {}", name);
-                self.names.insert(name, self.level());
+                self.binders.insert(name, (self.values().level(), ty));
             },
         }
-        self.level += 1;
         self.values.add_entry(value);
-        self.tys.add_entry(ty);
     }
 
     /// Add a bound variable the context, returning a variable that points to
@@ -114,7 +96,7 @@ impl Context {
         name: impl Into<Option<String>>,
         ty: domain::RcType,
     ) -> domain::RcValue {
-        let param = domain::RcValue::var(self.level());
+        let param = domain::RcValue::var(self.values().level());
         self.local_define(name, param.clone(), ty);
         param
     }
@@ -122,10 +104,9 @@ impl Context {
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name
     pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
-        let level = self.names.get(name)?;
-        let index = VarIndex(self.level.0 - (level.0 + 1));
+        let (level, ty) = self.binders.get(name)?;
+        let index = VarIndex(self.values().level().0 - (level.0 + 1));
         log::trace!("lookup binder: {} -> @{}", name, index.0);
-        let ty = self.tys().lookup_entry(index)?; // FIXME: Internal error?
         Some((index, ty))
     }
 
@@ -148,7 +129,8 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        nbe::read_back_term(self.prims(), self.level(), value).map_err(|error| match span.into() {
+        let level = self.values().level();
+        nbe::read_back_term(self.prims(), level, value).map_err(|error| match span.into() {
             None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
             Some(span) => Diagnostic::new_bug("failed to read-back value")
                 .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
@@ -173,7 +155,7 @@ impl Context {
         ty1: &domain::RcType,
         ty2: &domain::RcType,
     ) -> Result<(), Diagnostic<FileSpan>> {
-        match nbe::check_subtype(self.prims(), self.level(), ty1, ty2) {
+        match nbe::check_subtype(self.prims(), self.values().level(), ty1, ty2) {
             Ok(true) => Ok(()),
             Ok(false) => Err(Diagnostic::new_error("not a subtype").with_label(
                 DiagnosticLabel::new_primary(span).with_message(format!(

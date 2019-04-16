@@ -112,7 +112,7 @@ pub fn check_case<'file>(
             let mut context = context.clone();
 
             let (checked_scrutinee, (param_level, param_ty)) = {
-                let scrutinee_level = context.level();
+                let scrutinee_level = context.values().level();
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
                 let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
                 let scrutinee_ty_term = context.read_back(None, &scrutinee_ty)?;
@@ -154,7 +154,7 @@ pub fn check_case<'file>(
             let default = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
-                    context.names.insert(name.to_string(), param_level);
+                    context.binders.insert(name.to_string(), (param_level, param_ty));
                     check_term(&context, &default_clause.body, expected_ty)?
                 },
                 _ => {
