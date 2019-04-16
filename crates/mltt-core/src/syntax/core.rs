@@ -3,6 +3,7 @@
 use std::fmt;
 use std::ops;
 use std::rc::Rc;
+use string_interner::Sym;
 
 use crate::syntax::{
     AppMode, DisplayEnv, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
@@ -62,7 +63,7 @@ impl RcTerm {
     }
 
     /// Construct a primitive.
-    pub fn prim(name: impl Into<String>) -> RcTerm {
+    pub fn prim(name: Sym) -> RcTerm {
         RcTerm::from(Term::prim(name.into()))
     }
 
@@ -118,7 +119,7 @@ pub enum Term {
     /// Variables
     Var(VarIndex),
     /// Primitives
-    Prim(String),
+    Prim(Sym),
 
     /// Let bindings
     Let(RcTerm, RcTerm, RcTerm),
@@ -159,8 +160,8 @@ impl Term {
     }
 
     /// Construct a primitive.
-    pub fn prim(name: impl Into<String>) -> Term {
-        Term::Prim(name.into())
+    pub fn prim(name: Sym) -> Term {
+        Term::Prim(name)
     }
 
     /// Construct a literal type.

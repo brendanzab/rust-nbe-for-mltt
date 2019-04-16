@@ -2,6 +2,7 @@
 
 use std::ops;
 use std::rc::Rc;
+use string_interner::Sym;
 
 use crate::syntax::core::RcTerm;
 use crate::syntax::{
@@ -94,7 +95,7 @@ impl RcValue {
     }
 
     /// Construct a primitive.
-    pub fn prim(name: String) -> RcValue {
+    pub fn prim(name: Sym) -> RcValue {
         RcValue::from(Value::prim(name))
     }
 
@@ -146,7 +147,7 @@ impl Value {
     }
 
     /// Construct a primitive.
-    pub fn prim(name: String) -> Value {
+    pub fn prim(name: Sym) -> Value {
         Value::Neutral(Head::Prim(name), Vec::new())
     }
 
@@ -170,7 +171,7 @@ pub enum Head {
     /// Variables
     Var(VarLevel),
     /// Primitives
-    Prim(String),
+    Prim(Sym),
 }
 
 /// A spine of eliminators

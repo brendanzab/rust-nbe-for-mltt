@@ -6,6 +6,7 @@ use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::ops;
 use std::rc::Rc;
+use string_interner::Sym;
 
 pub mod core;
 pub mod doc;
@@ -314,7 +315,7 @@ impl From<String> for LiteralIntro {
 
 /// A label
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Label(pub String);
+pub struct Label(pub Sym);
 
 impl Label {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
