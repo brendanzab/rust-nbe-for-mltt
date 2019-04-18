@@ -5,7 +5,7 @@ use std::str::Chars;
 
 use crate::token::{DelimKind, Token, TokenKind};
 
-/// The keywords used in the language
+/// The keywords used in the language.
 pub const KEYWORDS: &[&str] = &[
     "case",
     "else",
@@ -89,24 +89,24 @@ fn is_hex_digit(ch: char) -> bool {
 }
 
 /// An iterator over a source string that yields `Token`s for subsequent use by
-/// the parser
+/// the parser.
 pub struct Lexer<'file> {
-    /// The file we are lexing
+    /// The file we are lexing.
     file: &'file File,
-    /// An iterator of unicode characters to consume
+    /// An iterator of unicode characters to consume.
     chars: Chars<'file>,
-    /// One character of lookahead, making this lexer LR(1)
+    /// One character of lookahead, making this lexer LR(1).
     peeked: Option<char>,
-    /// The start of the next token to be emitted
+    /// The start of the next token to be emitted.
     token_start: ByteIndex,
-    /// The end of the next token to be emitted
+    /// The end of the next token to be emitted.
     token_end: ByteIndex,
-    /// The diagnostics that we have accumulated during lexing
+    /// The diagnostics that we have accumulated during lexing.
     diagnostics: Vec<Diagnostic<FileSpan>>,
 }
 
 impl<'file> Lexer<'file> {
-    /// Create a new lexer from the source file
+    /// Create a new lexer from the source file.
     pub fn new(file: &'file File) -> Lexer<'file> {
         let mut chars = file.contents().chars();
         let peeked = chars.next();
@@ -121,38 +121,38 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// The diagnostic that were emitted during lexing
+    /// The diagnostic that were emitted during lexing.
     pub fn diagnostics(&self) -> &[Diagnostic<FileSpan>] {
         &self.diagnostics
     }
 
-    /// Take the diagnostics from the lexer
+    /// Take the diagnostics from the lexer.
     pub fn take_diagnostics(&mut self) -> Vec<Diagnostic<FileSpan>> {
         std::mem::replace(&mut self.diagnostics, Vec::new())
     }
 
-    /// Record a diagnostic
+    /// Record a diagnostic.
     fn add_diagnostic(&mut self, diagnostic: Diagnostic<FileSpan>) {
         log::debug!("diagnostic added: {:?}", diagnostic.message);
         self.diagnostics.push(diagnostic);
     }
 
-    /// Returns a span in the source file
+    /// Returns a span in the source file.
     fn span(&self, start: ByteIndex, end: ByteIndex) -> FileSpan {
         FileSpan::new(self.file.id(), start, end)
     }
 
-    /// Returns the span of the current token in the source file
+    /// Returns the span of the current token in the source file.
     fn token_span(&self) -> FileSpan {
         self.span(self.token_start, self.token_end)
     }
 
-    /// Returns the string slice of the current token
+    /// Returns the string slice of the current token.
     fn token_slice(&self) -> &'file str {
         &self.file.contents()[self.token_start.to_usize()..self.token_end.to_usize()]
     }
 
-    /// Returns the source of the current token
+    /// Returns the source of the current token.
     fn token_src(&self) -> SpannedString<'file> {
         SpannedString {
             source: self.file.id(),
@@ -161,13 +161,13 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Returns the span of the end of the file
+    /// Returns the span of the end of the file.
     fn eof_span(&self) -> FileSpan {
         let end = self.file.span().end();
         self.span(end, end)
     }
 
-    /// Emit a token and reset the start position, ready for the next token
+    /// Emit a token and reset the start position, ready for the next token.
     fn emit(&mut self, kind: TokenKind) -> Token<'file> {
         let src = self.token_src();
         self.token_start = self.token_end;
@@ -202,7 +202,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Skip by one character if the predicate matches the lookahead
+    /// Skip by one character if the predicate matches the lookahead.
     fn skip_if(&mut self, predicate: impl Fn(char) -> bool) -> bool {
         match self.peek() {
             Some(ch) if predicate(ch) => {
@@ -213,7 +213,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume a token, returning its tag or none on end of file
+    /// Consume a token, returning its tag or none on end of file.
     fn consume_token(&mut self) -> Option<TokenKind> {
         self.advance().map(|ch| match ch {
             ',' => TokenKind::Comma,
@@ -242,25 +242,25 @@ impl<'file> Lexer<'file> {
         })
     }
 
-    /// Consume a line comment
+    /// Consume a line comment.
     fn consume_line_comment(&mut self) -> TokenKind {
         self.skip_while(|ch| ch != '\n');
         TokenKind::LineComment
     }
 
-    /// Consume a doc comment
+    /// Consume a doc comment.
     fn consume_line_doc(&mut self) -> TokenKind {
         self.skip_while(|ch| ch != '\n');
         TokenKind::LineDoc
     }
 
-    /// Consume some whitespace
+    /// Consume some whitespace.
     fn consume_whitespace(&mut self) -> TokenKind {
         self.skip_while(is_whitespace);
         TokenKind::Whitespace
     }
 
-    /// Consume a symbol
+    /// Consume a symbol.
     fn consume_symbol(&mut self) -> TokenKind {
         self.skip_while(is_symbol);
         match self.token_slice() {
@@ -278,7 +278,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume a identifier
+    /// Consume a identifier.
     fn consume_identifier(&mut self) -> TokenKind {
         self.skip_while(is_identifier_continue);
         if KEYWORDS.contains(&self.token_slice()) {
@@ -288,7 +288,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Skip an ASCII character code
+    /// Skip an ASCII character code.
     fn skip_ascii_char_code(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         if !is_oct_digit(self.expect_advance()?) {
             return Err(Diagnostic::new_error("invalid ASCII character code")
@@ -301,6 +301,7 @@ impl<'file> Lexer<'file> {
         Ok(())
     }
 
+    /// Skip a unicode character code.
     fn skip_unicode_char_code(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         if self.expect_advance()? != '{' {
             return Err(Diagnostic::new_error("invalid unicode character code")
@@ -330,7 +331,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Skip an escape
+    /// Skip an escape.
     fn skip_escape(&mut self) -> Result<(), Diagnostic<FileSpan>> {
         match self.expect_advance()? {
             '\'' | '\"' | '\\' | 'n' | 'r' | 't' | '0' => Ok(()),
@@ -343,7 +344,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume a string literal
+    /// Consume a string literal.
     fn consume_string_literal(&mut self) -> TokenKind {
         let mut is_escape_error = false;
         while let Some(ch) = self.advance() {
@@ -366,7 +367,7 @@ impl<'file> Lexer<'file> {
         TokenKind::Error
     }
 
-    /// Consume a character literal
+    /// Consume a character literal.
     fn consume_char_literal(&mut self) -> TokenKind {
         let mut is_escape_error = false;
         let mut codepoints = 0;
@@ -400,7 +401,7 @@ impl<'file> Lexer<'file> {
         TokenKind::Error
     }
 
-    /// Skip some digits, separated by `_`, returning the number of digits consumed
+    /// Skip some digits, separated by `_`, returning the number of digits consumed.
     fn skip_separated_digits(&mut self, is_digit: impl Fn(char) -> bool) -> usize {
         let mut digits = 0;
         loop {
@@ -413,7 +414,7 @@ impl<'file> Lexer<'file> {
         digits
     }
 
-    /// Consume a number starting with a negative sign
+    /// Consume a number starting with a negative sign.
     fn consume_neg_number(&mut self) -> TokenKind {
         match self.expect_advance() {
             Ok('0') => self.consume_zero_number(),
@@ -432,7 +433,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume a number starting with zero
+    /// Consume a number starting with zero.
     fn consume_zero_number(&mut self) -> TokenKind {
         if self.skip_if(|ch| ch == 'b') {
             self.consume_radix_literal("binary", is_bin_digit)
@@ -445,7 +446,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume an integer literal that uses a specific radix
+    /// Consume an integer literal that uses a specific radix.
     fn consume_radix_literal(
         &mut self,
         radix_name: &str,
@@ -462,7 +463,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume float exponents, returning `true` if an exponent was found
+    /// Consume float exponents, returning `true` if an exponent was found.
     fn skip_float_exponent(&mut self) -> Result<bool, Diagnostic<FileSpan>> {
         if self.skip_if(|ch| ch == 'e' || ch == 'E') {
             self.skip_if(|ch| ch == '-' || ch == '+');
@@ -477,7 +478,7 @@ impl<'file> Lexer<'file> {
         }
     }
 
-    /// Consume a decimal literal
+    /// Consume a decimal literal.
     fn consume_dec_literal(&mut self) -> TokenKind {
         // No need to check the number of digits here - we should have already
         // consumed at least one when advancing the lexer at the beginning of

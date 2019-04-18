@@ -6,17 +6,17 @@ use std::error::Error;
 
 pub mod repl;
 
-/// The MLTT command line interface
+/// The MLTT command line interface.
 #[derive(structopt::StructOpt)]
 #[structopt(name = "mltt")]
 pub enum Options {
-    /// Type check some files
+    /// Type check some files.
     #[structopt(name = "check")]
     Check,
-    /// Runs the language server/IDE support
+    /// Runs the language server/IDE support.
     #[structopt(name = "ide")]
     Ide,
-    /// Runs the REPL/interactive mode
+    /// Runs the REPL/interactive mode.
     #[structopt(name = "repl")]
     Repl(repl::Options),
 }

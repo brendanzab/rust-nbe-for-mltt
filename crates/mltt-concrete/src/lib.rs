@@ -18,17 +18,17 @@ use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
 use std::fmt;
 
-/// Top-level items in a module
+/// Top-level items in a module.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item<'file> {
-    /// Forward-declarations
+    /// Forward-declarations.
     Declaration(Declaration<'file>),
-    /// Term definitions
+    /// Term definitions.
     Definition(Definition<'file>),
 }
 
 impl<'file> Item<'file> {
-    /// Returns `true` if the item is a definition
+    /// Returns `true` if the item is a definition.
     pub fn is_definition(&self) -> bool {
         match self {
             Item::Declaration(_) => false,
@@ -43,7 +43,7 @@ impl<'file> Item<'file> {
         }
     }
 
-    /// Convert the item into a pretty-printable document
+    /// Convert the item into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Item::Declaration(declaration) => declaration.to_doc(),
@@ -52,7 +52,7 @@ impl<'file> Item<'file> {
     }
 }
 
-/// Forward-declarations
+/// Forward-declarations.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration<'file> {
     pub docs: Vec<SpannedString<'file>>,
@@ -65,7 +65,7 @@ impl<'file> Declaration<'file> {
         FileSpan::merge(self.label.span(), self.body_ty.span())
     }
 
-    /// Convert the declaration into a pretty-printable document
+    /// Convert the declaration into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         let docs = Doc::concat(
             self.docs
@@ -84,7 +84,7 @@ impl<'file> Declaration<'file> {
     }
 }
 
-/// Term definitions
+/// Term definitions.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition<'file> {
     pub docs: Vec<SpannedString<'file>>,
@@ -157,7 +157,7 @@ impl<'file> SpannedString<'file> {
         )
     }
 
-    /// Convert the string into a pretty-printable document
+    /// Convert the string into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::text(self.slice)
     }
@@ -180,18 +180,16 @@ impl<'file> fmt::Display for SpannedString<'file> {
     }
 }
 
-/// Concrete patterns
+/// Concrete patterns.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern<'file> {
-    /// Variable patterns
+    /// Variable patterns.
     Var(SpannedString<'file>),
     /// Literal introductions.
     LiteralIntro(LiteralKind, SpannedString<'file>),
     // TODO:
-    // /// Patterns with an explicit type annotation
+    // /// Patterns with an explicit type annotation.
     // Ann(Box<Pattern<'file>>, Box<Term<'file>>),
-    // /// Pair patterns
-    // PairIntro(Box<Pattern<'file>>, Box<Pattern<'file>>),
 }
 
 impl<'file> Pattern<'file> {
@@ -202,7 +200,7 @@ impl<'file> Pattern<'file> {
         }
     }
 
-    /// Convert the pattern into a pretty-printable document
+    /// Convert the pattern into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Pattern::Var(name) => name.to_doc(),
@@ -217,21 +215,21 @@ impl<'file> fmt::Display for Pattern<'file> {
     }
 }
 
-/// The kind of literal
+/// The kind of literal.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum LiteralKind {
-    /// String literals
+    /// String literals.
     String,
-    /// Char literals
+    /// Char literals.
     Char,
-    /// Integer literals
+    /// Integer literals.
     Int,
-    /// Floating point literals
+    /// Floating point literals.
     Float,
 }
 
 impl LiteralKind {
-    /// Returns a string description of the literal kind
+    /// Returns a string description of the literal kind.
     pub fn description(self) -> &'static str {
         match self {
             LiteralKind::String => "string",
@@ -242,7 +240,7 @@ impl LiteralKind {
     }
 }
 
-/// A group of parameters to be used in a function type
+/// A group of parameters to be used in a function type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeParam<'file> {
     Explicit(FileSpan, Vec<SpannedString<'file>>, Term<'file>),
@@ -259,7 +257,7 @@ impl<'file> TypeParam<'file> {
         }
     }
 
-    /// Convert the parameter into a pretty-printable document
+    /// Convert the parameter into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             TypeParam::Explicit(_, param_names, param_ty) => Doc::nil()
@@ -309,7 +307,7 @@ impl<'file> fmt::Display for TypeParam<'file> {
     }
 }
 
-/// A parameter pattern to be used in a function introduction
+/// A parameter pattern to be used in a function introduction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntroParam<'file> {
     Explicit(Pattern<'file>),
@@ -325,7 +323,7 @@ impl<'file> IntroParam<'file> {
         }
     }
 
-    /// Convert the parameter into a pretty-printable document
+    /// Convert the parameter into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             IntroParam::Explicit(pattern) => pattern.to_doc(),
@@ -363,7 +361,7 @@ impl<'file> fmt::Display for IntroParam<'file> {
     }
 }
 
-/// An argument passed to a function
+/// An argument passed to a function.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Arg<'file> {
     Explicit(Term<'file>),
@@ -379,7 +377,7 @@ impl<'file> Arg<'file> {
         }
     }
 
-    /// Convert the argument into a pretty-printable document
+    /// Convert the argument into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Arg::Explicit(term) => term.to_doc(),
@@ -423,7 +421,7 @@ pub struct RecordTypeField<'file> {
 }
 
 impl<'file> RecordTypeField<'file> {
-    /// Convert the field into a pretty-printable document
+    /// Convert the field into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::nil()
             .append(self.label.to_doc())
@@ -455,7 +453,7 @@ pub enum RecordIntroField<'file> {
 }
 
 impl<'file> RecordIntroField<'file> {
-    /// Desugar punned fields
+    /// Desugar punned fields.
     pub fn desugar(
         &self,
     ) -> (
@@ -486,7 +484,7 @@ impl<'file> RecordIntroField<'file> {
         }
     }
 
-    /// Convert the field into a pretty-printable document
+    /// Convert the field into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             RecordIntroField::Punned { label } => label.to_doc().append(";"),
@@ -526,7 +524,7 @@ impl<'file> fmt::Display for RecordIntroField<'file> {
     }
 }
 
-/// Concrete terms
+/// Concrete terms.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term<'file> {
     /// Variables
@@ -614,7 +612,7 @@ impl<'file> Term<'file> {
         }
     }
 
-    /// Convert the term into a pretty-printable document
+    /// Convert the term into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             Term::Var(name) => name.to_doc(),

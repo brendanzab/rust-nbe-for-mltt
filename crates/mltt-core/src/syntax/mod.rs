@@ -13,10 +13,10 @@ pub mod domain;
 
 pub use self::doc::DisplayEnv;
 
-/// Reference counted documentation string
+/// Reference counted documentation string.
 pub type DocString = Rc<str>;
 
-/// De Bruijn level
+/// De Bruijn level.
 ///
 /// This counts the total number of binders that we encounter when running down
 /// the syntax tree from the root.
@@ -49,7 +49,7 @@ impl ops::Add<u32> for VarLevel {
     }
 }
 
-/// De Bruijn index
+/// De Bruijn index.
 ///
 /// This counts the number of binders we encounter when running up the syntax
 /// tree to get to the binder that bound this variable. De Bruijn indices are
@@ -119,7 +119,7 @@ impl<Entry: Clone> Env<Entry> {
     }
 }
 
-/// The level of a universe
+/// The level of a universe.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseLevel(pub u32);
 
@@ -150,7 +150,7 @@ impl ops::Add<u32> for UniverseLevel {
     }
 }
 
-/// Literal types
+/// Literal types.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LiteralType {
     String,
@@ -198,7 +198,7 @@ impl fmt::Display for LiteralType {
     }
 }
 
-/// Literal introductions
+/// Literal introductions.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LiteralIntro {
     String(Rc<str>),
@@ -317,7 +317,7 @@ impl From<String> for LiteralIntro {
     }
 }
 
-/// A label
+/// A label.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);
 
@@ -333,14 +333,14 @@ impl fmt::Display for Label {
     }
 }
 
-/// The application mode of a function
+/// The application mode of a function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AppMode {
-    /// Explicit application mode
+    /// Explicit application mode.
     Explicit,
-    /// Implicit application mode
+    /// Implicit application mode.
     Implicit(Label),
-    /// Instance application mode
+    /// Instance application mode.
     Instance(Label),
 }
 

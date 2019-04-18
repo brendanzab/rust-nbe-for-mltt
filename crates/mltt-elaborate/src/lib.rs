@@ -53,7 +53,7 @@ fn do_closure_app(
 }
 
 impl Context {
-    /// Create a new, empty context
+    /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
             prims: nbe::PrimEnv::new(),
@@ -67,7 +67,7 @@ impl Context {
         &self.prims
     }
 
-    /// Values to be used during evaluation
+    /// Values to be used during evaluation.
     pub fn values(&self) -> &Env<domain::RcValue> {
         &self.values
     }
@@ -102,7 +102,7 @@ impl Context {
     }
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
-    /// context using a user-defined name
+    /// context using a user-defined name.
     pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
         let (level, ty) = self.binders.get(name)?;
         let index = VarIndex(self.values().level().0 - (level.0 + 1));
@@ -148,7 +148,7 @@ impl Context {
         self.read_back(span, &value)
     }
 
-    /// Expect that `ty1` is a subtype of `ty2` in the current context
+    /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn expect_subtype(
         &self,
         span: FileSpan,

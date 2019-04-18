@@ -2,18 +2,18 @@ use mltt_concrete::SpannedString;
 use mltt_span::FileSpan;
 use std::fmt;
 
-/// A kind of delimiter
+/// A kind of delimiter.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DelimKind {
-    /// A round parenthesis: `(` or `)`
+    /// A round parenthesis: `(` or `)`.
     Paren,
-    /// A curly brace: `{` or `}`
+    /// A curly brace: `{` or `}`.
     Brace,
-    /// A square bracket: `[` or `]`
+    /// A square bracket: `[` or `]`.
     Bracket,
 }
 
-/// A tag that makes it easier to remember what type of token this is
+/// A tag that makes it easier to remember what type of token this is.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Error,
@@ -45,12 +45,12 @@ pub enum TokenKind {
     Close(DelimKind),
 }
 
-/// A token in the source file, to be emitted by the `Lexer`
+/// A token in the source file, to be emitted by the `Lexer`.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Token<'file> {
-    /// The token kind
+    /// The token kind.
     pub kind: TokenKind,
-    /// The source code that produced the token
+    /// The source code that produced the token.
     pub src: SpannedString<'file>,
 }
 

@@ -27,7 +27,7 @@ impl fmt::Display for Module {
     }
 }
 
-/// Top-level items
+/// Top-level items.
 #[derive(Clone, PartialEq)]
 pub struct Item {
     pub doc: DocString,
@@ -111,7 +111,7 @@ impl fmt::Display for RcTerm {
     }
 }
 
-/// Core terms
+/// Core terms.
 // TODO: explicitly annotate with types
 #[derive(Clone, PartialEq)]
 pub enum Term {

@@ -7,18 +7,18 @@ use rustyline::{Config, Editor};
 use std::error::Error;
 use std::path::PathBuf;
 
-/// The MLTT REPL/interactive mode
+/// The MLTT REPL/interactive mode.
 #[derive(structopt::StructOpt)]
 pub struct Options {
-    /// The file to save the command history to
+    /// The file to save the command history to.
     #[structopt(long = "history-file", default_value = "repl-history")]
     pub history_file: PathBuf,
-    /// The prompt to display before expressions
+    /// The prompt to display before expressions.
     #[structopt(long = "prompt", default_value = "> ")]
     pub prompt: String,
 }
 
-/// Run the REPL with the given options
+/// Run the REPL with the given options/
 pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     let mut editor = {
         let config = Config::builder()

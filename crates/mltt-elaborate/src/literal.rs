@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 use super::Context;
 
+/// Check the type of a literal in a context.
 pub fn check(
     context: &Context,
     kind: LiteralKind,
@@ -53,6 +54,7 @@ pub fn check(
     }
 }
 
+/// Synthesize the type of a literal.
 pub fn synth(
     kind: LiteralKind,
     src: &SpannedString<'_>,
@@ -182,7 +184,7 @@ fn parse_escape(
     }
 }
 
-/// Helper trait for defining `parse_int`
+/// Helper trait for defining `parse_int`.
 pub trait ParseIntLiteral: Sized {
     fn from_u8(num: u8) -> Self;
     fn checked_neg(self) -> Option<Self>;

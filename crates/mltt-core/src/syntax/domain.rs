@@ -104,7 +104,7 @@ impl RcValue {
     }
 }
 
-/// Terms that are in _weak head normal form_
+/// Terms that are in _weak head normal form_.
 ///
 /// These can either be _neutral values_ (values that are stuck on a variable),
 /// or _canonical values_.
@@ -157,14 +157,14 @@ impl Value {
 }
 
 /// Alias for types - we are using describing a dependently typed language
-/// types, so this is just an alias
+/// types, so this is just an alias.
 pub type Type = Value;
 
 /// Alias for reference counted types - we are using describing a dependently
-/// typed language types, so this is just an alias
+/// typed language types, so this is just an alias.
 pub type RcType = RcValue;
 
-/// The head of a neutral term
+/// The head of a neutral term.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Head {
     /// Variables
@@ -173,16 +173,16 @@ pub enum Head {
     Prim(String),
 }
 
-/// A spine of eliminators
+/// A spine of eliminators.
 pub type Spine = Vec<Elim>;
 
-/// An eliminator
+/// An eliminator.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Elim {
-    /// Literal elimination (case split)
+    /// Literal elimination (case split).
     Literal(LiteralClosure),
-    /// Function elimination (application)
+    /// Function elimination (application).
     Fun(AppMode, RcValue),
-    /// Record elimination (projection)
+    /// Record elimination (projection).
     Record(Label),
 }

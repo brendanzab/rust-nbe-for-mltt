@@ -14,7 +14,7 @@ use crate::syntax::domain::{
 };
 use crate::syntax::{AppMode, Env, Label, LiteralIntro, VarLevel};
 
-/// An error produced during normalization
+/// An error produced during normalization.
 ///
 /// If a term has been successfully type checked prior to evaluation or
 /// normalization, then this error should never be produced.
@@ -39,7 +39,7 @@ impl fmt::Display for NbeError {
     }
 }
 
-/// An entry in the primitive environment
+/// An entry in the primitive environment.
 #[derive(Clone)]
 pub struct PrimEntry {
     /// The number of arguments that this primitive accepts before it reduces.
@@ -92,7 +92,7 @@ impl fmt::Debug for PrimEntry {
     }
 }
 
-/// An environment of primitives to use during normalization
+/// An environment of primitives to use during normalization.
 #[derive(Debug, Clone)]
 pub struct PrimEnv {
     entries: im::HashMap<String, PrimEntry>,
@@ -324,7 +324,7 @@ impl Default for PrimEnv {
     }
 }
 
-/// Case split on a literal
+/// Case split on a literal.
 fn do_literal_elim(
     prims: &PrimEnv,
     scrutinee: RcValue,
@@ -350,7 +350,7 @@ fn do_literal_elim(
     }
 }
 
-/// Return the field in from a record
+/// Return the field in from a record.
 fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
@@ -370,7 +370,7 @@ fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
     }
 }
 
-/// Apply a closure to an argument
+/// Apply a closure to an argument.
 pub fn do_closure_app(
     prims: &PrimEnv,
     closure: &AppClosure,
@@ -381,7 +381,7 @@ pub fn do_closure_app(
     eval(prims, &env, &closure.term)
 }
 
-/// Apply a function to an argument
+/// Apply a function to an argument.
 pub fn do_fun_elim(
     prims: &PrimEnv,
     fun: RcValue,
@@ -618,7 +618,7 @@ pub fn read_back_neutral(
     })
 }
 
-/// Check whether a semantic type is a subtype of another
+/// Check whether a semantic type is a subtype of another.
 pub fn check_subtype(
     prims: &PrimEnv,
     level: VarLevel,

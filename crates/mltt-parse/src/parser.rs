@@ -1,4 +1,4 @@
-//! The parser
+//! The MLTT language parser.
 //!
 //! # Naive grammar
 //!
@@ -143,7 +143,7 @@ impl Matcher<Token<'_>> for ArgParamStart {
     }
 }
 
-/// The precedence or 'binding strength' of an infix operator
+/// The precedence or 'binding strength' of an infix operator.
 ///
 /// This controls how different operators should [be prioritised][order-of-operations]
 /// in the absence of explicit grouping. For example, if `*` has a greater
@@ -181,14 +181,14 @@ impl PartialOrd<u32> for Prec {
     }
 }
 
-/// Skip whitespace or line comment tokens
+/// Skip whitespace or line comment tokens.
 fn next_non_whitespace<'file>(
     tokens: &mut impl Iterator<Item = Token<'file>>,
 ) -> Option<Token<'file>> {
     tokens.skip_while(Token::is_whitespace).next()
 }
 
-/// A language parser
+/// A language parser.
 struct Parser<Tokens: Iterator> {
     /// The underlying iterator of tokens.
     tokens: Tokens,
@@ -200,7 +200,7 @@ impl<'file, Tokens> Parser<Tokens>
 where
     Tokens: Iterator<Item = Token<'file>> + 'file,
 {
-    /// Create a new parser from an iterator of tokens
+    /// Create a new parser from an iterator of tokens.
     fn new(mut tokens: Tokens) -> Parser<Tokens> {
         let peeked = next_non_whitespace(&mut tokens);
         Parser { tokens, peeked }
@@ -279,7 +279,7 @@ where
         docs
     }
 
-    /// Expect a module
+    /// Parse a module.
     ///
     /// ```text
     /// module ::= item*
@@ -292,7 +292,7 @@ where
         Ok(items)
     }
 
-    /// Expect an item
+    /// Parse an item.
     ///
     /// ```text
     /// item ::= DOC_COMMENT* IDENTIFIER ":" term(0) ";"
@@ -350,7 +350,7 @@ where
         }
     }
 
-    /// Parse zero-or-more function introduction parameters
+    /// Parse zero-or-more function introduction parameters.
     ///
     /// ```text
     /// intro-params ::= intro-param*
@@ -363,7 +363,7 @@ where
         Ok(params)
     }
 
-    /// Parse a function introduction parameter
+    /// Parse a function introduction parameter.
     ///
     /// ```text
     /// intro-param ::= pattern(0)
@@ -399,7 +399,7 @@ where
         }
     }
 
-    /// Parse an argument
+    /// Parse an argument.
     ///
     /// ```text
     /// arg ::= arg-term(0)
@@ -435,7 +435,7 @@ where
         }
     }
 
-    /// Parse a pattern
+    /// Parse a pattern.
     ///
     /// ```text
     /// pattern(prec) ::= operators(prec) {
@@ -489,7 +489,7 @@ where
         Ok(pattern)
     }
 
-    /// Parse a term
+    /// Parse a term.
     ///
     /// ```text
     /// term(prec) ::= operators(prec) {
@@ -590,7 +590,7 @@ where
         Ok(term)
     }
 
-    /// Parse an argument term
+    /// Parse an argument term.
     ///
     /// ```text
     /// arg-term(prec) ::= operators(prec) {
@@ -655,7 +655,7 @@ where
         Ok(term)
     }
 
-    /// Parse the trailing part of a variable
+    /// Parse the trailing part of a variable.
     fn parse_var(
         &mut self,
         token: Token<'file>,
@@ -663,12 +663,12 @@ where
         Ok(token.src)
     }
 
-    /// Parse the trailing part of a hole
+    /// Parse the trailing part of a hole.
     fn parse_hole(&mut self, token: Token<'file>) -> Result<Term<'file>, Diagnostic<FileSpan>> {
         Ok(Term::Hole(token.span()))
     }
 
-    /// Parse the trailing part of a string literal
+    /// Parse the trailing part of a string literal.
     fn parse_string_literal(
         &mut self,
         token: Token<'file>,
@@ -676,7 +676,7 @@ where
         Ok((LiteralKind::String, token.src))
     }
 
-    /// Parse the trailing part of a character literal
+    /// Parse the trailing part of a character literal.
     fn parse_char_literal(
         &mut self,
         token: Token<'file>,
@@ -684,7 +684,7 @@ where
         Ok((LiteralKind::Char, token.src))
     }
 
-    /// Parse the trailing part of a integer literal
+    /// Parse the trailing part of a integer literal.
     fn parse_int_literal(
         &mut self,
         token: Token<'file>,
@@ -692,7 +692,7 @@ where
         Ok((LiteralKind::Int, token.src))
     }
 
-    /// Parse the trailing part of a floating point literal
+    /// Parse the trailing part of a floating point literal.
     fn parse_float_literal(
         &mut self,
         token: Token<'file>,
@@ -700,7 +700,7 @@ where
         Ok((LiteralKind::Float, token.src))
     }
 
-    /// Parse the trailing part of a function introduction
+    /// Parse the trailing part of a function introduction.
     ///
     /// ```text
     /// fun-ty  ::= type-param+ "->" term(50 - 1)
@@ -793,7 +793,7 @@ where
         Ok(Term::FunType(span, params, Box::new(body_ty)))
     }
 
-    /// Parse the trailing part of a function introduction
+    /// Parse the trailing part of a function introduction.
     ///
     /// ```text
     /// fun-intro ::= intro-param+ "=>" term(0)
@@ -818,7 +818,7 @@ where
         Ok(Term::FunIntro(span, params, Box::new(body)))
     }
 
-    /// Parse the trailing part of a parenthesis grouping
+    /// Parse the trailing part of a parenthesis grouping.
     ///
     /// ```text
     /// parens ::= term(0) ")"
@@ -834,7 +834,7 @@ where
         Ok(Term::Parens(span, Box::new(term)))
     }
 
-    /// Parse the trailing part of a record type
+    /// Parse the trailing part of a record type.
     ///
     /// ```text
     /// record-type         ::= "{" (record-type-field ";")* record-type-field? "}"
@@ -876,7 +876,7 @@ where
         Ok(Term::RecordType(span, fields))
     }
 
-    /// Parse the trailing part of a record introduction
+    /// Parse the trailing part of a record introduction.
     ///
     /// ```text
     /// record-intro        ::= "{" (record-intro-field ";")* record-intro-field? "}"
@@ -927,7 +927,7 @@ where
         Ok(Term::RecordIntro(span, fields))
     }
 
-    /// Parse the trailing part of a let expression
+    /// Parse the trailing part of a let expression.
     ///
     /// ```text
     /// let-expr ::= item+ "in" term(0)
@@ -957,7 +957,7 @@ where
         Ok(Term::Let(span, items, Box::new(body_term)))
     }
 
-    /// Parse the trailing part of an if expression
+    /// Parse the trailing part of an if expression.
     ///
     /// ```text
     /// if-expr ::= term(0) "then" term(0) "else" term(0)
@@ -982,7 +982,7 @@ where
         ))
     }
 
-    /// Parse the trailing part of a case expression
+    /// Parse the trailing part of a case expression.
     ///
     /// ```text
     /// case-expr   ::= arg-term(0) "{" (case-clause ";")* case-clause? "}"
@@ -1022,7 +1022,7 @@ where
         Ok(Term::Case(span, Box::new(scrutinee), clauses))
     }
 
-    /// Parse the trailing part of a universe
+    /// Parse the trailing part of a universe.
     ///
     /// ```text
     /// universe ::= ("^" INT_LITERAL)?
@@ -1041,7 +1041,7 @@ where
         }
     }
 
-    /// Parse the trailing part of a primitive
+    /// Parse the trailing part of a primitive.
     ///
     /// ```text
     /// primitive ::= STRING_LITERAL
@@ -1056,7 +1056,7 @@ where
         Ok(Term::Prim(span, name_token.src))
     }
 
-    /// Parse the trailing part of a record elimination
+    /// Parse the trailing part of a record elimination.
     ///
     /// ```text
     /// record-elim ::= IDENTIFIER
@@ -1070,7 +1070,7 @@ where
         Ok(Term::RecordElim(Box::new(lhs), label))
     }
 
-    /// Parse the trailing part of a type annotation
+    /// Parse the trailing part of a type annotation.
     ///
     /// ```text
     /// ann ::= term(20 - 1)
@@ -1085,7 +1085,7 @@ where
         Ok(Term::Ann(Box::new(lhs), Box::new(rhs)))
     }
 
-    /// Parse the trailing part of a function arrow
+    /// Parse the trailing part of a function arrow.
     ///
     /// ```text
     /// fun-arrow-type ::= term(50 - 1)
@@ -1100,7 +1100,7 @@ where
         Ok(Term::FunArrowType(Box::new(lhs), Box::new(rhs)))
     }
 
-    /// Parse the trailing part of a function elimination
+    /// Parse the trailing part of a function elimination.
     ///
     /// ```text
     /// fun-elim    ::= arg*
