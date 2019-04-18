@@ -14,7 +14,7 @@ use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, Term, TypeParam};
 use mltt_core::nbe;
 use mltt_core::syntax::{
-    core, domain, AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
+    core, domain, AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
 };
 use mltt_span::FileSpan;
 use std::borrow::Cow;
@@ -32,7 +32,7 @@ pub struct Context {
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
-    values: Env<domain::RcValue>,
+    values: domain::Env,
     /// A mapping from the user-defined names to the level in which they were
     /// bound.
     ///
@@ -48,7 +48,7 @@ impl Context {
     pub fn new() -> Context {
         Context {
             prims: nbe::PrimEnv::new(),
-            values: Env::new(),
+            values: domain::Env::new(),
             binders: im::HashMap::new(),
         }
     }
@@ -59,7 +59,7 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &Env<domain::RcValue> {
+    pub fn values(&self) -> &domain::Env {
         &self.values
     }
 

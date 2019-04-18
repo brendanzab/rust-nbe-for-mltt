@@ -9,8 +9,8 @@ use std::fmt;
 
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{Module, RcTerm, Term};
-use crate::syntax::domain::{RcType, RcValue, Value};
-use crate::syntax::{AppMode, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel};
+use crate::syntax::domain::{Env, RcType, RcValue, Value};
+use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]
@@ -20,9 +20,9 @@ pub struct Context {
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
-    values: Env<RcValue>,
+    values: Env,
     /// Types of the entries in the context.
-    tys: Env<RcType>,
+    tys: im::Vector<RcType>,
 }
 
 impl Context {
@@ -32,7 +32,7 @@ impl Context {
             level: VarLevel(0),
             prims: nbe::PrimEnv::new(),
             values: Env::new(),
-            tys: Env::new(),
+            tys: im::Vector::new(),
         }
     }
 
@@ -47,13 +47,12 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &Env<RcValue> {
+    pub fn values(&self) -> &Env {
         &self.values
     }
 
-    /// Types of the entries in the context.
-    pub fn tys(&self) -> &Env<RcType> {
-        &self.tys
+    pub fn lookup_ty(&self, index: VarIndex) -> Option<&RcType> {
+        self.tys.get(index.0 as usize)
     }
 
     /// Add a local definition to the context.
@@ -61,7 +60,7 @@ impl Context {
         log::trace!("insert local");
         self.level += 1;
         self.values.add_entry(value);
-        self.tys.add_entry(ty);
+        self.tys.push_front(ty);
     }
 
     /// Add a bound variable the context, returning a variable that points to
@@ -346,7 +345,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
     log::trace!("synthesizing term:\t{}", term);
 
     match term.as_ref() {
-        Term::Var(index) => match context.tys().lookup_entry(*index) {
+        Term::Var(index) => match context.lookup_ty(*index) {
             None => Err(TypeError::UnboundVariable),
             Some(ann) => Ok(ann.clone()),
         },
@@ -466,8 +465,8 @@ mod test {
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
         assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
 
-        assert_eq!(context.tys().lookup_entry(VarIndex(2)).unwrap(), &ty1);
-        assert_eq!(context.tys().lookup_entry(VarIndex(1)).unwrap(), &ty2);
-        assert_eq!(context.tys().lookup_entry(VarIndex(0)).unwrap(), &ty3);
+        assert_eq!(context.lookup_ty(VarIndex(2)).unwrap(), &ty1);
+        assert_eq!(context.lookup_ty(VarIndex(1)).unwrap(), &ty2);
+        assert_eq!(context.lookup_ty(VarIndex(0)).unwrap(), &ty3);
     }
 }

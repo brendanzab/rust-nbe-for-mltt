@@ -85,40 +85,6 @@ impl ops::Add<u32> for VarIndex {
     }
 }
 
-/// An environment of entries that can be looked up based on a debruijn index.
-///
-/// It is backed by an `im::Vector` to allow for efficient sharing between
-/// multiple closures.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Env<Entry: Clone> {
-    /// The entries in the environment
-    entries: im::Vector<Entry>,
-}
-
-impl<Entry: Clone> Env<Entry> {
-    /// Create a new, empty environment.
-    pub fn new() -> Env<Entry> {
-        Env {
-            entries: im::Vector::new(),
-        }
-    }
-
-    /// Get the level of the environment.
-    pub fn level(&self) -> VarLevel {
-        VarLevel(self.entries.len() as u32)
-    }
-
-    /// Lookup an entry in the environment.
-    pub fn lookup_entry(&self, index: VarIndex) -> Option<&Entry> {
-        self.entries.get(index.0 as usize)
-    }
-
-    /// Add a new entry to the environment.
-    pub fn add_entry(&mut self, entry: Entry) {
-        self.entries.push_front(entry)
-    }
-}
-
 /// The level of a universe.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseLevel(pub u32);

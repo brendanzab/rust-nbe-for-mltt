@@ -10,9 +10,9 @@ use std::rc::Rc;
 
 use crate::syntax::core::{RcTerm, Term};
 use crate::syntax::domain::{
-    AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value,
+    AppClosure, Elim, Env, Head, LiteralClosure, RcType, RcValue, Spine, Value,
 };
-use crate::syntax::{AppMode, Env, Label, LiteralIntro, VarLevel};
+use crate::syntax::{AppMode, Label, LiteralIntro, VarLevel};
 
 /// An error produced during normalization.
 ///
@@ -411,7 +411,7 @@ pub fn do_fun_elim(
 
 /// Evaluate a term in the environment that corresponds to the context in which
 /// the term was typed.
-pub fn eval(prims: &PrimEnv, env: &Env<RcValue>, term: &RcTerm) -> Result<RcValue, NbeError> {
+pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeError> {
     match term.as_ref() {
         Term::Var(index) => match env.lookup_entry(*index) {
             Some(value) => Ok(value.clone()),

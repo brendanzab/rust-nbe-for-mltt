@@ -5,8 +5,42 @@ use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
 use crate::syntax::{
-    AppMode, DocString, Env, Label, LiteralIntro, LiteralType, UniverseLevel, VarLevel,
+    AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
 };
+
+/// An environment of entries that can be looked up based on a debruijn index.
+///
+/// It is backed by an `im::Vector` to allow for efficient sharing between
+/// multiple closures.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Env {
+    /// The entries in the environment
+    entries: im::Vector<RcValue>,
+}
+
+impl Env {
+    /// Create a new, empty environment.
+    pub fn new() -> Env {
+        Env {
+            entries: im::Vector::new(),
+        }
+    }
+
+    /// Get the level of the environment.
+    pub fn level(&self) -> VarLevel {
+        VarLevel(self.entries.len() as u32)
+    }
+
+    /// Lookup an entry in the environment.
+    pub fn lookup_entry(&self, index: VarIndex) -> Option<&RcValue> {
+        self.entries.get(index.0 as usize)
+    }
+
+    /// Add a new entry to the environment.
+    pub fn add_entry(&mut self, entry: RcValue) {
+        self.entries.push_front(entry);
+    }
+}
 
 /// A closure that binds a single variable.
 ///
@@ -23,11 +57,11 @@ pub struct AppClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env<RcValue>,
+    pub env: Env,
 }
 
 impl AppClosure {
-    pub fn new(term: RcTerm, env: Env<RcValue>) -> AppClosure {
+    pub fn new(term: RcTerm, env: Env) -> AppClosure {
         AppClosure { term, env }
     }
 }
@@ -43,15 +77,11 @@ pub struct LiteralClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env<RcValue>,
+    pub env: Env,
 }
 
 impl LiteralClosure {
-    pub fn new(
-        clauses: Rc<[(LiteralIntro, RcTerm)]>,
-        default: RcTerm,
-        env: Env<RcValue>,
-    ) -> LiteralClosure {
+    pub fn new(clauses: Rc<[(LiteralIntro, RcTerm)]>, default: RcTerm, env: Env) -> LiteralClosure {
         LiteralClosure {
             clauses,
             default,
