@@ -6,7 +6,7 @@ use mltt_core::syntax::{core, domain, AppMode, LiteralIntro};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
-use super::{check_term, do_closure_app, literal, synth_term, synth_universe, Context};
+use super::{check_term, literal, synth_term, synth_universe, Context};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Top-level Implementation
@@ -69,7 +69,7 @@ pub fn check_clause(
 
         param_app_modes.push(app_mode);
         let param_var = context.local_bind(var_name, param_ty.clone());
-        expected_ty = do_closure_app(context.prims(), next_body_ty, param_var)?;
+        expected_ty = context.do_closure_app(next_body_ty, param_var)?;
     }
 
     let body = check_clause_body(&context, &clause, &expected_ty)?;
