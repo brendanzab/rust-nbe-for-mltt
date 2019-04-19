@@ -75,32 +75,6 @@ impl ops::Add<u32> for VarIndex {
         self
     }
 }
-
-/// The level of a universe.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniverseLevel(pub u32);
-
-impl From<u32> for UniverseLevel {
-    fn from(src: u32) -> UniverseLevel {
-        UniverseLevel(src)
-    }
-}
-
-impl ops::AddAssign<u32> for UniverseLevel {
-    fn add_assign(&mut self, other: u32) {
-        self.0 += other;
-    }
-}
-
-impl ops::Add<u32> for UniverseLevel {
-    type Output = UniverseLevel;
-
-    fn add(mut self, other: u32) -> UniverseLevel {
-        self += other;
-        self
-    }
-}
-
 /// Literal types.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LiteralType {
@@ -260,6 +234,31 @@ impl fmt::Display for AppMode {
             AppMode::Implicit(label) => write!(f, "{{{}}}", label),
             AppMode::Instance(label) => write!(f, "{{{{{}}}}}", label),
         }
+    }
+}
+
+/// The level of a universe.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UniverseLevel(pub u32);
+
+impl From<u32> for UniverseLevel {
+    fn from(src: u32) -> UniverseLevel {
+        UniverseLevel(src)
+    }
+}
+
+impl ops::AddAssign<u32> for UniverseLevel {
+    fn add_assign(&mut self, other: u32) {
+        self.0 += other;
+    }
+}
+
+impl ops::Add<u32> for UniverseLevel {
+    type Output = UniverseLevel;
+
+    fn add(mut self, other: u32) -> UniverseLevel {
+        self += other;
+        self
     }
 }
 

@@ -76,12 +76,6 @@ impl VarIndex {
     }
 }
 
-impl UniverseLevel {
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(&self.0)
-    }
-}
-
 impl LiteralType {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
@@ -126,6 +120,12 @@ impl LiteralIntro {
 impl Label {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::text(&self.0)
+    }
+}
+
+impl UniverseLevel {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(&self.0)
     }
 }
 
