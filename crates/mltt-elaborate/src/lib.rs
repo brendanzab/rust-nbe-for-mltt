@@ -108,12 +108,12 @@ impl Context {
     }
 
     /// Apply a closure to an argument.
-    pub fn do_closure_app(
+    pub fn app_closure(
         &self,
         closure: &domain::AppClosure,
         arg: domain::RcValue,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::do_closure_app(self.prims(), closure, arg)
+        nbe::app_closure(self.prims(), closure, arg)
             .map_err(|error| Diagnostic::new_bug(format!("failed closure application: {}", error)))
     }
 
@@ -483,7 +483,7 @@ pub fn check_term(
 
                     fields.push((expected_label.clone(), term));
                     context.add_defn(found_label, term_value.clone(), term_ty);
-                    expected_ty = context.do_closure_app(&rest, term_value)?;
+                    expected_ty = context.app_closure(&rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
                         DiagnosticLabel::new_primary(found_label.span()).with_message(format!(
@@ -662,8 +662,10 @@ pub fn synth_term(
                         Ok((ty_app_mode, param_ty, body_ty))
                     },
                     _ => Err(Diagnostic::new_error("expected a function").with_label(
-                        DiagnosticLabel::new_primary(concrete_fun.span())
-                            .with_message(format!("found: {}", context.read_back_value(None, &fun_ty)?)),
+                        DiagnosticLabel::new_primary(concrete_fun.span()).with_message(format!(
+                            "found: {}",
+                            context.read_back_value(None, &fun_ty)?
+                        )),
                     )),
                 }?;
 
@@ -672,7 +674,7 @@ pub fn synth_term(
                 let arg_value = context.eval_term(concrete_arg.span(), &arg)?;
 
                 fun = core::RcTerm::from(core::Term::FunElim(fun, ty_app_mode.clone(), arg));
-                fun_ty = context.do_closure_app(body_ty, arg_value)?;
+                fun_ty = context.app_closure(body_ty, arg_value)?;
             }
 
             Ok((fun, fun_ty))
@@ -729,7 +731,7 @@ pub fn synth_term(
                     return Ok((expr, current_ty.clone()));
                 } else {
                     let expr = context.eval_term(None, &expr)?;
-                    record_ty = context.do_closure_app(rest, expr)?;
+                    record_ty = context.app_closure(rest, expr)?;
                 }
             }
 

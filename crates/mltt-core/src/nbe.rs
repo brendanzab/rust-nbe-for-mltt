@@ -370,17 +370,6 @@ fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
     }
 }
 
-/// Apply a closure to an argument.
-pub fn do_closure_app(
-    prims: &PrimEnv,
-    closure: &AppClosure,
-    arg: RcValue,
-) -> Result<RcValue, NbeError> {
-    let mut env = closure.env.clone();
-    env.add_defn(arg);
-    eval_term(prims, &env, &closure.term)
-}
-
 /// Apply a function to an argument.
 pub fn do_fun_elim(
     prims: &PrimEnv,
@@ -391,7 +380,7 @@ pub fn do_fun_elim(
     match fun.as_ref() {
         Value::FunIntro(fun_app_mode, body) => {
             if *fun_app_mode == app_mode {
-                do_closure_app(prims, body, arg)
+                app_closure(prims, body, arg)
             } else {
                 Err(NbeError::new(format!(
                     "do_ap: unexpected application mode - {:?} != {:?}",
@@ -407,6 +396,26 @@ pub fn do_fun_elim(
         },
         _ => Err(NbeError::new("do_ap: not a function")),
     }
+}
+
+/// Apply a closure to an argument.
+pub fn app_closure(
+    prims: &PrimEnv,
+    closure: &AppClosure,
+    arg: RcValue,
+) -> Result<RcValue, NbeError> {
+    let mut env = closure.env.clone();
+    env.add_defn(arg);
+    eval_term(prims, &env, &closure.term)
+}
+
+/// Instantiate a closure at the given level.
+pub fn inst_closure(
+    prims: &PrimEnv,
+    closure: &AppClosure,
+    level: VarLevel,
+) -> Result<RcValue, NbeError> {
+    app_closure(prims, closure, RcValue::var(level))
 }
 
 /// Evaluate a term in the environment that corresponds to the context in which
@@ -513,17 +522,14 @@ pub fn read_back_value(
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let param = RcValue::var(level);
             let param_ty = read_back_value(prims, level, param_ty)?;
-            let body_ty =
-                read_back_value(prims, level + 1, &do_closure_app(prims, body_ty, param)?)?;
+            let body_ty = read_back_value(prims, level + 1, &inst_closure(prims, body_ty, level)?)?;
 
             Ok(RcTerm::from(Term::FunType(app_mode, param_ty, body_ty)))
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
-            let param = RcValue::var(level);
-            let body = read_back_value(prims, level + 1, &do_closure_app(prims, body, param)?)?;
+            let body = read_back_value(prims, level + 1, &inst_closure(prims, body, level)?)?;
 
             Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
         },
@@ -532,21 +538,18 @@ pub fn read_back_value(
         Value::RecordTypeExtend(doc, label, term_ty, rest_ty) => {
             let mut level = level;
 
-            let term = RcValue::var(level);
             let term_ty = read_back_value(prims, level, term_ty)?;
 
-            let mut rest_ty = do_closure_app(prims, rest_ty, term)?;
+            let mut rest_ty = inst_closure(prims, rest_ty, level)?;
             let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
 
             while let Value::RecordTypeExtend(next_doc, next_label, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
             {
                 level += 1;
-                let next_term = RcValue::var(level);
                 let next_term_ty = read_back_value(prims, level, next_term_ty)?;
-
                 field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
-                rest_ty = do_closure_app(prims, next_rest_ty, next_term)?;
+                rest_ty = inst_closure(prims, next_rest_ty, level)?;
             }
 
             Ok(RcTerm::from(Term::RecordType(field_tys)))
@@ -648,30 +651,19 @@ pub fn check_subtype(
         (
             Value::FunType(app_mode1, param_ty1, body_ty1),
             Value::FunType(app_mode2, param_ty2, body_ty2),
-        ) if app_mode1 == app_mode2 => {
-            let param = RcValue::var(level);
-
-            Ok(check_subtype(prims, level, param_ty2, param_ty1)? && {
-                let body_ty1 = do_closure_app(prims, body_ty1, param.clone())?;
-                let body_ty2 = do_closure_app(prims, body_ty2, param)?;
-                check_subtype(prims, level + 1, &body_ty1, &body_ty2)?
-            })
-        },
+        ) if app_mode1 == app_mode2 => Ok(check_subtype(prims, level, param_ty2, param_ty1)? && {
+            let body_ty1 = inst_closure(prims, body_ty1, level)?;
+            let body_ty2 = inst_closure(prims, body_ty2, level)?;
+            check_subtype(prims, level + 1, &body_ty1, &body_ty2)?
+        }),
         (
             Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
             Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
-        ) => {
-            let term = RcValue::var(level);
-
-            Ok(
-                // FIXME: Could stack overflow here?
-                label1 == label2 && check_subtype(prims, level, term_ty1, term_ty2)? && {
-                    let rest_ty1 = do_closure_app(prims, rest_ty1, term.clone())?;
-                    let rest_ty2 = do_closure_app(prims, rest_ty2, term)?;
-                    check_subtype(prims, level + 1, &rest_ty1, &rest_ty2)?
-                },
-            )
-        },
+        ) if label1 == label2 => Ok(check_subtype(prims, level, term_ty1, term_ty2)? && {
+            let rest_ty1 = inst_closure(prims, rest_ty1, level)?;
+            let rest_ty2 = inst_closure(prims, rest_ty2, level)?;
+            check_subtype(prims, level + 1, &rest_ty1, &rest_ty2)?
+        }),
         (Value::RecordTypeEmpty, Value::RecordTypeEmpty) => Ok(true),
         (Value::Universe(level1), Value::Universe(level2)) => Ok(level1 <= level2),
         _ => Ok(false),

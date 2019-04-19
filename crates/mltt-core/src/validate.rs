@@ -64,8 +64,8 @@ impl Context {
     }
 
     /// Apply a closure to an argument.
-    pub fn do_closure_app(&self, closure: &AppClosure, arg: RcValue) -> Result<RcValue, NbeError> {
-        nbe::do_closure_app(self.prims(), closure, arg)
+    pub fn app_closure(&self, closure: &AppClosure, arg: RcValue) -> Result<RcValue, NbeError> {
+        nbe::app_closure(self.prims(), closure, arg)
     }
 
     /// Evaluate a term using the evaluation environment.
@@ -286,7 +286,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
                 let param = body_context.add_param(param_ty.clone());
-                let body_ty = context.do_closure_app(body_ty, param)?;
+                let body_ty = context.app_closure(body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
             },
@@ -318,7 +318,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                     let term_value = context.eval_term(term)?;
 
                     context.add_defn(term_value.clone(), expected_term_ty.clone());
-                    expected_ty = context.do_closure_app(&rest, term_value)?;
+                    expected_ty = context.app_closure(&rest, term_value)?;
                 } else {
                     return Err(TypeError::TooManyFieldsFound);
                 }
@@ -384,7 +384,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
                     check_term(context, arg, arg_ty)?;
                     let arg_value = context.eval_term(arg)?;
-                    Ok(context.do_closure_app(body_ty, arg_value)?)
+                    Ok(context.app_closure(body_ty, arg_value)?)
                 },
                 Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
                     found: arg_app_mode.clone(),
@@ -426,7 +426,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 } else {
                     let label = current_label.clone();
                     let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
-                    record_ty = context.do_closure_app(rest, context.eval_term(&expr)?)?;
+                    record_ty = context.app_closure(rest, context.eval_term(&expr)?)?;
                 }
             }
 
