@@ -4,8 +4,9 @@ use std::fmt;
 use std::ops;
 use std::rc::Rc;
 
+use crate::syntax::pretty::DisplayEnv;
 use crate::syntax::{
-    AppMode, DisplayEnv, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
+    AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
 };
 
 #[derive(Clone, PartialEq)]

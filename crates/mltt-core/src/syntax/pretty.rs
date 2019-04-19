@@ -4,7 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
 
 use super::core;
-use super::{AppMode, VarIndex};
+use super::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
 
 pub struct DisplayEnv {
     counter: usize,
@@ -66,6 +66,65 @@ impl DisplayEnv {
 
     fn pop_name(&mut self) {
         self.names.pop();
+    }
+}
+
+impl VarIndex {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(format!("@{}", self.0))
+    }
+}
+
+impl UniverseLevel {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(&self.0)
+    }
+}
+
+impl LiteralType {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            LiteralType::String => Doc::text("String"),
+            LiteralType::Char => Doc::text("Char"),
+            LiteralType::Bool => Doc::text("Bool"),
+            LiteralType::U8 => Doc::text("U8"),
+            LiteralType::U16 => Doc::text("U16"),
+            LiteralType::U32 => Doc::text("U32"),
+            LiteralType::U64 => Doc::text("U64"),
+            LiteralType::S8 => Doc::text("S8"),
+            LiteralType::S16 => Doc::text("S16"),
+            LiteralType::S32 => Doc::text("S32"),
+            LiteralType::S64 => Doc::text("S64"),
+            LiteralType::F32 => Doc::text("F32"),
+            LiteralType::F64 => Doc::text("F64"),
+        }
+    }
+}
+
+impl LiteralIntro {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self {
+            LiteralIntro::String(value) => Doc::text(format!("{:?}", value)),
+            LiteralIntro::Char(value) => Doc::text(format!("{:?}", value)),
+            LiteralIntro::Bool(true) => Doc::text("true"),
+            LiteralIntro::Bool(false) => Doc::text("false"),
+            LiteralIntro::U8(value) => Doc::as_string(&value),
+            LiteralIntro::U16(value) => Doc::as_string(&value),
+            LiteralIntro::U32(value) => Doc::as_string(&value),
+            LiteralIntro::U64(value) => Doc::as_string(&value),
+            LiteralIntro::S8(value) => Doc::as_string(&value),
+            LiteralIntro::S16(value) => Doc::as_string(&value),
+            LiteralIntro::S32(value) => Doc::as_string(&value),
+            LiteralIntro::S64(value) => Doc::as_string(&value),
+            LiteralIntro::F32(value) => Doc::as_string(&value),
+            LiteralIntro::F64(value) => Doc::as_string(&value),
+        }
+    }
+}
+
+impl Label {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::text(&self.0)
     }
 }
 

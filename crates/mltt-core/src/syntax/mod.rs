@@ -2,16 +2,13 @@
 //!
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
-use pretty::{BoxDoc, Doc};
 use std::fmt;
 use std::ops;
 use std::rc::Rc;
 
 pub mod core;
-pub mod doc;
 pub mod domain;
-
-pub use self::doc::DisplayEnv;
+pub mod pretty;
 
 /// Reference counted documentation string.
 pub type DocString = Rc<str>;
@@ -58,12 +55,6 @@ impl ops::Add<u32> for VarLevel {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VarIndex(pub u32);
 
-impl VarIndex {
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(format!("@{}", self.0))
-    }
-}
-
 impl From<u32> for VarIndex {
     fn from(src: u32) -> VarIndex {
         VarIndex(src)
@@ -88,12 +79,6 @@ impl ops::Add<u32> for VarIndex {
 /// The level of a universe.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseLevel(pub u32);
-
-impl UniverseLevel {
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(&self.0)
-    }
-}
 
 impl From<u32> for UniverseLevel {
     fn from(src: u32) -> UniverseLevel {
@@ -137,24 +122,6 @@ pub enum LiteralType {
 impl LiteralType {
     pub fn alpha_eq(&self, other: &LiteralType) -> bool {
         self == other
-    }
-
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        match self {
-            LiteralType::String => Doc::text("String"),
-            LiteralType::Char => Doc::text("Char"),
-            LiteralType::Bool => Doc::text("Bool"),
-            LiteralType::U8 => Doc::text("U8"),
-            LiteralType::U16 => Doc::text("U16"),
-            LiteralType::U32 => Doc::text("U32"),
-            LiteralType::U64 => Doc::text("U64"),
-            LiteralType::S8 => Doc::text("S8"),
-            LiteralType::S16 => Doc::text("S16"),
-            LiteralType::S32 => Doc::text("S32"),
-            LiteralType::S64 => Doc::text("S64"),
-            LiteralType::F32 => Doc::text("F32"),
-            LiteralType::F64 => Doc::text("F64"),
-        }
     }
 }
 
@@ -220,25 +187,6 @@ impl LiteralIntro {
             (_, _) => false,
         }
     }
-
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        match self {
-            LiteralIntro::String(value) => Doc::text(format!("{:?}", value)),
-            LiteralIntro::Char(value) => Doc::text(format!("{:?}", value)),
-            LiteralIntro::Bool(true) => Doc::text("true"),
-            LiteralIntro::Bool(false) => Doc::text("false"),
-            LiteralIntro::U8(value) => Doc::as_string(&value),
-            LiteralIntro::U16(value) => Doc::as_string(&value),
-            LiteralIntro::U32(value) => Doc::as_string(&value),
-            LiteralIntro::U64(value) => Doc::as_string(&value),
-            LiteralIntro::S8(value) => Doc::as_string(&value),
-            LiteralIntro::S16(value) => Doc::as_string(&value),
-            LiteralIntro::S32(value) => Doc::as_string(&value),
-            LiteralIntro::S64(value) => Doc::as_string(&value),
-            LiteralIntro::F32(value) => Doc::as_string(&value),
-            LiteralIntro::F64(value) => Doc::as_string(&value),
-        }
-    }
 }
 
 impl fmt::Display for LiteralIntro {
@@ -286,12 +234,6 @@ impl From<String> for LiteralIntro {
 /// A label.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);
-
-impl Label {
-    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::text(&self.0)
-    }
-}
 
 impl fmt::Display for Label {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
