@@ -8,6 +8,26 @@ use crate::syntax::{
     AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
 };
 
+/// An entry in the evaluation environment.
+#[derive(Debug, Clone, PartialEq)]
+struct EnvEntry {
+    /// The value. `Some` if this entry has an associated definition, or `None`
+    /// if it is a parameter.
+    value: Option<RcValue>,
+    /// The variable representation of this entry. This is useful if we don't
+    /// want to unfold the value
+    var: RcValue,
+}
+
+impl EnvEntry {
+    fn value(&self) -> &RcValue {
+        match &self.value {
+            Some(value) => value,
+            None => &self.var,
+        }
+    }
+}
+
 /// An environment of entries that can be looked up based on a debruijn index.
 ///
 /// It is backed by an `im::Vector` to allow for efficient sharing between
@@ -15,7 +35,7 @@ use crate::syntax::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct Env {
     /// The entries in the environment
-    entries: im::Vector<RcValue>,
+    entries: im::Vector<EnvEntry>,
 }
 
 impl Env {
@@ -31,14 +51,27 @@ impl Env {
         VarLevel(self.entries.len() as u32)
     }
 
-    /// Lookup an entry in the environment.
-    pub fn lookup_entry(&self, index: VarIndex) -> Option<&RcValue> {
-        self.entries.get(index.0 as usize)
+    /// Lookup a value in the environment.
+    pub fn lookup_value(&self, index: VarIndex) -> Option<&RcValue> {
+        self.entries.get(index.0 as usize).map(EnvEntry::value)
     }
 
-    /// Add a new entry to the environment.
-    pub fn add_entry(&mut self, entry: RcValue) {
-        self.entries.push_front(entry);
+    /// Add a new definition to the environment.
+    pub fn add_defn(&mut self, value: RcValue) {
+        self.entries.push_front(EnvEntry {
+            value: Some(value),
+            var: RcValue::var(self.level()),
+        });
+    }
+
+    /// Add a new parameter to the environment.
+    pub fn add_param(&mut self) -> RcValue {
+        let var = RcValue::var(self.level());
+        self.entries.push_front(EnvEntry {
+            value: None,
+            var: var.clone(),
+        });
+        var
     }
 }
 

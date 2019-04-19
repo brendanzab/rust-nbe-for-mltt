@@ -377,7 +377,7 @@ pub fn do_closure_app(
     arg: RcValue,
 ) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
-    env.add_entry(arg);
+    env.add_defn(arg);
     eval(prims, &env, &closure.term)
 }
 
@@ -413,7 +413,7 @@ pub fn do_fun_elim(
 /// the term was typed.
 pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeError> {
     match term.as_ref() {
-        Term::Var(index) => match env.lookup_entry(*index) {
+        Term::Var(index) => match env.lookup_value(*index) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
@@ -430,7 +430,7 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
         Term::Let(def, _, body) => {
             let def = eval(prims, env, def)?;
             let mut env = env.clone();
-            env.add_entry(def);
+            env.add_defn(def);
             eval(prims, &env, body)
         },
 

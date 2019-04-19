@@ -63,33 +63,39 @@ impl Context {
         &self.values
     }
 
-    /// Add a local definition to the context.
-    pub fn local_define(
+    /// Add a fresh definition to the context.
+    pub fn add_fresh_defn(&mut self, value: domain::RcValue) {
+        log::trace!("add fresh definition");
+        self.values.add_defn(value);
+    }
+
+    /// Add a definition to the context.
+    pub fn add_defn(
         &mut self,
-        name: impl Into<Option<String>>,
+        name: impl Into<String>,
         value: domain::RcValue,
         ty: domain::RcType,
     ) {
-        match name.into() {
-            None => log::trace!("insert fresh local"),
-            Some(name) => {
-                log::trace!("insert named local: {}", name);
-                self.binders.insert(name, (self.values().level(), ty));
-            },
-        }
-        self.values.add_entry(value);
+        let name = name.into();
+        log::trace!("add definition: {}", name);
+        self.binders.insert(name, (self.values().level(), ty));
+        self.values.add_defn(value);
     }
 
-    /// Add a bound variable the context, returning a variable that points to
-    /// the correct binder.
-    pub fn local_bind(
-        &mut self,
-        name: impl Into<Option<String>>,
-        ty: domain::RcType,
-    ) -> domain::RcValue {
-        let param = domain::RcValue::var(self.values().level());
-        self.local_define(name, param.clone(), ty);
-        param
+    /// Add a fresh parameter the context, returning a variable that points to
+    /// the introduced binder.
+    pub fn add_fresh_param(&mut self) -> domain::RcValue {
+        log::trace!("add fresh parameter");
+        self.values.add_param()
+    }
+
+    /// Add a parameter the context, returning a variable that points to
+    /// the introduced binder.
+    pub fn add_param(&mut self, name: impl Into<String>, ty: domain::RcType) -> domain::RcValue {
+        let name = name.into();
+        log::trace!("add parameter: {}", name);
+        self.binders.insert(name, (self.values().level(), ty));
+        self.values.add_param()
     }
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
@@ -183,21 +189,21 @@ impl Default for Context {
         let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let bool = lit_ty(LiteralType::Bool);
 
-        context.local_define("String".to_owned(), lit_ty(LiteralType::String), u0.clone());
-        context.local_define("Char".to_owned(), lit_ty(LiteralType::Char), u0.clone());
-        context.local_define("Bool".to_owned(), bool.clone(), u0.clone());
-        context.local_define("true".to_owned(), bool_intro(true), bool.clone());
-        context.local_define("false".to_owned(), bool_intro(false), bool.clone());
-        context.local_define("U8".to_owned(), lit_ty(LiteralType::U8), u0.clone());
-        context.local_define("U16".to_owned(), lit_ty(LiteralType::U16), u0.clone());
-        context.local_define("U32".to_owned(), lit_ty(LiteralType::U32), u0.clone());
-        context.local_define("U64".to_owned(), lit_ty(LiteralType::U64), u0.clone());
-        context.local_define("S8".to_owned(), lit_ty(LiteralType::S8), u0.clone());
-        context.local_define("S16".to_owned(), lit_ty(LiteralType::S16), u0.clone());
-        context.local_define("S32".to_owned(), lit_ty(LiteralType::S32), u0.clone());
-        context.local_define("S64".to_owned(), lit_ty(LiteralType::S64), u0.clone());
-        context.local_define("F32".to_owned(), lit_ty(LiteralType::F32), u0.clone());
-        context.local_define("F64".to_owned(), lit_ty(LiteralType::F64), u0.clone());
+        context.add_defn("String", lit_ty(LiteralType::String), u0.clone());
+        context.add_defn("Char", lit_ty(LiteralType::Char), u0.clone());
+        context.add_defn("Bool", bool.clone(), u0.clone());
+        context.add_defn("true", bool_intro(true), bool.clone());
+        context.add_defn("false", bool_intro(false), bool.clone());
+        context.add_defn("U8", lit_ty(LiteralType::U8), u0.clone());
+        context.add_defn("U16", lit_ty(LiteralType::U16), u0.clone());
+        context.add_defn("U32", lit_ty(LiteralType::U32), u0.clone());
+        context.add_defn("U64", lit_ty(LiteralType::U64), u0.clone());
+        context.add_defn("S8", lit_ty(LiteralType::S8), u0.clone());
+        context.add_defn("S16", lit_ty(LiteralType::S16), u0.clone());
+        context.add_defn("S32", lit_ty(LiteralType::S32), u0.clone());
+        context.add_defn("S64", lit_ty(LiteralType::S64), u0.clone());
+        context.add_defn("F32", lit_ty(LiteralType::F32), u0.clone());
+        context.add_defn("F64", lit_ty(LiteralType::F64), u0.clone());
 
         context.prims = nbe::PrimEnv::default();
 
@@ -316,7 +322,7 @@ fn check_items(
                 log::trace!("elaborated declaration:\t{}\t: {}", label, term_ty);
                 log::trace!("elaborated definition:\t{}\t= {}", label, term);
 
-                context.local_define(label.to_owned(), value, ty);
+                context.add_defn(label, value, ty);
                 core_items.push(core::Item {
                     doc,
                     label: Label(label.to_owned()),
@@ -474,7 +480,7 @@ pub fn check_term(
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
-                    context.local_define(found_label.to_string(), term_value.clone(), term_ty);
+                    context.add_defn(found_label, term_value.clone(), term_ty);
                     expected_ty = context.do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
@@ -579,7 +585,7 @@ pub fn synth_term(
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_name.to_string(), param_ty_value);
+                            context.add_param(param_name, param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -598,7 +604,7 @@ pub fn synth_term(
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                            context.local_bind(param_label.to_string(), param_ty_value);
+                            context.add_param(param_label, param_ty_value);
                             param_tys.push((app_mode, param_ty));
                             max_level = cmp::max(max_level, level);
                         }
@@ -609,7 +615,7 @@ pub fn synth_term(
                         let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                         let param_ty_value = context.eval(param_ty_span, &param_ty)?;
 
-                        context.local_bind(param_label.to_string(), param_ty_value);
+                        context.add_param(param_label, param_ty_value);
                         param_tys.push((app_mode, param_ty));
                         max_level = cmp::max(max_level, level);
                     },
@@ -631,10 +637,9 @@ pub fn synth_term(
         },
         Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
             let (param_ty, param_level) = synth_universe(context, concrete_param_ty)?;
-            let param_ty_value = context.eval(concrete_param_ty.span(), &param_ty)?;
             let (body_ty, body_level) = {
                 let mut context = context.clone();
-                context.local_bind(None, param_ty_value);
+                context.add_fresh_param();
                 synth_universe(&context, concrete_body_ty)?
             };
 
@@ -682,7 +687,7 @@ pub fn synth_term(
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
                     let ty_value = context.eval(concrete_ty_field.ann.span(), &ty)?;
 
-                    context.local_bind(concrete_ty_field.label.to_string(), ty_value);
+                    context.add_param(concrete_ty_field.label, ty_value);
                     max_level = cmp::max(max_level, ty_level);
 
                     Ok((docs, Label(concrete_ty_field.label.to_string()), ty))
@@ -750,7 +755,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn local_binds() {
+    fn add_params() {
         use mltt_core::syntax::domain::{RcValue, Value};
 
         let mut context = Context::new();
@@ -759,9 +764,9 @@ mod test {
         let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
         let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
-        let param1 = context.local_bind("x".to_owned(), ty1.clone());
-        let param2 = context.local_bind("y".to_owned(), ty2.clone());
-        let param3 = context.local_bind("z".to_owned(), ty3.clone());
+        let param1 = context.add_param("x", ty1.clone());
+        let param2 = context.add_param("y", ty2.clone());
+        let param3 = context.add_param("z", ty3.clone());
 
         assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
@@ -773,7 +778,7 @@ mod test {
     }
 
     #[test]
-    fn local_binds_shadow() {
+    fn add_params_shadow() {
         use mltt_core::syntax::domain::{RcValue, Value};
 
         let mut context = Context::new();
@@ -782,9 +787,9 @@ mod test {
         let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
         let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
-        let param1 = context.local_bind("x".to_owned(), ty1.clone());
-        let param2 = context.local_bind("x".to_owned(), ty2.clone());
-        let param3 = context.local_bind("x".to_owned(), ty3.clone());
+        let param1 = context.add_param("x", ty1.clone());
+        let param2 = context.add_param("x", ty2.clone());
+        let param3 = context.add_param("x", ty3.clone());
 
         assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
@@ -794,18 +799,16 @@ mod test {
     }
 
     #[test]
-    fn local_binds_fresh() {
+    fn add_params_fresh() {
         use mltt_core::syntax::domain::{RcValue, Value};
 
         let mut context = Context::new();
 
         let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
-        let param1 = context.local_bind("x".to_owned(), ty1.clone());
-        let param2 = context.local_bind(None, ty2.clone());
-        let param3 = context.local_bind(None, ty3.clone());
+        let param1 = context.add_param("x", ty1.clone());
+        let param2 = context.add_fresh_param();
+        let param3 = context.add_fresh_param();
 
         assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));

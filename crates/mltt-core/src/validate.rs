@@ -47,19 +47,19 @@ impl Context {
         self.tys.get(index.0 as usize)
     }
 
-    /// Add a local definition to the context.
-    pub fn local_define(&mut self, value: RcValue, ty: RcType) {
-        log::trace!("insert local");
-        self.values.add_entry(value);
+    /// Add a definition to the context.
+    pub fn add_defn(&mut self, value: RcValue, ty: RcType) {
+        log::trace!("add definition");
         self.tys.push_front(ty);
+        self.values.add_defn(value);
     }
 
     /// Add a bound variable the context, returning a variable that points to
     /// the correct binder.
-    pub fn local_bind(&mut self, ty: RcType) -> RcValue {
-        let param = RcValue::var(self.values().level());
-        self.local_define(param.clone(), ty);
-        param
+    pub fn add_param(&mut self, ty: RcType) -> RcValue {
+        log::trace!("add parameter");
+        self.tys.push_front(ty);
+        self.values.add_param()
     }
 
     /// Apply a closure to an argument.
@@ -89,21 +89,21 @@ impl Default for Context {
         let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let bool = lit_ty(LiteralType::Bool);
 
-        context.local_define(lit_ty(LiteralType::String), u0.clone());
-        context.local_define(lit_ty(LiteralType::Char), u0.clone());
-        context.local_define(bool.clone(), u0.clone());
-        context.local_define(RcValue::literal_intro(true), bool.clone());
-        context.local_define(RcValue::literal_intro(false), bool.clone());
-        context.local_define(lit_ty(LiteralType::U8), u0.clone());
-        context.local_define(lit_ty(LiteralType::U16), u0.clone());
-        context.local_define(lit_ty(LiteralType::U32), u0.clone());
-        context.local_define(lit_ty(LiteralType::U64), u0.clone());
-        context.local_define(lit_ty(LiteralType::S8), u0.clone());
-        context.local_define(lit_ty(LiteralType::S16), u0.clone());
-        context.local_define(lit_ty(LiteralType::S32), u0.clone());
-        context.local_define(lit_ty(LiteralType::S64), u0.clone());
-        context.local_define(lit_ty(LiteralType::F32), u0.clone());
-        context.local_define(lit_ty(LiteralType::F64), u0.clone());
+        context.add_defn(lit_ty(LiteralType::String), u0.clone());
+        context.add_defn(lit_ty(LiteralType::Char), u0.clone());
+        context.add_defn(bool.clone(), u0.clone());
+        context.add_defn(RcValue::literal_intro(true), bool.clone());
+        context.add_defn(RcValue::literal_intro(false), bool.clone());
+        context.add_defn(lit_ty(LiteralType::U8), u0.clone());
+        context.add_defn(lit_ty(LiteralType::U16), u0.clone());
+        context.add_defn(lit_ty(LiteralType::U32), u0.clone());
+        context.add_defn(lit_ty(LiteralType::U64), u0.clone());
+        context.add_defn(lit_ty(LiteralType::S8), u0.clone());
+        context.add_defn(lit_ty(LiteralType::S16), u0.clone());
+        context.add_defn(lit_ty(LiteralType::S32), u0.clone());
+        context.add_defn(lit_ty(LiteralType::S64), u0.clone());
+        context.add_defn(lit_ty(LiteralType::F32), u0.clone());
+        context.add_defn(lit_ty(LiteralType::F64), u0.clone());
 
         context.prims = nbe::PrimEnv::default();
 
@@ -194,7 +194,7 @@ pub fn check_module(context: &Context, module: &Module) -> Result<(), TypeError>
         let value = context.eval(&item.term)?;
 
         log::trace!("validated item:\t\t{}", item.label);
-        context.local_define(value, term_ty);
+        context.add_defn(value, term_ty);
     }
 
     Ok(())
@@ -252,7 +252,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             let def_ty = context.eval(def_ty)?;
             check_term(context, &def, &def_ty)?;
             let def = context.eval(def)?;
-            body_context.local_define(def, def_ty);
+            body_context.add_defn(def, def_ty);
 
             check_term(&body_context, body, expected_ty)
         },
@@ -284,7 +284,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
         Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
             Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
-                let param = body_context.local_bind(param_ty.clone());
+                let param = body_context.add_param(param_ty.clone());
                 let body_ty = context.do_closure_app(body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
@@ -316,7 +316,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                     check_term(&context, term, expected_term_ty)?;
                     let term_value = context.eval(term)?;
 
-                    context.local_define(term_value.clone(), expected_term_ty.clone());
+                    context.add_defn(term_value.clone(), expected_term_ty.clone());
                     expected_ty = context.do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(TypeError::TooManyFieldsFound);
@@ -355,7 +355,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             let def_ty = context.eval(def_ty)?;
             check_term(context, def, &def_ty)?;
             let def = context.eval(def)?;
-            body_context.local_define(def, def_ty);
+            body_context.add_defn(def, def_ty);
 
             synth_term(&body_context, body)
         },
@@ -369,7 +369,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             let param_ty_value = context.eval(param_ty)?;
 
             let mut body_ty_context = context.clone();
-            body_ty_context.local_bind(param_ty_value);
+            body_ty_context.add_param(param_ty_value);
 
             let body_level = synth_universe(&body_ty_context, body_ty)?;
 
@@ -404,7 +404,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
             for (_, _, ty) in ty_fields {
                 let ty_level = synth_universe(&context, &ty)?;
-                context.local_bind(context.eval(&ty)?);
+                context.add_param(context.eval(&ty)?);
                 max_level = cmp::max(max_level, ty_level);
             }
 
@@ -446,16 +446,16 @@ mod test {
     use crate::syntax::{VarIndex, VarLevel};
 
     #[test]
-    fn local_binds() {
+    fn add_params() {
         let mut context = Context::new();
 
         let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
         let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
         let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
 
-        let param1 = context.local_bind(ty1.clone());
-        let param2 = context.local_bind(ty2.clone());
-        let param3 = context.local_bind(ty3.clone());
+        let param1 = context.add_param(ty1.clone());
+        let param2 = context.add_param(ty2.clone());
+        let param3 = context.add_param(ty3.clone());
 
         assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));

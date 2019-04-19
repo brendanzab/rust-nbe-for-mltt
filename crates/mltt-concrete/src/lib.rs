@@ -129,7 +129,7 @@ impl<'file> Definition<'file> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SpannedString<'file> {
     pub source: FileId,
     pub start: ByteIndex,
@@ -177,6 +177,18 @@ impl<'file> fmt::Debug for SpannedString<'file> {
 impl<'file> fmt::Display for SpannedString<'file> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.slice.fmt(f)
+    }
+}
+
+impl<'file> Into<String> for SpannedString<'file> {
+    fn into(self) -> String {
+        self.to_string()
+    }
+}
+
+impl<'a, 'file> Into<String> for &'a SpannedString<'file> {
+    fn into(self) -> String {
+        self.to_string()
     }
 }
 

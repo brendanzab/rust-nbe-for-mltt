@@ -53,11 +53,11 @@ pub fn check_clause(
         next_expected_param(&expected_ty),
         clause.concrete_params.split_first(),
     ) {
-        let var_name = match check_param_app_mode(head_param, &app_mode)? {
-            CheckedPattern::Var(None) => None,
+        let param_var = match check_param_app_mode(head_param, &app_mode)? {
+            CheckedPattern::Var(None) => context.add_fresh_param(),
             CheckedPattern::Var(Some(var_name)) => {
                 clause.concrete_params = rest_params;
-                Some(var_name.to_string())
+                context.add_param(var_name, param_ty)
             },
             CheckedPattern::LiteralIntro(_, literal) => {
                 return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
@@ -68,7 +68,6 @@ pub fn check_clause(
         };
 
         param_app_modes.push(app_mode);
-        let param_var = context.local_bind(var_name, param_ty.clone());
         expected_ty = context.do_closure_app(next_body_ty, param_var)?;
     }
 
@@ -116,7 +115,7 @@ pub fn check_case<'file>(
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
                 let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
                 let scrutinee_ty_term = context.read_back(None, &scrutinee_ty)?;
-                context.local_define(None, scrutinee_value, scrutinee_ty.clone());
+                context.add_fresh_defn(scrutinee_value);
 
                 (
                     (scrutinee_term, scrutinee_ty_term),
@@ -154,7 +153,9 @@ pub fn check_case<'file>(
             let default = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
-                    context.binders.insert(name.to_string(), (param_level, param_ty));
+                    context
+                        .binders
+                        .insert(name.to_string(), (param_level, param_ty));
                     check_term(&context, &default_clause.body, expected_ty)?
                 },
                 _ => {
