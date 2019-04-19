@@ -493,7 +493,7 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
         Term::RecordElim(record, label) => do_record_elim(eval(prims, env, record)?, label),
 
         // Universes
-        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level))),
+        Term::Universe(level) => Ok(RcValue::universe(*level)),
     }
 }
 
@@ -562,7 +562,7 @@ pub fn read_back_term(
         },
 
         // Universes
-        Value::Universe(level) => Ok(RcTerm::from(Term::Universe(*level))),
+        Value::Universe(level) => Ok(RcTerm::universe(*level)),
     }
 }
 

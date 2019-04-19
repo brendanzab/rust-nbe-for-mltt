@@ -165,6 +165,11 @@ impl RcValue {
     pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcValue {
         RcValue::from(Value::literal_intro(value))
     }
+
+    /// Construct a universe.
+    pub fn universe(level: impl Into<UniverseLevel>) -> RcValue {
+        RcValue::from(Value::universe(level))
+    }
 }
 
 /// Terms that are in _weak head normal form_.
@@ -216,6 +221,11 @@ impl Value {
     /// Construct a literal introduction.
     pub fn literal_intro(value: impl Into<LiteralIntro>) -> Value {
         Value::LiteralIntro(value.into())
+    }
+
+    /// Construct a universe.
+    pub fn universe(level: impl Into<UniverseLevel>) -> Value {
+        Value::Universe(level.into())
     }
 }
 

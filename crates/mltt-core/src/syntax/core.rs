@@ -76,6 +76,11 @@ impl RcTerm {
     pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcTerm {
         RcTerm::from(Term::literal_intro(value))
     }
+
+    /// Construct a universe.
+    pub fn universe(level: impl Into<UniverseLevel>) -> RcTerm {
+        RcTerm::from(Term::universe(level))
+    }
 }
 
 impl From<Term> for RcTerm {
@@ -172,6 +177,11 @@ impl Term {
     /// Construct a literal introduction.
     pub fn literal_intro(value: impl Into<LiteralIntro>) -> Term {
         Term::LiteralIntro(value.into())
+    }
+
+    /// Construct a universe.
+    pub fn universe(level: impl Into<UniverseLevel>) -> Term {
+        Term::Universe(level.into())
     }
 
     /// Checks if a term is _alpha equivalent_ to another term.

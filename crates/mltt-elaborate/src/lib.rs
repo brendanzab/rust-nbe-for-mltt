@@ -186,7 +186,7 @@ impl Default for Context {
         let mut context = Context::new();
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
         let bool_intro = RcValue::literal_intro;
-        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let u0 = RcValue::universe(0);
         let bool = lit_ty(LiteralType::Bool);
 
         context.add_defn("String", lit_ty(LiteralType::String), u0.clone());
@@ -632,7 +632,7 @@ pub fn synth_term(
                     .fold(body_ty, |acc, (app_mode, param_ty)| {
                         core::RcTerm::from(core::Term::FunType(app_mode, param_ty, acc))
                     }),
-                domain::RcValue::from(domain::Value::Universe(max_level)),
+                domain::RcValue::universe(max_level),
             ))
         },
         Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
@@ -645,7 +645,7 @@ pub fn synth_term(
 
             Ok((
                 core::RcTerm::from(core::Term::FunType(AppMode::Explicit, param_ty, body_ty)),
-                domain::RcValue::from(domain::Value::Universe(cmp::max(param_level, body_level))),
+                domain::RcValue::universe(cmp::max(param_level, body_level)),
             ))
         },
         Term::FunIntro(_, concrete_params, concrete_body) => {
@@ -696,7 +696,7 @@ pub fn synth_term(
 
             Ok((
                 core::RcTerm::from(core::Term::RecordType(ty_fields)),
-                domain::RcValue::from(domain::Value::Universe(max_level)),
+                domain::RcValue::universe(max_level),
             ))
         },
         Term::RecordIntro(span, intro_fields) => {
@@ -743,8 +743,8 @@ pub fn synth_term(
             };
 
             Ok((
-                core::RcTerm::from(core::Term::Universe(level)),
-                domain::RcValue::from(domain::Value::Universe(level + 1)),
+                core::RcTerm::universe(level),
+                domain::RcValue::universe(level + 1),
             ))
         },
     }
@@ -760,9 +760,9 @@ mod test {
 
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
+        let ty1 = RcValue::universe(0);
+        let ty2 = RcValue::universe(1);
+        let ty3 = RcValue::universe(2);
 
         let param1 = context.add_param("x", ty1.clone());
         let param2 = context.add_param("y", ty2.clone());
@@ -783,9 +783,9 @@ mod test {
 
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
+        let ty1 = RcValue::universe(0);
+        let ty2 = RcValue::universe(1);
+        let ty3 = RcValue::universe(2);
 
         let param1 = context.add_param("x", ty1.clone());
         let param2 = context.add_param("x", ty2.clone());
@@ -804,7 +804,7 @@ mod test {
 
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let ty1 = RcValue::universe(0);
 
         let param1 = context.add_param("x", ty1.clone());
         let param2 = context.add_fresh_param();

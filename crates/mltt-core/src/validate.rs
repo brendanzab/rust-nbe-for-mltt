@@ -86,7 +86,7 @@ impl Default for Context {
     fn default() -> Context {
         let mut context = Context::new();
         let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
-        let u0 = RcValue::from(Value::Universe(UniverseLevel(0)));
+        let u0 = RcValue::universe(0);
         let bool = lit_ty(LiteralType::Bool);
 
         context.add_defn(lit_ty(LiteralType::String), u0.clone());
@@ -360,7 +360,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             synth_term(&body_context, body)
         },
 
-        Term::LiteralType(_) => Ok(RcValue::from(Value::Universe(UniverseLevel(0)))),
+        Term::LiteralType(_) => Ok(RcValue::universe(0)),
         Term::LiteralIntro(literal_intro) => Ok(synth_literal(literal_intro)),
         Term::LiteralElim(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
@@ -373,10 +373,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
             let body_level = synth_universe(&body_ty_context, body_ty)?;
 
-            Ok(RcValue::from(Value::Universe(cmp::max(
-                param_level,
-                body_level,
-            ))))
+            Ok(RcValue::universe(cmp::max(param_level, body_level)))
         },
         Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
@@ -408,7 +405,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 max_level = cmp::max(max_level, ty_level);
             }
 
-            Ok(RcValue::from(Value::Universe(max_level)))
+            Ok(RcValue::universe(max_level))
         },
         Term::RecordIntro(intro_fields) => {
             if intro_fields.is_empty() {
@@ -435,7 +432,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             Err(TypeError::NoFieldInType(label.clone()))
         },
 
-        Term::Universe(level) => Ok(RcValue::from(Value::Universe(*level + 1))),
+        Term::Universe(level) => Ok(RcValue::universe(*level + 1)),
     }
 }
 
@@ -449,9 +446,9 @@ mod test {
     fn add_params() {
         let mut context = Context::new();
 
-        let ty1 = RcValue::from(Value::Universe(UniverseLevel(0)));
-        let ty2 = RcValue::from(Value::Universe(UniverseLevel(1)));
-        let ty3 = RcValue::from(Value::Universe(UniverseLevel(2)));
+        let ty1 = RcValue::universe(0);
+        let ty2 = RcValue::universe(1);
+        let ty3 = RcValue::universe(2);
 
         let param1 = context.add_param(ty1.clone());
         let param2 = context.add_param(ty2.clone());
