@@ -26,6 +26,11 @@ impl RcValue {
         RcValue::from(Value::prim(name))
     }
 
+    /// Construct a literal type.
+    pub fn literal_ty(ty: LiteralType) -> RcValue {
+        RcValue::from(Value::literal_ty(ty))
+    }
+
     /// Construct a literal introduction.
     pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcValue {
         RcValue::from(Value::literal_intro(value))
@@ -103,6 +108,11 @@ impl Value {
     /// Construct a primitive.
     pub fn prim(name: String) -> Value {
         Value::Neutral(Head::Prim(name), Vec::new())
+    }
+
+    /// Construct a literal type.
+    pub fn literal_ty(ty: LiteralType) -> Value {
+        Value::LiteralType(ty)
     }
 
     /// Construct a literal introduction.

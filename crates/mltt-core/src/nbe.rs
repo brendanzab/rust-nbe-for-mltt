@@ -444,10 +444,8 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
         },
 
         // Literals
-        Term::LiteralType(literal_ty) => Ok(RcValue::from(Value::LiteralType(literal_ty.clone()))),
-        Term::LiteralIntro(literal_intro) => {
-            Ok(RcValue::from(Value::LiteralIntro(literal_intro.clone())))
-        },
+        Term::LiteralType(literal_ty) => Ok(RcValue::literal_ty(literal_ty.clone())),
+        Term::LiteralIntro(literal_intro) => Ok(RcValue::literal_intro(literal_intro.clone())),
         Term::LiteralElim(scrutinee, clauses, default_body) => {
             let scrutinee = eval_term(prims, env, scrutinee)?;
             let closure = LiteralClosure::new(clauses.clone(), default_body.clone(), env.clone());

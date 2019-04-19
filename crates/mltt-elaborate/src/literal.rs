@@ -71,10 +71,7 @@ pub fn synth(
         },
     };
 
-    Ok((
-        literal_intro,
-        domain::RcValue::from(domain::Value::LiteralType(literal_ty)),
-    ))
+    Ok((literal_intro, domain::RcValue::literal_ty(literal_ty)))
 }
 
 fn literal_bug<T>(span: FileSpan, message: impl Into<String>) -> Result<T, Diagnostic<FileSpan>> {

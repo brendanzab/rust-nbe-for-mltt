@@ -86,25 +86,24 @@ impl Context {
 impl Default for Context {
     fn default() -> Context {
         let mut context = Context::new();
-        let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
         let u0 = RcValue::universe(0);
-        let bool = lit_ty(LiteralType::Bool);
+        let bool = RcValue::literal_ty(LiteralType::Bool);
 
-        context.add_defn(lit_ty(LiteralType::String), u0.clone());
-        context.add_defn(lit_ty(LiteralType::Char), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::String), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::Char), u0.clone());
         context.add_defn(bool.clone(), u0.clone());
         context.add_defn(RcValue::literal_intro(true), bool.clone());
         context.add_defn(RcValue::literal_intro(false), bool.clone());
-        context.add_defn(lit_ty(LiteralType::U8), u0.clone());
-        context.add_defn(lit_ty(LiteralType::U16), u0.clone());
-        context.add_defn(lit_ty(LiteralType::U32), u0.clone());
-        context.add_defn(lit_ty(LiteralType::U64), u0.clone());
-        context.add_defn(lit_ty(LiteralType::S8), u0.clone());
-        context.add_defn(lit_ty(LiteralType::S16), u0.clone());
-        context.add_defn(lit_ty(LiteralType::S32), u0.clone());
-        context.add_defn(lit_ty(LiteralType::S64), u0.clone());
-        context.add_defn(lit_ty(LiteralType::F32), u0.clone());
-        context.add_defn(lit_ty(LiteralType::F64), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::U8), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::U16), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::U32), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::U64), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::S8), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::S16), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::S32), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::S64), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::F32), u0.clone());
+        context.add_defn(RcValue::literal_ty(LiteralType::F64), u0.clone());
 
         context.prims = nbe::PrimEnv::default();
 
@@ -212,7 +211,7 @@ pub fn check_literal(
 
 /// Synthesize the type of the literal.
 pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
-    RcValue::from(Value::LiteralType(match literal_intro {
+    RcValue::literal_ty(match literal_intro {
         LiteralIntro::String(_) => LiteralType::String,
         LiteralIntro::Char(_) => LiteralType::Char,
         LiteralIntro::Bool(_) => LiteralType::Bool,
@@ -226,7 +225,7 @@ pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
         LiteralIntro::S64(_) => LiteralType::S64,
         LiteralIntro::F32(_) => LiteralType::F32,
         LiteralIntro::F64(_) => LiteralType::F64,
-    }))
+    })
 }
 
 /// Ensures that the given term is a universe, returning the level of that universe.

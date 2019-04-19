@@ -183,29 +183,28 @@ impl Context {
 
 impl Default for Context {
     fn default() -> Context {
-        use mltt_core::syntax::domain::{RcValue, Value};
+        use mltt_core::syntax::domain::RcValue;
+        use mltt_core::syntax::LiteralType as LitType;
 
         let mut context = Context::new();
-        let lit_ty = |ty| RcValue::from(Value::LiteralType(ty));
-        let bool_intro = RcValue::literal_intro;
         let u0 = RcValue::universe(0);
-        let bool = lit_ty(LiteralType::Bool);
+        let bool = RcValue::literal_ty(LitType::Bool);
 
-        context.add_defn("String", lit_ty(LiteralType::String), u0.clone());
-        context.add_defn("Char", lit_ty(LiteralType::Char), u0.clone());
+        context.add_defn("String", RcValue::literal_ty(LitType::String), u0.clone());
+        context.add_defn("Char", RcValue::literal_ty(LitType::Char), u0.clone());
         context.add_defn("Bool", bool.clone(), u0.clone());
-        context.add_defn("true", bool_intro(true), bool.clone());
-        context.add_defn("false", bool_intro(false), bool.clone());
-        context.add_defn("U8", lit_ty(LiteralType::U8), u0.clone());
-        context.add_defn("U16", lit_ty(LiteralType::U16), u0.clone());
-        context.add_defn("U32", lit_ty(LiteralType::U32), u0.clone());
-        context.add_defn("U64", lit_ty(LiteralType::U64), u0.clone());
-        context.add_defn("S8", lit_ty(LiteralType::S8), u0.clone());
-        context.add_defn("S16", lit_ty(LiteralType::S16), u0.clone());
-        context.add_defn("S32", lit_ty(LiteralType::S32), u0.clone());
-        context.add_defn("S64", lit_ty(LiteralType::S64), u0.clone());
-        context.add_defn("F32", lit_ty(LiteralType::F32), u0.clone());
-        context.add_defn("F64", lit_ty(LiteralType::F64), u0.clone());
+        context.add_defn("true", RcValue::literal_intro(true), bool.clone());
+        context.add_defn("false", RcValue::literal_intro(false), bool.clone());
+        context.add_defn("U8", RcValue::literal_ty(LitType::U8), u0.clone());
+        context.add_defn("U16", RcValue::literal_ty(LitType::U16), u0.clone());
+        context.add_defn("U32", RcValue::literal_ty(LitType::U32), u0.clone());
+        context.add_defn("U64", RcValue::literal_ty(LitType::U64), u0.clone());
+        context.add_defn("S8", RcValue::literal_ty(LitType::S8), u0.clone());
+        context.add_defn("S16", RcValue::literal_ty(LitType::S16), u0.clone());
+        context.add_defn("S32", RcValue::literal_ty(LitType::S32), u0.clone());
+        context.add_defn("S64", RcValue::literal_ty(LitType::S64), u0.clone());
+        context.add_defn("F32", RcValue::literal_ty(LitType::F32), u0.clone());
+        context.add_defn("F64", RcValue::literal_ty(LitType::F64), u0.clone());
 
         context.prims = nbe::PrimEnv::default();
 
@@ -430,7 +429,7 @@ pub fn check_term(
             }))
         },
         Term::If(_, condition, consequent, alternative) => {
-            let bool_ty = domain::RcValue::from(domain::Value::LiteralType(LiteralType::Bool));
+            let bool_ty = domain::RcValue::literal_ty(LiteralType::Bool);
             let condition = check_term(context, condition, &bool_ty)?;
             let consequent = check_term(context, consequent, expected_ty)?;
             let alternative = check_term(context, alternative, expected_ty)?;
