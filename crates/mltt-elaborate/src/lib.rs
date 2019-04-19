@@ -118,12 +118,12 @@ impl Context {
     }
 
     /// Evaluate a term using the evaluation environment
-    pub fn eval(
+    pub fn eval_term(
         &self,
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::eval(self.prims(), self.values(), term).map_err(|error| match span.into() {
+        nbe::eval_term(self.prims(), self.values(), term).map_err(|error| match span.into() {
             None => Diagnostic::new_bug(format!("failed to evaluate term: {}", error)),
             Some(span) => Diagnostic::new_bug("failed to evaluate term")
                 .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
@@ -131,13 +131,13 @@ impl Context {
     }
 
     /// Read a value back into the core syntax, normalizing as required.
-    pub fn read_back(
+    pub fn read_back_value(
         &self,
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
         let level = self.values().level();
-        nbe::read_back_term(self.prims(), level, value).map_err(|error| match span.into() {
+        nbe::read_back_value(self.prims(), level, value).map_err(|error| match span.into() {
             None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
             Some(span) => Diagnostic::new_bug("failed to read-back value")
                 .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
@@ -145,14 +145,16 @@ impl Context {
     }
 
     /// Fully normalize a term by first evaluating it, then reading it back.
-    pub fn normalize(
+    pub fn normalize_term(
         &self,
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        let span = span.into();
-        let value = self.eval(span, term)?;
-        self.read_back(span, &value)
+        nbe::normalize_term(self.prims(), self.values(), term).map_err(|error| match span.into() {
+            None => Diagnostic::new_bug(format!("failed to normalize term: {}", error)),
+            Some(span) => Diagnostic::new_bug("failed to normalize term")
+                .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
+        })
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
@@ -167,8 +169,8 @@ impl Context {
             Ok(false) => Err(Diagnostic::new_error("not a subtype").with_label(
                 DiagnosticLabel::new_primary(span).with_message(format!(
                     "`{}` is not a subtype of `{}`",
-                    self.read_back(None, ty1).unwrap(),
-                    self.read_back(None, ty2).unwrap(),
+                    self.read_back_value(None, ty1).unwrap(),
+                    self.read_back_value(None, ty2).unwrap(),
                 )),
             )),
             Err(error) => {
@@ -259,7 +261,7 @@ fn check_items(
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
-                        let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
+                        let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
                         entry.insert(Some((&declaration.docs, body_ty)));
                     },
                     // There's a declaration for this name already pending - we
@@ -315,9 +317,9 @@ fn check_items(
                         },
                     },
                 };
-                let value = context.eval(term_span, &term)?;
+                let value = context.eval_term(term_span, &term)?;
                 // NOTE: Not sure how expensive this readback is here!
-                let term_ty = context.read_back(None, &ty)?;
+                let term_ty = context.read_back_value(None, &ty)?;
 
                 log::trace!("elaborated declaration:\t{}\t: {}", label, term_ty);
                 log::trace!("elaborated definition:\t{}\t= {}", label, term);
@@ -392,7 +394,7 @@ fn synth_universe(
         domain::Value::Universe(level) => Ok((term, *level)),
         _ => Err(Diagnostic::new_error("type expected").with_label(
             DiagnosticLabel::new_primary(concrete_term.span())
-                .with_message(format!("found `{}`", context.read_back(None, &ty)?)),
+                .with_message(format!("found `{}`", context.read_back_value(None, &ty)?)),
         )),
     }
 }
@@ -476,7 +478,7 @@ pub fn check_term(
                     let clause = Clause::new(params, body_ty, &body);
                     let term = clause::check_clause(&context, clause, expected_term_ty)?;
 
-                    let term_value = context.eval(body.span(), &term)?;
+                    let term_value = context.eval_term(body.span(), &term)?;
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
@@ -540,7 +542,7 @@ pub fn synth_term(
         Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
             let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
-            let term_ty = context.eval(concrete_term_ty.span(), &term_ty)?;
+            let term_ty = context.eval_term(concrete_term_ty.span(), &term_ty)?;
             let term = check_term(context, concrete_term, &term_ty)?;
             Ok((term, term_ty))
         },
@@ -583,7 +585,7 @@ pub fn synth_term(
                             let app_mode = AppMode::Explicit;
                             let param_ty_span = concrete_param_ty.span();
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
-                            let param_ty_value = context.eval(param_ty_span, &param_ty)?;
+                            let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
 
                             context.add_param(param_name, param_ty_value);
                             param_tys.push((app_mode, param_ty));
@@ -602,7 +604,7 @@ pub fn synth_term(
                             let app_mode = AppMode::Implicit(Label(param_label.to_string()));
                             let param_ty_span = concrete_param_ty.span();
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
-                            let param_ty_value = context.eval(param_ty_span, &param_ty)?;
+                            let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
 
                             context.add_param(param_label, param_ty_value);
                             param_tys.push((app_mode, param_ty));
@@ -613,7 +615,7 @@ pub fn synth_term(
                         let app_mode = AppMode::Instance(Label(param_label.to_string()));
                         let param_ty_span = concrete_param_ty.span();
                         let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
-                        let param_ty_value = context.eval(param_ty_span, &param_ty)?;
+                        let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
 
                         context.add_param(param_label, param_ty_value);
                         param_tys.push((app_mode, param_ty));
@@ -661,13 +663,13 @@ pub fn synth_term(
                     },
                     _ => Err(Diagnostic::new_error("expected a function").with_label(
                         DiagnosticLabel::new_primary(concrete_fun.span())
-                            .with_message(format!("found: {}", context.read_back(None, &fun_ty)?)),
+                            .with_message(format!("found: {}", context.read_back_value(None, &fun_ty)?)),
                     )),
                 }?;
 
                 let concrete_arg = check_arg_app_mode(concrete_arg, ty_app_mode)?;
                 let arg = check_term(context, concrete_arg.as_ref(), param_ty)?;
-                let arg_value = context.eval(concrete_arg.span(), &arg)?;
+                let arg_value = context.eval_term(concrete_arg.span(), &arg)?;
 
                 fun = core::RcTerm::from(core::Term::FunElim(fun, ty_app_mode.clone(), arg));
                 fun_ty = context.do_closure_app(body_ty, arg_value)?;
@@ -685,7 +687,7 @@ pub fn synth_term(
                 .map(|concrete_ty_field| {
                     let docs = docs::concat(&concrete_ty_field.docs);
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
-                    let ty_value = context.eval(concrete_ty_field.ann.span(), &ty)?;
+                    let ty_value = context.eval_term(concrete_ty_field.ann.span(), &ty)?;
 
                     context.add_param(concrete_ty_field.label, ty_value);
                     max_level = cmp::max(max_level, ty_level);
@@ -726,7 +728,7 @@ pub fn synth_term(
                 if current_label.0 == label.slice {
                     return Ok((expr, current_ty.clone()));
                 } else {
-                    let expr = context.eval(None, &expr)?;
+                    let expr = context.eval_term(None, &expr)?;
                     record_ty = context.do_closure_app(rest, expr)?;
                 }
             }

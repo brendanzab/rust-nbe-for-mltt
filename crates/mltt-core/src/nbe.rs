@@ -337,8 +337,8 @@ fn do_literal_elim(
             });
 
             match index {
-                Ok(index) => eval(prims, &closure.env, &closure.clauses.get(index).unwrap().1),
-                Err(_) => eval(prims, &closure.env, &closure.default),
+                Ok(index) => eval_term(prims, &closure.env, &closure.clauses.get(index).unwrap().1),
+                Err(_) => eval_term(prims, &closure.env, &closure.default),
             }
         },
         Value::Neutral(head, spine) => {
@@ -378,7 +378,7 @@ pub fn do_closure_app(
 ) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
     env.add_defn(arg);
-    eval(prims, &env, &closure.term)
+    eval_term(prims, &env, &closure.term)
 }
 
 /// Apply a function to an argument.
@@ -411,7 +411,7 @@ pub fn do_fun_elim(
 
 /// Evaluate a term in the environment that corresponds to the context in which
 /// the term was typed.
-pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeError> {
+pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeError> {
     match term.as_ref() {
         Term::Var(index) => match env.lookup_value(*index) {
             Some(value) => Ok(value.clone()),
@@ -428,10 +428,10 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
             }
         },
         Term::Let(def, _, body) => {
-            let def = eval(prims, env, def)?;
+            let def = eval_term(prims, env, def)?;
             let mut env = env.clone();
             env.add_defn(def);
-            eval(prims, &env, body)
+            eval_term(prims, &env, body)
         },
 
         // Literals
@@ -440,7 +440,7 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
             Ok(RcValue::from(Value::LiteralIntro(literal_intro.clone())))
         },
         Term::LiteralElim(scrutinee, clauses, default_body) => {
-            let scrutinee = eval(prims, env, scrutinee)?;
+            let scrutinee = eval_term(prims, env, scrutinee)?;
             let closure = LiteralClosure::new(clauses.clone(), default_body.clone(), env.clone());
 
             do_literal_elim(prims, scrutinee, closure)
@@ -449,7 +449,7 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
         // Functions
         Term::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let param_ty = eval(prims, env, param_ty)?;
+            let param_ty = eval_term(prims, env, param_ty)?;
             let body_ty = AppClosure::new(body_ty.clone(), env.clone());
 
             Ok(RcValue::from(Value::FunType(app_mode, param_ty, body_ty)))
@@ -461,9 +461,9 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
             Ok(RcValue::from(Value::FunIntro(app_mode, body)))
         },
         Term::FunElim(fun, app_mode, arg) => {
-            let fun = eval(prims, env, fun)?;
+            let fun = eval_term(prims, env, fun)?;
             let app_mode = app_mode.clone();
-            let arg = eval(prims, env, arg)?;
+            let arg = eval_term(prims, env, arg)?;
 
             do_fun_elim(prims, fun, app_mode, arg)
         },
@@ -474,7 +474,7 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
             Some(((doc, label, ty), rest)) => {
                 let doc = doc.clone();
                 let label = label.clone();
-                let ty = eval(prims, env, ty)?;
+                let ty = eval_term(prims, env, ty)?;
                 let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
                 let rest =
                     AppClosure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
@@ -485,12 +485,12 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
         Term::RecordIntro(fields) => {
             let fields = fields
                 .iter()
-                .map(|(label, term)| Ok((label.clone(), eval(prims, env, term)?)))
+                .map(|(label, term)| Ok((label.clone(), eval_term(prims, env, term)?)))
                 .collect::<Result<_, _>>()?;
 
             Ok(RcValue::from(Value::RecordIntro(fields)))
         },
-        Term::RecordElim(record, label) => do_record_elim(eval(prims, env, record)?, label),
+        Term::RecordElim(record, label) => do_record_elim(eval_term(prims, env, record)?, label),
 
         // Universes
         Term::Universe(level) => Ok(RcValue::universe(*level)),
@@ -498,7 +498,7 @@ pub fn eval(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeErr
 }
 
 /// Read a value back into the core syntax, normalizing as required.
-pub fn read_back_term(
+pub fn read_back_value(
     prims: &PrimEnv,
     level: VarLevel,
     term: &RcValue,
@@ -514,16 +514,16 @@ pub fn read_back_term(
         Value::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
             let param = RcValue::var(level);
-            let param_ty = read_back_term(prims, level, param_ty)?;
+            let param_ty = read_back_value(prims, level, param_ty)?;
             let body_ty =
-                read_back_term(prims, level + 1, &do_closure_app(prims, body_ty, param)?)?;
+                read_back_value(prims, level + 1, &do_closure_app(prims, body_ty, param)?)?;
 
             Ok(RcTerm::from(Term::FunType(app_mode, param_ty, body_ty)))
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
             let param = RcValue::var(level);
-            let body = read_back_term(prims, level + 1, &do_closure_app(prims, body, param)?)?;
+            let body = read_back_value(prims, level + 1, &do_closure_app(prims, body, param)?)?;
 
             Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
         },
@@ -533,7 +533,7 @@ pub fn read_back_term(
             let mut level = level;
 
             let term = RcValue::var(level);
-            let term_ty = read_back_term(prims, level, term_ty)?;
+            let term_ty = read_back_value(prims, level, term_ty)?;
 
             let mut rest_ty = do_closure_app(prims, rest_ty, term)?;
             let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
@@ -543,7 +543,7 @@ pub fn read_back_term(
             {
                 level += 1;
                 let next_term = RcValue::var(level);
-                let next_term_ty = read_back_term(prims, level, next_term_ty)?;
+                let next_term_ty = read_back_value(prims, level, next_term_ty)?;
 
                 field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
                 rest_ty = do_closure_app(prims, next_rest_ty, next_term)?;
@@ -555,7 +555,7 @@ pub fn read_back_term(
         Value::RecordIntro(fields) => {
             let fields = fields
                 .iter()
-                .map(|(label, term)| Ok((label.clone(), read_back_term(prims, level, term)?)))
+                .map(|(label, term)| Ok((label.clone(), read_back_value(prims, level, term)?)))
                 .collect::<Result<_, _>>()?;
 
             Ok(RcTerm::from(Term::RecordIntro(fields)))
@@ -583,7 +583,7 @@ pub fn read_back_neutral(
             match prim.interpret(spine) {
                 Some(result) => {
                     let (value, rest_spine) = result?;
-                    (read_back_term(prims, level, &value)?, rest_spine)
+                    (read_back_value(prims, level, &value)?, rest_spine)
                 },
                 None => (RcTerm::prim(name.clone()), spine.as_slice()),
             }
@@ -596,12 +596,16 @@ pub fn read_back_neutral(
                 .clauses
                 .iter()
                 .map(|(literal_intro, body)| {
-                    let body = read_back_term(prims, level, &eval(prims, &closure.env, body)?)?;
+                    let body =
+                        read_back_value(prims, level, &eval_term(prims, &closure.env, body)?)?;
                     Ok((literal_intro.clone(), body))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let default_body =
-                read_back_term(prims, level, &eval(prims, &closure.env, &closure.default)?)?;
+            let default_body = read_back_value(
+                prims,
+                level,
+                &eval_term(prims, &closure.env, &closure.default)?,
+            )?;
 
             Ok(RcTerm::from(Term::LiteralElim(
                 acc?,
@@ -610,12 +614,18 @@ pub fn read_back_neutral(
             )))
         },
         Elim::Fun(app_mode, arg) => {
-            let arg = read_back_term(prims, level, &arg)?;
+            let arg = read_back_value(prims, level, &arg)?;
 
             Ok(RcTerm::from(Term::FunElim(acc?, app_mode.clone(), arg)))
         },
         Elim::Record(label) => Ok(RcTerm::from(Term::RecordElim(acc?, label.clone()))),
     })
+}
+
+/// Fully normalize a term by first evaluating it, then reading it back.
+pub fn normalize_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcTerm, NbeError> {
+    let value = eval_term(prims, env, term)?;
+    read_back_value(prims, env.level(), &value)
 }
 
 /// Check whether a semantic type is a subtype of another.

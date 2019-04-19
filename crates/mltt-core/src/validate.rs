@@ -43,6 +43,7 @@ impl Context {
         &self.values
     }
 
+    /// Lookup the type of a variable in the context.
     pub fn lookup_ty(&self, index: VarIndex) -> Option<&RcType> {
         self.tys.get(index.0 as usize)
     }
@@ -68,8 +69,8 @@ impl Context {
     }
 
     /// Evaluate a term using the evaluation environment.
-    pub fn eval(&self, term: &RcTerm) -> Result<RcValue, NbeError> {
-        nbe::eval(self.prims(), self.values(), term)
+    pub fn eval_term(&self, term: &RcTerm) -> Result<RcValue, NbeError> {
+        nbe::eval_term(self.prims(), self.values(), term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
@@ -187,11 +188,11 @@ pub fn check_module(context: &Context, module: &Module) -> Result<(), TypeError>
 
         log::trace!("checking declaration:\t{}", item.term_ty);
         synth_universe(&context, &item.term_ty)?;
-        let term_ty = context.eval(&item.term_ty)?;
+        let term_ty = context.eval_term(&item.term_ty)?;
 
         log::trace!("checking definition:\t{}", item.term);
         check_term(&context, &item.term, &term_ty)?;
-        let value = context.eval(&item.term)?;
+        let value = context.eval_term(&item.term)?;
 
         log::trace!("validated item:\t\t{}", item.label);
         context.add_defn(value, term_ty);
@@ -249,9 +250,9 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
         Term::Let(def, def_ty, body) => {
             let mut body_context = context.clone();
             synth_universe(context, def_ty)?;
-            let def_ty = context.eval(def_ty)?;
+            let def_ty = context.eval_term(def_ty)?;
             check_term(context, &def, &def_ty)?;
-            let def = context.eval(def)?;
+            let def = context.eval_term(def)?;
             body_context.add_defn(def, def_ty);
 
             check_term(&body_context, body, expected_ty)
@@ -314,7 +315,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                     }
 
                     check_term(&context, term, expected_term_ty)?;
-                    let term_value = context.eval(term)?;
+                    let term_value = context.eval_term(term)?;
 
                     context.add_defn(term_value.clone(), expected_term_ty.clone());
                     expected_ty = context.do_closure_app(&rest, term_value)?;
@@ -352,9 +353,9 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         Term::Let(def, def_ty, body) => {
             let mut body_context = context.clone();
             synth_universe(context, def_ty)?;
-            let def_ty = context.eval(def_ty)?;
+            let def_ty = context.eval_term(def_ty)?;
             check_term(context, def, &def_ty)?;
-            let def = context.eval(def)?;
+            let def = context.eval_term(def)?;
             body_context.add_defn(def, def_ty);
 
             synth_term(&body_context, body)
@@ -366,7 +367,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
         Term::FunType(_app_mode, param_ty, body_ty) => {
             let param_level = synth_universe(context, param_ty)?;
-            let param_ty_value = context.eval(param_ty)?;
+            let param_ty_value = context.eval_term(param_ty)?;
 
             let mut body_ty_context = context.clone();
             body_ty_context.add_param(param_ty_value);
@@ -382,7 +383,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             match fun_ty.as_ref() {
                 Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
                     check_term(context, arg, arg_ty)?;
-                    let arg_value = context.eval(arg)?;
+                    let arg_value = context.eval_term(arg)?;
                     Ok(context.do_closure_app(body_ty, arg_value)?)
                 },
                 Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
@@ -401,7 +402,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 
             for (_, _, ty) in ty_fields {
                 let ty_level = synth_universe(&context, &ty)?;
-                context.add_param(context.eval(&ty)?);
+                context.add_param(context.eval_term(&ty)?);
                 max_level = cmp::max(max_level, ty_level);
             }
 
@@ -425,7 +426,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 } else {
                     let label = current_label.clone();
                     let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
-                    record_ty = context.do_closure_app(rest, context.eval(&expr)?)?;
+                    record_ty = context.do_closure_app(rest, context.eval_term(&expr)?)?;
                 }
             }
 

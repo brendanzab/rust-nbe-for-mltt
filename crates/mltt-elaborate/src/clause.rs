@@ -113,8 +113,8 @@ pub fn check_case<'file>(
             let (checked_scrutinee, (param_level, param_ty)) = {
                 let scrutinee_level = context.values().level();
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
-                let scrutinee_value = context.eval(scrutinee.span(), &scrutinee_term)?;
-                let scrutinee_ty_term = context.read_back(None, &scrutinee_ty)?;
+                let scrutinee_value = context.eval_term(scrutinee.span(), &scrutinee_term)?;
+                let scrutinee_ty_term = context.read_back_value(None, &scrutinee_ty)?;
                 context.add_fresh_defn(scrutinee_value);
 
                 (
@@ -169,7 +169,7 @@ pub fn check_case<'file>(
             };
 
             let body = core::RcTerm::from(core::Term::LiteralElim(
-                context.read_back(None, &domain::RcValue::var(param_level))?,
+                context.read_back_value(None, &domain::RcValue::var(param_level))?,
                 Rc::from(literal_branches),
                 default,
             ));
@@ -266,7 +266,7 @@ fn check_clause_body(
         None => check_term(&context, clause.concrete_body, &expected_body_ty),
         Some(concrete_body_ty) => {
             let (body_ty, _) = synth_universe(&context, concrete_body_ty)?;
-            let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
+            let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
             let body = check_term(&context, clause.concrete_body, &body_ty)?;
             // TODO: Ensure that this is respecting variance correctly!
             context.expect_subtype(clause.concrete_body.span(), &body_ty, &expected_body_ty)?;
@@ -284,7 +284,7 @@ fn synth_clause_body(
         None => synth_term(context, clause.concrete_body),
         Some(concrete_body_ty) => {
             let (body_ty, _) = synth_universe(context, concrete_body_ty)?;
-            let body_ty = context.eval(concrete_body_ty.span(), &body_ty)?;
+            let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
             let body = check_term(context, clause.concrete_body, &body_ty)?;
             Ok((body, body_ty))
         },

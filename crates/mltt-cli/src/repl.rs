@@ -66,8 +66,8 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                 };
 
                 let term_span = concrete_term.span();
-                let term = context.normalize(term_span, &core_term).unwrap();
-                let ty = context.read_back(None, &ty).unwrap();
+                let term = context.normalize_term(term_span, &core_term).unwrap();
+                let ty = context.read_back_value(None, &ty).unwrap();
 
                 println!("{} : {}", term, ty);
             },
