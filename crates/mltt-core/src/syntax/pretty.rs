@@ -6,6 +6,7 @@ use std::borrow::Cow;
 use super::core;
 use super::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
 
+/// An environment that can assist in pretty printing terms with pretty names.
 pub struct DisplayEnv {
     counter: usize,
     names: Vec<String>,

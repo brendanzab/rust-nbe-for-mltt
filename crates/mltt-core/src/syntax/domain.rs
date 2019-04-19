@@ -123,8 +123,10 @@ impl LiteralClosure {
     }
 }
 
+/// Reference counted value.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RcValue {
+    /// The inner value.
     pub inner: Rc<Value>,
 }
 

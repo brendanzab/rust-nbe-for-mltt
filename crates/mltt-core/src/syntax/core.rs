@@ -9,6 +9,7 @@ use crate::syntax::{
     AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
 };
 
+/// Top-level module.
 #[derive(Clone, PartialEq)]
 pub struct Module {
     pub items: Vec<Item>,
@@ -28,12 +29,16 @@ impl fmt::Display for Module {
     }
 }
 
-/// Top-level items.
+/// Top-level item.
 #[derive(Clone, PartialEq)]
 pub struct Item {
+    /// A doc string that describes this item.
     pub doc: DocString,
+    /// The label that identifies this item.
     pub label: Label,
+    /// The type of the item.
     pub term_ty: RcTerm,
+    /// The term.
     pub term: RcTerm,
 }
 
@@ -51,8 +56,10 @@ impl fmt::Display for Item {
     }
 }
 
+/// Reference counted term.
 #[derive(Clone, PartialEq)]
 pub struct RcTerm {
+    /// The inner term.
     pub inner: Rc<Term>,
 }
 

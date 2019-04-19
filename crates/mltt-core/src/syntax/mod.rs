@@ -231,7 +231,8 @@ impl From<String> for LiteralIntro {
     }
 }
 
-/// A label.
+/// A label. These are treated as significant when comparing terms for alpha
+/// equivalence.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);
 
