@@ -249,7 +249,8 @@ struct EnvEntry {
     /// if it is a parameter.
     value: Option<RcValue>,
     /// The variable representation of this entry. This is useful if we don't
-    /// want to unfold the value
+    /// want to unfold the value - say, if this entry is a parameter, or if we
+    /// want to increase the amount of sharing that we do during elaboration.
     var: RcValue,
 }
 
