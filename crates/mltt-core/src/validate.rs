@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{Module, RcTerm, Term};
-use crate::syntax::domain::{Env, RcType, RcValue, Value};
+use crate::syntax::domain::{AppClosure, Env, RcType, RcValue, Value};
 use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel};
 
 /// Local type checking context.
@@ -69,6 +69,15 @@ impl Context {
         let param = RcValue::var(self.level());
         self.local_define(param.clone(), ty);
         param
+    }
+
+    /// Apply a closure to an argument.
+    pub fn do_closure_app(
+        &self,
+        closure: &AppClosure,
+        arg: RcValue,
+    ) -> Result<RcValue, NbeError> {
+        nbe::do_closure_app(self.prims(), closure, arg)
     }
 
     /// Evaluate a term using the evaluation environment.
@@ -289,7 +298,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
                 let param = body_context.local_bind(param_ty.clone());
-                let body_ty = nbe::do_closure_app(context.prims(), body_ty, param)?;
+                let body_ty = context.do_closure_app(body_ty, param)?;
 
                 check_term(&body_context, body, &body_ty)
             },
@@ -321,7 +330,7 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                     let term_value = context.eval(term)?;
 
                     context.local_define(term_value.clone(), expected_term_ty.clone());
-                    expected_ty = nbe::do_closure_app(context.prims(), &rest, term_value)?;
+                    expected_ty = context.do_closure_app(&rest, term_value)?;
                 } else {
                     return Err(TypeError::TooManyFieldsFound);
                 }
@@ -390,7 +399,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
                     check_term(context, arg, arg_ty)?;
                     let arg_value = context.eval(arg)?;
-                    Ok(nbe::do_closure_app(context.prims(), body_ty, arg_value)?)
+                    Ok(context.do_closure_app(body_ty, arg_value)?)
                 },
                 Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
                     found: arg_app_mode.clone(),
@@ -432,7 +441,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 } else {
                     let label = current_label.clone();
                     let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
-                    record_ty = nbe::do_closure_app(context.prims(), rest, context.eval(&expr)?)?;
+                    record_ty = context.do_closure_app(rest, context.eval(&expr)?)?;
                 }
             }
 
