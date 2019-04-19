@@ -10,13 +10,11 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{Module, RcTerm, Term};
 use crate::syntax::domain::{AppClosure, Env, RcType, RcValue, Value};
-use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel};
+use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]
 pub struct Context {
-    /// Number of local entries.
-    level: VarLevel,
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
@@ -29,16 +27,10 @@ impl Context {
     /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
-            level: VarLevel(0),
             prims: nbe::PrimEnv::new(),
             values: Env::new(),
             tys: im::Vector::new(),
         }
-    }
-
-    /// Number of local entries in the context.
-    pub fn level(&self) -> VarLevel {
-        self.level
     }
 
     /// Primitive entries.
@@ -58,7 +50,6 @@ impl Context {
     /// Add a local definition to the context.
     pub fn local_define(&mut self, value: RcValue, ty: RcType) {
         log::trace!("insert local");
-        self.level += 1;
         self.values.add_entry(value);
         self.tys.push_front(ty);
     }
@@ -66,17 +57,13 @@ impl Context {
     /// Add a bound variable the context, returning a variable that points to
     /// the correct binder.
     pub fn local_bind(&mut self, ty: RcType) -> RcValue {
-        let param = RcValue::var(self.level());
+        let param = RcValue::var(self.values().level());
         self.local_define(param.clone(), ty);
         param
     }
 
     /// Apply a closure to an argument.
-    pub fn do_closure_app(
-        &self,
-        closure: &AppClosure,
-        arg: RcValue,
-    ) -> Result<RcValue, NbeError> {
+    pub fn do_closure_app(&self, closure: &AppClosure, arg: RcValue) -> Result<RcValue, NbeError> {
         nbe::do_closure_app(self.prims(), closure, arg)
     }
 
@@ -87,7 +74,7 @@ impl Context {
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.prims(), self.level(), ty1, ty2)? {
+        if nbe::check_subtype(self.prims(), self.values().level(), ty1, ty2)? {
             Ok(())
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))
@@ -456,7 +443,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
 mod test {
     use super::*;
 
-    use crate::syntax::VarIndex;
+    use crate::syntax::{VarIndex, VarLevel};
 
     #[test]
     fn local_binds() {
