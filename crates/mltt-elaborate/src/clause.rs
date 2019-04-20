@@ -15,23 +15,23 @@ use super::{check_term, literal, synth_term, synth_universe, Context};
 /// The state of a pattern clause, part-way through evaluation
 pub struct Clause<'file> {
     /// The parameters that are still waiting to be elaborated
-    concrete_params: &'file [IntroParam<'file>],
+    params: &'file [IntroParam<'file>],
     /// The expected body type for this clause
-    concrete_body_ty: Option<&'file Term<'file>>,
+    body_ty: Option<&'file Term<'file>>,
     /// The concrete body of this clause
-    concrete_body: &'file Term<'file>,
+    body: &'file Term<'file>,
 }
 
 impl<'file> Clause<'file> {
     pub fn new(
-        concrete_params: &'file [IntroParam<'file>],
-        concrete_body_ty: Option<&'file Term<'file>>,
-        concrete_body: &'file Term<'file>,
+        params: &'file [IntroParam<'file>],
+        body_ty: Option<&'file Term<'file>>,
+        body: &'file Term<'file>,
     ) -> Clause<'file> {
         Clause {
-            concrete_params,
-            concrete_body_ty,
-            concrete_body,
+            params,
+            body_ty,
+            body,
         }
     }
 }
@@ -51,12 +51,12 @@ pub fn check_clause(
 
     while let (Some((app_mode, param_ty, next_body_ty)), Some((head_param, rest_params))) = (
         next_expected_param(&expected_ty),
-        clause.concrete_params.split_first(),
+        clause.params.split_first(),
     ) {
         let param_var = match check_param_app_mode(head_param, &app_mode)? {
             CheckedPattern::Var(None) => context.add_fresh_param(),
             CheckedPattern::Var(Some(var_name)) => {
-                clause.concrete_params = rest_params;
+                clause.params = rest_params;
                 context.add_param(var_name, param_ty)
             },
             CheckedPattern::LiteralIntro(_, literal) => {
@@ -186,7 +186,7 @@ pub fn synth_clause(
     context: &Context,
     clause: Clause<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    if let Some(param) = clause.concrete_params.first() {
+    if let Some(param) = clause.params.first() {
         // TODO: We will be able to type this once we have annotated patterns!
         return Err(
             Diagnostic::new_error("unable to infer the type of parameter")
@@ -262,14 +262,15 @@ fn check_clause_body(
     clause: &Clause<'_>,
     expected_body_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-    match clause.concrete_body_ty {
-        None => check_term(&context, clause.concrete_body, &expected_body_ty),
-        Some(concrete_body_ty) => {
-            let (body_ty, _) = synth_universe(&context, concrete_body_ty)?;
-            let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
-            let body = check_term(&context, clause.concrete_body, &body_ty)?;
+    match clause.body_ty {
+        None => check_term(&context, clause.body, &expected_body_ty),
+        Some(body_ty) => {
+            let body_ty_span = body_ty.span();
+            let (body_ty, _) = synth_universe(&context, body_ty)?;
+            let body_ty = context.eval_term(body_ty_span, &body_ty)?;
+            let body = check_term(&context, clause.body, &body_ty)?;
             // TODO: Ensure that this is respecting variance correctly!
-            context.expect_subtype(clause.concrete_body.span(), &body_ty, &expected_body_ty)?;
+            context.expect_subtype(clause.body.span(), &body_ty, &expected_body_ty)?;
             Ok(body)
         },
     }
@@ -280,12 +281,13 @@ fn synth_clause_body(
     context: &Context,
     clause: &Clause<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
-    match clause.concrete_body_ty {
-        None => synth_term(context, clause.concrete_body),
-        Some(concrete_body_ty) => {
-            let (body_ty, _) = synth_universe(context, concrete_body_ty)?;
-            let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
-            let body = check_term(context, clause.concrete_body, &body_ty)?;
+    match clause.body_ty {
+        None => synth_term(context, clause.body),
+        Some(body_ty) => {
+            let body_ty_span = body_ty.span();
+            let (body_ty, _) = synth_universe(context, body_ty)?;
+            let body_ty = context.eval_term(body_ty_span, &body_ty)?;
+            let body = check_term(context, clause.body, &body_ty)?;
             Ok((body, body_ty))
         },
     }
