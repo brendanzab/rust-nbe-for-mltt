@@ -24,27 +24,25 @@ pub fn check(
     src: &SpannedString<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
-    use mltt_concrete::LiteralKind as Lk;
-    use mltt_core::syntax::domain::Value;
-    use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
+    use mltt_concrete::LiteralKind as LitKind;
+    use mltt_core::syntax::domain::Value::LiteralType;
+    use mltt_core::syntax::{LiteralIntro as LitIntro, LiteralType as LitType};
 
     match (kind, expected_ty.as_ref()) {
-        (Lk::String, Value::LiteralType(Lt::String)) => {
-            parse_string(src).map(|s| Li::String(Rc::from(s)))
+        (LitKind::String, LiteralType(LitType::String)) => {
+            parse_string(src).map(Rc::from).map(LitIntro::String)
         },
-        (Lk::Char, Value::LiteralType(Lt::Char)) => parse_char(src).map(Li::Char),
-        (Lk::Int, Value::LiteralType(Lt::U8)) => parse_int::<u8>(src).map(Li::U8),
-        (Lk::Int, Value::LiteralType(Lt::U16)) => parse_int::<u16>(src).map(Li::U16),
-        (Lk::Int, Value::LiteralType(Lt::U32)) => parse_int::<u32>(src).map(Li::U32),
-        (Lk::Int, Value::LiteralType(Lt::U64)) => parse_int::<u64>(src).map(Li::U64),
-        (Lk::Int, Value::LiteralType(Lt::S8)) => parse_int::<i8>(src).map(Li::S8),
-        (Lk::Int, Value::LiteralType(Lt::S16)) => parse_int::<i16>(src).map(Li::S16),
-        (Lk::Int, Value::LiteralType(Lt::S32)) => parse_int::<i32>(src).map(Li::S32),
-        (Lk::Int, Value::LiteralType(Lt::S64)) => parse_int::<i64>(src).map(Li::S64),
-        (Lk::Int, Value::LiteralType(Lt::F32)) => literal_bug(src.span(), "unimplemented: f32"),
-        (Lk::Int, Value::LiteralType(Lt::F64)) => literal_bug(src.span(), "unimplemented: f64"),
-        (Lk::Float, Value::LiteralType(Lt::F32)) => literal_bug(src.span(), "unimplemented: f32"),
-        (Lk::Float, Value::LiteralType(Lt::F64)) => literal_bug(src.span(), "unimplemented: f64"),
+        (LitKind::Char, LiteralType(LitType::Char)) => parse_char(src).map(LitIntro::Char),
+        (LitKind::Int, LiteralType(LitType::U8)) => parse_int::<u8>(src).map(LitIntro::U8),
+        (LitKind::Int, LiteralType(LitType::U16)) => parse_int::<u16>(src).map(LitIntro::U16),
+        (LitKind::Int, LiteralType(LitType::U32)) => parse_int::<u32>(src).map(LitIntro::U32),
+        (LitKind::Int, LiteralType(LitType::U64)) => parse_int::<u64>(src).map(LitIntro::U64),
+        (LitKind::Int, LiteralType(LitType::S8)) => parse_int::<i8>(src).map(LitIntro::S8),
+        (LitKind::Int, LiteralType(LitType::S16)) => parse_int::<i16>(src).map(LitIntro::S16),
+        (LitKind::Int, LiteralType(LitType::S32)) => parse_int::<i32>(src).map(LitIntro::S32),
+        (LitKind::Int, LiteralType(LitType::S64)) => parse_int::<i64>(src).map(LitIntro::S64),
+        (LitKind::Float, LiteralType(LitType::F32)) => parse_float::<f32>(src).map(LitIntro::F32),
+        (LitKind::Float, LiteralType(LitType::F64)) => parse_float::<f64>(src).map(LitIntro::F64),
         (_, _) => Err(Diagnostic::new_error("mismatched literal").with_label(
             DiagnosticLabel::new_primary(src.span()).with_message(format!(
                 "expected: {}",
@@ -59,19 +57,21 @@ pub fn synth(
     kind: LiteralKind,
     src: &SpannedString<'_>,
 ) -> Result<(LiteralIntro, domain::RcType), Diagnostic<FileSpan>> {
-    use mltt_concrete::LiteralKind as Lk;
-    use mltt_core::syntax::{LiteralIntro as Li, LiteralType as Lt};
+    use mltt_concrete::LiteralKind as LitKind;
+    use mltt_core::syntax::{LiteralIntro as LitIntro, LiteralType as LitType};
 
-    let (literal_intro, literal_ty) = match kind {
-        Lk::String => (Li::String(Rc::from(parse_string(src)?)), Lt::String),
-        Lk::Char => (Li::Char(parse_char(src)?), Lt::Char),
-        Lk::Int | Lk::Float => {
-            return Err(Diagnostic::new_error("ambiguous literal")
-                .with_label(DiagnosticLabel::new_primary(src.span())));
-        },
-    };
-
-    Ok((literal_intro, domain::RcValue::literal_ty(literal_ty)))
+    match kind {
+        LitKind::String => Ok((
+            LitIntro::String(Rc::from(parse_string(src)?)),
+            domain::RcValue::literal_ty(LitType::String),
+        )),
+        LitKind::Char => Ok((
+            LitIntro::Char(parse_char(src)?),
+            domain::RcValue::literal_ty(LitType::Char),
+        )),
+        LitKind::Int | LitKind::Float => Err(Diagnostic::new_error("ambiguous literal")
+            .with_label(DiagnosticLabel::new_primary(src.span()))),
+    }
 }
 
 fn literal_bug<T>(span: FileSpan, message: impl Into<String>) -> Result<T, Diagnostic<FileSpan>> {
@@ -298,4 +298,25 @@ pub fn parse_int<T: ParseIntLiteral>(src: &SpannedString<'_>) -> Result<T, Diagn
     }
 
     Ok(number)
+}
+
+/// Helper trait for defining `parse_float`.
+pub trait ParseFloatLiteral: Sized {}
+
+macro_rules! impl_parse_float_literal {
+    ($T:ident) => {
+        impl ParseFloatLiteral for $T {}
+    };
+}
+
+impl_parse_float_literal!(f32);
+impl_parse_float_literal!(f64);
+
+pub fn parse_float<T: ParseFloatLiteral>(
+    src: &SpannedString<'_>,
+) -> Result<T, Diagnostic<FileSpan>> {
+    literal_bug(
+        src.span(),
+        "literal elaboration not yet implemented for floats",
+    )
 }
