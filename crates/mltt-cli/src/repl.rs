@@ -47,7 +47,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                 editor.add_history_entry(files[file_id].contents());
 
                 let lexer = Lexer::new(&files[file_id]);
-                let concrete_term = match parser::parse_term(lexer) {
+                let concrete_term = match parser::parse_term(file_id, lexer) {
                     Ok(concrete_term) => concrete_term,
                     Err(diagnostic) => {
                         let config = language_reporting::DefaultConfig;
@@ -56,6 +56,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                     },
                 };
 
+                context.set_file_id(file_id);
                 let (core_term, ty) = match mltt_elaborate::synth_term(&context, &concrete_term) {
                     Ok((core_term, ty)) => (core_term, ty),
                     Err(diagnostic) => {

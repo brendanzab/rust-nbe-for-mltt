@@ -13,7 +13,7 @@
 
 #![warn(rust_2018_idioms)]
 
-use mltt_span::{ByteIndex, ByteSize, FileId, FileSpan};
+use mltt_span::{ByteIndex, ByteSize, Span, Spanned};
 use std::borrow::Cow;
 use std::fmt;
 
@@ -37,7 +37,7 @@ impl<'file> Item<'file> {
         }
     }
 
-    pub fn span(&self) -> FileSpan {
+    pub fn span(&self) -> Span {
         match self {
             Item::Declaration(declaration) => declaration.span(),
             Item::Definition(definition) => definition.span(),
@@ -53,9 +53,9 @@ pub struct Declaration<'file> {
     pub body_ty: Term<'file>,
 }
 
-impl<'file> Declaration<'file> {
-    pub fn span(&self) -> FileSpan {
-        FileSpan::merge(self.label.span(), self.body_ty.span())
+impl<'file> Spanned for Declaration<'file> {
+    fn span(&self) -> Span {
+        Span::merge(self.label.span(), self.body_ty.span())
     }
 }
 
@@ -69,35 +69,30 @@ pub struct Definition<'file> {
     pub body: Term<'file>,
 }
 
-impl<'file> Definition<'file> {
-    pub fn span(&self) -> FileSpan {
-        FileSpan::merge(self.label.span(), self.body.span())
+impl<'file> Spanned for Definition<'file> {
+    fn span(&self) -> Span {
+        Span::merge(self.label.span(), self.body.span())
     }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct SpannedString<'file> {
-    pub source: FileId,
     pub start: ByteIndex,
     pub slice: &'file str,
 }
 
 impl<'file> SpannedString<'file> {
-    pub fn new(
-        source: FileId,
-        start: impl Into<ByteIndex>,
-        slice: &'file str,
-    ) -> SpannedString<'file> {
+    pub fn new(start: impl Into<ByteIndex>, slice: &'file str) -> SpannedString<'file> {
         SpannedString {
-            source,
             start: start.into(),
             slice,
         }
     }
+}
 
-    pub fn span(&self) -> FileSpan {
-        FileSpan::new(
-            self.source,
+impl<'file> Spanned for SpannedString<'file> {
+    fn span(&self) -> Span {
+        Span::new(
             self.start,
             self.start + ByteSize::from_str_len_utf8(&self.slice),
         )
@@ -145,8 +140,8 @@ pub enum Pattern<'file> {
     // Ann(Box<Pattern<'file>>, Box<Term<'file>>),
 }
 
-impl<'file> Pattern<'file> {
-    pub fn span(&self) -> FileSpan {
+impl<'file> Spanned for Pattern<'file> {
+    fn span(&self) -> Span {
         match self {
             Pattern::Var(name) => name.span(),
             Pattern::LiteralIntro(_, literal) => literal.span(),
@@ -188,13 +183,13 @@ impl LiteralKind {
 /// A group of parameters to be used in a function type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeParam<'file> {
-    Explicit(FileSpan, Vec<SpannedString<'file>>, Term<'file>),
-    Implicit(FileSpan, Vec<SpannedString<'file>>, Option<Term<'file>>),
-    Instance(FileSpan, SpannedString<'file>, Term<'file>),
+    Explicit(Span, Vec<SpannedString<'file>>, Term<'file>),
+    Implicit(Span, Vec<SpannedString<'file>>, Option<Term<'file>>),
+    Instance(Span, SpannedString<'file>, Term<'file>),
 }
 
-impl<'file> TypeParam<'file> {
-    pub fn span(&self) -> FileSpan {
+impl<'file> Spanned for TypeParam<'file> {
+    fn span(&self) -> Span {
         match self {
             TypeParam::Explicit(span, _, _)
             | TypeParam::Implicit(span, _, _)
@@ -213,12 +208,12 @@ impl<'file> fmt::Display for TypeParam<'file> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntroParam<'file> {
     Explicit(Pattern<'file>),
-    Implicit(FileSpan, SpannedString<'file>, Option<Pattern<'file>>),
-    Instance(FileSpan, SpannedString<'file>, Option<Pattern<'file>>),
+    Implicit(Span, SpannedString<'file>, Option<Pattern<'file>>),
+    Instance(Span, SpannedString<'file>, Option<Pattern<'file>>),
 }
 
-impl<'file> IntroParam<'file> {
-    pub fn span(&self) -> FileSpan {
+impl<'file> Spanned for IntroParam<'file> {
+    fn span(&self) -> Span {
         match self {
             IntroParam::Explicit(pattern) => pattern.span(),
             IntroParam::Implicit(span, _, _) | IntroParam::Instance(span, _, _) => *span,
@@ -236,12 +231,12 @@ impl<'file> fmt::Display for IntroParam<'file> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Arg<'file> {
     Explicit(Term<'file>),
-    Implicit(FileSpan, SpannedString<'file>, Option<Term<'file>>),
-    Instance(FileSpan, SpannedString<'file>, Option<Term<'file>>),
+    Implicit(Span, SpannedString<'file>, Option<Term<'file>>),
+    Instance(Span, SpannedString<'file>, Option<Term<'file>>),
 }
 
-impl<'file> Arg<'file> {
-    pub fn span(&self) -> FileSpan {
+impl<'file> Spanned for Arg<'file> {
+    fn span(&self) -> Span {
         match self {
             Arg::Explicit(term) => term.span(),
             Arg::Implicit(span, _, _) | Arg::Instance(span, _, _) => *span,
@@ -303,12 +298,14 @@ impl<'file> RecordIntroField<'file> {
             } => (label, &params[..], body_ty.as_ref(), Cow::Borrowed(body)),
         }
     }
+}
 
-    pub fn span(&self) -> FileSpan {
+impl<'file> Spanned for RecordIntroField<'file> {
+    fn span(&self) -> Span {
         match self {
             RecordIntroField::Punned { label } => label.span(),
             RecordIntroField::Explicit { label, body, .. } => {
-                FileSpan::merge(label.span(), body.span())
+                Span::merge(label.span(), body.span())
             },
         }
     }
@@ -326,29 +323,20 @@ pub enum Term<'file> {
     /// Variables
     Var(SpannedString<'file>),
     /// Primitives
-    Prim(FileSpan, SpannedString<'file>),
+    Prim(Span, SpannedString<'file>),
     /// Holes
-    Hole(FileSpan),
+    Hole(Span),
 
     /// A parenthesized term
-    Parens(FileSpan, Box<Term<'file>>),
+    Parens(Span, Box<Term<'file>>),
     /// A term that is explicitly annotated with a type
     Ann(Box<Term<'file>>, Box<Term<'file>>),
     /// Let bindings
-    Let(FileSpan, Vec<Item<'file>>, Box<Term<'file>>),
+    Let(Span, Vec<Item<'file>>, Box<Term<'file>>),
     /// If expressions
-    If(
-        FileSpan,
-        Box<Term<'file>>,
-        Box<Term<'file>>,
-        Box<Term<'file>>,
-    ),
+    If(Span, Box<Term<'file>>, Box<Term<'file>>, Box<Term<'file>>),
     /// Case expressions
-    Case(
-        FileSpan,
-        Box<Term<'file>>,
-        Vec<(Pattern<'file>, Term<'file>)>,
-    ),
+    Case(Span, Box<Term<'file>>, Vec<(Pattern<'file>, Term<'file>)>),
 
     /// Literal introductions.
     LiteralIntro(LiteralKind, SpannedString<'file>),
@@ -356,54 +344,52 @@ pub enum Term<'file> {
     /// Dependent function type
     ///
     /// Also known as a _pi type_ or _dependent product type_.
-    FunType(FileSpan, Vec<TypeParam<'file>>, Box<Term<'file>>),
+    FunType(Span, Vec<TypeParam<'file>>, Box<Term<'file>>),
     /// Non-dependent function types
     FunArrowType(Box<Term<'file>>, Box<Term<'file>>),
     /// Introduce a function
     ///
     /// Also known as a _lambda expression_ or _anonymous function_.
-    FunIntro(FileSpan, Vec<IntroParam<'file>>, Box<Term<'file>>),
+    FunIntro(Span, Vec<IntroParam<'file>>, Box<Term<'file>>),
     /// Eliminate a function by applying it to an argument
     FunElim(Box<Term<'file>>, Vec<Arg<'file>>),
 
     /// Dependent record type
-    RecordType(FileSpan, Vec<RecordTypeField<'file>>),
+    RecordType(Span, Vec<RecordTypeField<'file>>),
     /// Record introduction
-    RecordIntro(FileSpan, Vec<RecordIntroField<'file>>),
+    RecordIntro(Span, Vec<RecordIntroField<'file>>),
     /// Eliminate a record by projecting on it
     RecordElim(Box<Term<'file>>, SpannedString<'file>),
 
     /// Universe of types
-    Universe(FileSpan, Option<SpannedString<'file>>),
+    Universe(Span, Option<SpannedString<'file>>),
 }
 
-impl<'file> Term<'file> {
-    pub fn span(&self) -> FileSpan {
+impl<'file> Spanned for Term<'file> {
+    fn span(&self) -> Span {
         match self {
             Term::Var(name) => name.span(),
             Term::Prim(span, _) => *span,
             Term::Hole(span) => *span,
             Term::Parens(span, _) => *span,
-            Term::Ann(term, term_ty) => FileSpan::merge(term.span(), term_ty.span()),
+            Term::Ann(term, term_ty) => Span::merge(term.span(), term_ty.span()),
             Term::Let(span, _, _) => *span,
             Term::If(span, _, _, _) => *span,
             Term::Case(span, _, _) => *span,
             Term::LiteralIntro(_, literal) => literal.span(),
             Term::FunType(span, _, _) => *span,
-            Term::FunArrowType(param_ty, body_ty) => {
-                FileSpan::merge(param_ty.span(), body_ty.span())
-            },
+            Term::FunArrowType(param_ty, body_ty) => Span::merge(param_ty.span(), body_ty.span()),
             Term::FunIntro(span, _, _) => *span,
             Term::FunElim(fun, args) => {
                 let mut span = fun.span();
                 if let Some(last_arg) = args.last() {
-                    span = FileSpan::merge(span, last_arg.span());
+                    span = Span::merge(span, last_arg.span());
                 }
                 span
             },
             Term::RecordType(span, _) => *span,
             Term::RecordIntro(span, _) => *span,
-            Term::RecordElim(record, label) => FileSpan::merge(record.span(), label.span()),
+            Term::RecordElim(record, label) => Span::merge(record.span(), label.span()),
             Term::Universe(span, _) => *span,
         }
     }

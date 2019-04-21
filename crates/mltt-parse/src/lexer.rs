@@ -1,6 +1,6 @@
 use language_reporting::{Diagnostic, Label};
 use mltt_concrete::SpannedString;
-use mltt_span::{ByteIndex, ByteSize, File, FileSpan};
+use mltt_span::{ByteIndex, ByteSize, File, FileSpan, Span};
 use std::str::Chars;
 
 use crate::token::{DelimKind, Token, TokenKind};
@@ -137,14 +137,14 @@ impl<'file> Lexer<'file> {
         self.diagnostics.push(diagnostic);
     }
 
-    /// Returns a span in the source file.
-    fn span(&self, start: ByteIndex, end: ByteIndex) -> FileSpan {
-        FileSpan::new(self.file.id(), start, end)
+    /// Returns a file span in the source file.
+    fn file_span(&self, start: ByteIndex, end: ByteIndex) -> FileSpan {
+        FileSpan::new(self.file.id(), Span::new(start, end))
     }
 
     /// Returns the span of the current token in the source file.
     fn token_span(&self) -> FileSpan {
-        self.span(self.token_start, self.token_end)
+        self.file_span(self.token_start, self.token_end)
     }
 
     /// Returns the string slice of the current token.
@@ -155,7 +155,6 @@ impl<'file> Lexer<'file> {
     /// Returns the source of the current token.
     fn token_src(&self) -> SpannedString<'file> {
         SpannedString {
-            source: self.file.id(),
             slice: self.token_slice(),
             start: self.token_start,
         }
@@ -164,7 +163,7 @@ impl<'file> Lexer<'file> {
     /// Returns the span of the end of the file.
     fn eof_span(&self) -> FileSpan {
         let end = self.file.span().end();
-        self.span(end, end)
+        self.file_span(end, end)
     }
 
     /// Emit a token and reset the start position, ready for the next token.

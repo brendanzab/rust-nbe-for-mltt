@@ -16,7 +16,7 @@ use mltt_core::nbe;
 use mltt_core::syntax::{
     core, domain, AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
 };
-use mltt_span::FileSpan;
+use mltt_span::{FileId, FileSpan, Spanned};
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -29,6 +29,7 @@ mod literal;
 /// Local elaboration context.
 #[derive(Debug, Clone)]
 pub struct Context {
+    file_id: Option<FileId>,
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
@@ -47,6 +48,7 @@ impl Context {
     /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
+            file_id: None,
             prims: nbe::PrimEnv::new(),
             values: domain::Env::new(),
             binders: im::HashMap::new(),
@@ -179,6 +181,14 @@ impl Context {
             },
         }
     }
+
+    pub fn set_file_id(&mut self, file_id: impl Into<Option<FileId>>) {
+        self.file_id = file_id.into();
+    }
+
+    pub fn file_span_of(&self, spanned: &impl Spanned) -> FileSpan {
+        FileSpan::new(self.file_id.unwrap(), spanned.span())
+    }
 }
 
 impl Default for Context {
@@ -260,14 +270,16 @@ fn check_items(
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
-                        let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
+                        let body_ty =
+                            context.eval_term(context.file_span_of(concrete_body_ty), &body_ty)?;
                         entry.insert(Some((&declaration.docs, body_ty)));
                     },
                     // There's a declaration for this name already pending - we
                     // can't add a new one!
                     Entry::Occupied(_) => {
-                        return Err(Diagnostic::new_error("already declared")
-                            .with_label(DiagnosticLabel::new_primary(declaration.label.span())));
+                        return Err(Diagnostic::new_error("already declared").with_label(
+                            DiagnosticLabel::new_primary(context.file_span_of(&declaration.label)),
+                        ));
                     },
                 }
             },
@@ -289,7 +301,7 @@ fn check_items(
 
                         entry.insert(None);
 
-                        (docs, term, body.span(), ty)
+                        (docs, term, context.file_span_of(body), ty)
                     },
                     // Something has happened with this declaration, let's
                     // 'take' a look!
@@ -301,7 +313,7 @@ fn check_items(
                             let clause = Clause::new(params, body_ty, body);
                             let term = clause::check_clause(&context, clause, &ty)?;
 
-                            (docs, term, body.span(), ty)
+                            (docs, term, context.file_span_of(body), ty)
                         },
                         // This declaration was already given a definition, so
                         // this is an error!
@@ -311,7 +323,9 @@ fn check_items(
                         // Languages like Elm don't. What should we do here?
                         None => {
                             return Err(Diagnostic::new_error("already defined").with_label(
-                                DiagnosticLabel::new_primary(definition.label.span()),
+                                DiagnosticLabel::new_primary(
+                                    context.file_span_of(&definition.label),
+                                ),
                             ));
                         },
                     },
@@ -340,6 +354,7 @@ fn check_items(
 /// Check that a given argument matches the expected application mode, and
 /// return the term inside it.
 fn check_arg_app_mode<'arg, 'file>(
+    context: &Context,
     concrete_arg: &'arg Arg<'file>,
     expected_app_mode: &AppMode,
 ) -> Result<Cow<'arg, Term<'file>>, Diagnostic<FileSpan>> {
@@ -357,26 +372,25 @@ fn check_arg_app_mode<'arg, 'file>(
         (_, AppMode::Implicit(ty_label)) => {
             let message = "inference of implicit arguments is not yet supported";
             Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
-                    "add the explicit argument `{{{} = ..}}` here",
-                    ty_label,
-                )),
+                DiagnosticLabel::new_primary(context.file_span_of(concrete_arg)).with_message(
+                    format!("add the explicit argument `{{{} = ..}}` here", ty_label,),
+                ),
             ))
         },
         (_, AppMode::Instance(ty_label)) => {
             let message = "inference of instance arguments is not yet supported";
             Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
-                    "add the explicit argument `{{{{{} = ..}}}}` here",
-                    ty_label,
-                )),
+                DiagnosticLabel::new_primary(context.file_span_of(concrete_arg)).with_message(
+                    format!("add the explicit argument `{{{{{} = ..}}}}` here", ty_label,),
+                ),
             ))
         },
-        (Arg::Implicit(span, _, _), AppMode::Explicit)
-        | (Arg::Instance(span, _, _), AppMode::Explicit) => {
+        (Arg::Implicit(_, _, _), AppMode::Explicit)
+        | (Arg::Instance(_, _, _), AppMode::Explicit) => {
             let message = "unexpected argument";
             Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(*span).with_message("this argument is not needed"),
+                DiagnosticLabel::new_primary(context.file_span_of(concrete_arg))
+                    .with_message("this argument is not needed"),
             ))
         },
     }
@@ -392,7 +406,7 @@ fn synth_universe(
     match ty.as_ref() {
         domain::Value::Universe(level) => Ok((term, *level)),
         _ => Err(Diagnostic::new_error("type expected").with_label(
-            DiagnosticLabel::new_primary(concrete_term.span())
+            DiagnosticLabel::new_primary(context.file_span_of(concrete_term))
                 .with_message(format!("found `{}`", context.read_back_value(None, &ty)?)),
         )),
     }
@@ -413,7 +427,7 @@ pub fn check_term(
             let parsed_name = literal::parse_string(name)?;
             match context.prims().lookup_entry(&parsed_name) {
                 None => Err(Diagnostic::new_error("unknown primitive")
-                    .with_label(DiagnosticLabel::new_primary(name.span()))),
+                    .with_label(DiagnosticLabel::new_primary(context.file_span_of(name)))),
                 Some(_) => Ok(core::RcTerm::prim(parsed_name)),
             }
         },
@@ -440,13 +454,14 @@ pub fn check_term(
                 alternative,
             )))
         },
-        Term::Case(span, scrutinee, clauses) => {
+        Term::Case(_, scrutinee, clauses) => {
+            let span = context.file_span_of(concrete_term);
             let clauses = clauses
                 .iter()
                 .map(|(pattern, body)| CaseClause::new(pattern, body))
                 .collect();
 
-            clause::check_case(context, *span, scrutinee, clauses, expected_ty)
+            clause::check_case(context, span, scrutinee, clauses, expected_ty)
         },
 
         Term::LiteralIntro(kind, literal) => {
@@ -459,7 +474,7 @@ pub fn check_term(
             clause::check_clause(context, clause, expected_ty)
         },
 
-        Term::RecordIntro(span, concrete_intro_fields) => {
+        Term::RecordIntro(_, concrete_intro_fields) => {
             let mut context = context.clone();
             let mut fields = Vec::new();
             let mut expected_ty = expected_ty.clone();
@@ -467,8 +482,11 @@ pub fn check_term(
             for concrete_intro_field in concrete_intro_fields {
                 let (expected_label, expected_term_ty, rest) = match expected_ty.as_ref() {
                     domain::Value::RecordTypeExtend(_, label, ty, rest) => Ok((label, ty, rest)),
-                    _ => Err(Diagnostic::new_error("too many fields found")
-                        .with_label(DiagnosticLabel::new_primary(*span))),
+                    _ => {
+                        let span = context.file_span_of(concrete_term);
+                        Err(Diagnostic::new_error("too many fields found")
+                            .with_label(DiagnosticLabel::new_primary(span)))
+                    },
                 }?;
 
                 let (found_label, params, body_ty, body) = concrete_intro_field.desugar();
@@ -477,7 +495,8 @@ pub fn check_term(
                     let clause = Clause::new(params, body_ty, &body);
                     let term = clause::check_clause(&context, clause, expected_term_ty)?;
 
-                    let term_value = context.eval_term(body.span(), &term)?;
+                    let term_value =
+                        context.eval_term(context.file_span_of(body.as_ref()), &term)?;
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
@@ -485,10 +504,11 @@ pub fn check_term(
                     expected_ty = context.app_closure(&rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
-                        DiagnosticLabel::new_primary(found_label.span()).with_message(format!(
-                            "expected `{}`, but found `{}`",
-                            found_label, expected_label,
-                        )),
+                        DiagnosticLabel::new_primary(context.file_span_of(found_label))
+                            .with_message(format!(
+                                "expected `{}`, but found `{}`",
+                                found_label, expected_label,
+                            )),
                     ));
                 }
             }
@@ -496,14 +516,15 @@ pub fn check_term(
             if let domain::Value::RecordTypeEmpty = expected_ty.as_ref() {
                 Ok(core::RcTerm::from(core::Term::RecordIntro(fields)))
             } else {
+                let span = context.file_span_of(concrete_term);
                 Err(Diagnostic::new_error("not enough fields provided")
-                    .with_label(DiagnosticLabel::new_primary(*span)))
+                    .with_label(DiagnosticLabel::new_primary(span)))
             }
         },
 
         _ => {
             let (synth, synth_ty) = synth_term(context, concrete_term)?;
-            context.expect_subtype(concrete_term.span(), &synth_ty, expected_ty)?;
+            context.expect_subtype(context.file_span_of(concrete_term), &synth_ty, expected_ty)?;
             Ok(synth)
         },
     }
@@ -523,25 +544,29 @@ pub fn synth_term(
     match concrete_term {
         Term::Var(name) => match context.lookup_binder(name.slice) {
             None => Err(Diagnostic::new_error("unbound variable")
-                .with_label(DiagnosticLabel::new_primary(name.span()))),
+                .with_label(DiagnosticLabel::new_primary(context.file_span_of(name)))),
             Some((index, ann)) => Ok((core::RcTerm::var(index), ann.clone())),
         },
         Term::Prim(span, name) => match context.prims().lookup_entry(&literal::parse_string(name)?)
         {
             None => Err(Diagnostic::new_error("unknown primitive")
-                .with_label(DiagnosticLabel::new_primary(name.span()))),
-            Some(_) => Err(Diagnostic::new_error("ambiguous primitive").with_label(
-                DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
-            )),
+                .with_label(DiagnosticLabel::new_primary(context.file_span_of(name)))),
+            Some(_) => {
+                let span = context.file_span_of(concrete_term);
+                Err(Diagnostic::new_error("ambiguous primitive").with_label(
+                    DiagnosticLabel::new_primary(span).with_message("type annotations needed here"),
+                ))
+            },
         },
         Term::Hole(span) => Err(Diagnostic::new_error("ambiguous term").with_label(
-            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+            DiagnosticLabel::new_primary(context.file_span_of(concrete_term))
+                .with_message("type annotations needed here"),
         )),
 
         Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
             let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
-            let term_ty = context.eval_term(concrete_term_ty.span(), &term_ty)?;
+            let term_ty = context.eval_term(context.file_span_of(&**concrete_term_ty), &term_ty)?;
             let term = check_term(context, concrete_term, &term_ty)?;
             Ok((term, term_ty))
         },
@@ -558,11 +583,13 @@ pub fn synth_term(
                 body_ty,
             ))
         },
-        Term::If(span, _, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
-            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+        Term::If(_, _, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
+            DiagnosticLabel::new_primary(context.file_span_of(concrete_term))
+                .with_message("type annotations needed here"),
         )),
-        Term::Case(span, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
-            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
+        Term::Case(_, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
+            DiagnosticLabel::new_primary(context.file_span_of(concrete_term))
+                .with_message("type annotations needed here"),
         )),
 
         Term::LiteralIntro(kind, literal) => {
@@ -582,7 +609,7 @@ pub fn synth_term(
                     TypeParam::Explicit(_, param_names, concrete_param_ty) => {
                         for param_name in param_names {
                             let app_mode = AppMode::Explicit;
-                            let param_ty_span = concrete_param_ty.span();
+                            let param_ty_span = context.file_span_of(concrete_param_ty);
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
 
@@ -591,17 +618,18 @@ pub fn synth_term(
                             max_level = cmp::max(max_level, level);
                         }
                     },
-                    TypeParam::Implicit(param_span, param_labels, concrete_param_ty) => {
+                    TypeParam::Implicit(_, param_labels, concrete_param_ty) => {
                         let concrete_param_ty = concrete_param_ty.as_ref().ok_or_else(|| {
+                            let param_span = context.file_span_of(param);
                             Diagnostic::new_error("implicit parameter is missing a type parameter")
-                                .with_label(DiagnosticLabel::new_primary(*param_span).with_message(
+                                .with_label(DiagnosticLabel::new_primary(param_span).with_message(
                                     "inference of parameter annotations is not yet supported",
                                 ))
                         })?;
 
                         for param_label in param_labels {
                             let app_mode = AppMode::Implicit(Label(param_label.to_string()));
-                            let param_ty_span = concrete_param_ty.span();
+                            let param_ty_span = context.file_span_of(concrete_param_ty);
                             let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                             let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
 
@@ -612,7 +640,7 @@ pub fn synth_term(
                     },
                     TypeParam::Instance(_, param_label, concrete_param_ty) => {
                         let app_mode = AppMode::Instance(Label(param_label.to_string()));
-                        let param_ty_span = concrete_param_ty.span();
+                        let param_ty_span = context.file_span_of(concrete_param_ty);
                         let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
                         let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
 
@@ -661,16 +689,18 @@ pub fn synth_term(
                         Ok((ty_app_mode, param_ty, body_ty))
                     },
                     _ => Err(Diagnostic::new_error("expected a function").with_label(
-                        DiagnosticLabel::new_primary(concrete_fun.span()).with_message(format!(
-                            "found: {}",
-                            context.read_back_value(None, &fun_ty)?
-                        )),
+                        DiagnosticLabel::new_primary(context.file_span_of(&**concrete_fun))
+                            .with_message(format!(
+                                "found: {}",
+                                context.read_back_value(None, &fun_ty)?
+                            )),
                     )),
                 }?;
 
-                let concrete_arg = check_arg_app_mode(concrete_arg, ty_app_mode)?;
+                let concrete_arg = check_arg_app_mode(context, concrete_arg, ty_app_mode)?;
                 let arg = check_term(context, concrete_arg.as_ref(), param_ty)?;
-                let arg_value = context.eval_term(concrete_arg.span(), &arg)?;
+                let arg_value =
+                    context.eval_term(context.file_span_of(concrete_arg.as_ref()), &arg)?;
 
                 fun = core::RcTerm::from(core::Term::FunElim(fun, ty_app_mode.clone(), arg));
                 fun_ty = context.app_closure(body_ty, arg_value)?;
@@ -688,7 +718,8 @@ pub fn synth_term(
                 .map(|concrete_ty_field| {
                     let docs = docs::concat(&concrete_ty_field.docs);
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
-                    let ty_value = context.eval_term(concrete_ty_field.ann.span(), &ty)?;
+                    let ty_value =
+                        context.eval_term(context.file_span_of(&concrete_ty_field.ann), &ty)?;
 
                     context.add_param(concrete_ty_field.label, ty_value);
                     max_level = cmp::max(max_level, ty_level);
@@ -702,16 +733,16 @@ pub fn synth_term(
                 domain::RcValue::universe(max_level),
             ))
         },
-        Term::RecordIntro(span, intro_fields) => {
+        Term::RecordIntro(_, intro_fields) => {
             if intro_fields.is_empty() {
                 Ok((
                     core::RcTerm::from(core::Term::RecordIntro(Vec::new())),
                     domain::RcValue::from(domain::Value::RecordTypeEmpty),
                 ))
             } else {
+                let span = context.file_span_of(concrete_term);
                 Err(Diagnostic::new_error("ambiguous term").with_label(
-                    DiagnosticLabel::new_primary(*span)
-                        .with_message("type annotations needed here"),
+                    DiagnosticLabel::new_primary(span).with_message("type annotations needed here"),
                 ))
             }
         },
@@ -736,7 +767,7 @@ pub fn synth_term(
 
             let message = format!("field not found: `{}`", label);
             Err(Diagnostic::new_error(message)
-                .with_label(DiagnosticLabel::new_primary(label.span())))
+                .with_label(DiagnosticLabel::new_primary(context.file_span_of(label))))
         },
 
         Term::Universe(_, level) => {

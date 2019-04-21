@@ -14,7 +14,49 @@ impl fmt::Display for FileId {
 }
 
 /// A span in a file.
-pub type FileSpan = Span<FileId>;
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FileSpan {
+    file_id: FileId,
+    span: Span,
+}
+
+impl FileSpan {
+    pub fn new(file_id: FileId, span: Span) -> FileSpan {
+        FileSpan { file_id, span }
+    }
+
+    pub fn file_id(&self) -> FileId {
+        self.file_id
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl language_reporting::ReportingSpan for FileSpan {
+    fn with_start(&self, start: usize) -> FileSpan {
+        FileSpan::new(self.file_id(), self.span().with_start(start))
+    }
+
+    fn with_end(&self, end: usize) -> FileSpan {
+        FileSpan::new(self.file_id(), self.span().with_end(end))
+    }
+
+    fn start(&self) -> usize {
+        self.span().start().to_usize()
+    }
+
+    fn end(&self) -> usize {
+        self.span().end().to_usize()
+    }
+}
+
+impl fmt::Debug for FileSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}:{:?}", self.file_id(), self.span)
+    }
+}
 
 /// The contents of a file that is stored in the database.
 #[derive(Debug, Clone)]
@@ -51,8 +93,13 @@ impl File {
     }
 
     /// Get the span of the source of this file.
-    pub fn span(&self) -> FileSpan {
-        Span::from_str(self.id(), self.contents())
+    pub fn span(&self) -> Span {
+        Span::from_str(self.contents())
+    }
+
+    /// Get the file span of the source of this file.
+    pub fn file_span(&self) -> FileSpan {
+        FileSpan::new(self.id(), self.span())
     }
 }
 
@@ -111,7 +158,10 @@ impl Files {
         let line_start = *file.line_starts().get(line.to_usize())?;
         let next_line_start = *file.line_starts().get(line.to_usize() + 1)?;
 
-        Some(Span::new(file_id, line_start, next_line_start))
+        Some(FileSpan::new(
+            file_id,
+            Span::new(line_start, next_line_start),
+        ))
     }
 
     pub fn location(&self, file_id: FileId, byte: impl Into<ByteIndex>) -> Option<Location> {
@@ -138,10 +188,10 @@ impl Files {
 
     /// Return a slice of the source file, given a span.
     pub fn source(&self, span: FileSpan) -> Option<&str> {
-        let start = span.start().to_usize();
-        let end = span.end().to_usize();
+        let start = span.span().start().to_usize();
+        let end = span.span().end().to_usize();
 
-        self[span.source()].contents.get(start..end)
+        self[span.file_id()].contents.get(start..end)
     }
 }
 
@@ -150,7 +200,7 @@ impl language_reporting::ReportingFiles for Files {
     type FileId = FileId;
 
     fn file_id(&self, span: FileSpan) -> FileId {
-        span.source()
+        span.file_id()
     }
 
     fn file_name(&self, file_id: FileId) -> language_reporting::FileName {
@@ -158,9 +208,9 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn byte_span(&self, file_id: FileId, from_index: usize, to_index: usize) -> Option<FileSpan> {
-        let span = Span::new(file_id, from_index, to_index);
+        let span = Span::new(from_index, to_index);
         if self[file_id].span().contains(span) {
-            Some(span)
+            Some(FileSpan::new(file_id, span))
         } else {
             None
         }

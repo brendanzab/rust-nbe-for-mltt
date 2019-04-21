@@ -1,5 +1,5 @@
 use mltt_concrete::SpannedString;
-use mltt_span::FileSpan;
+use mltt_span::{FileId, FileSpan, Span};
 use std::fmt;
 
 /// A kind of delimiter.
@@ -54,9 +54,13 @@ pub struct Token<'file> {
     pub src: SpannedString<'file>,
 }
 
-impl Token<'_> {
-    pub fn span(&self) -> FileSpan {
+impl<'file> Token<'file> {
+    pub fn span(&self) -> Span {
         self.src.span()
+    }
+
+    pub fn file_span(&self, file_id: FileId) -> FileSpan {
+        FileSpan::new(file_id, self.span())
     }
 
     pub fn is_whitespace(&self) -> bool {

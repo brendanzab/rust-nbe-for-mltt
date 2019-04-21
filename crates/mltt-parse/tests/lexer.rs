@@ -20,7 +20,7 @@ macro_rules! test {
         let expected_tokens = vec![$({
             let start = $span.find("~").unwrap();
             let end = $span.rfind("~").unwrap() + 1;
-            let token_src = SpannedString::new(file_id, ByteIndex::from(start), &src[start..end]);
+            let token_src = SpannedString::new(ByteIndex::from(start), &src[start..end]);
             Token { kind: $token_kind, src: token_src }
         }),*];
 

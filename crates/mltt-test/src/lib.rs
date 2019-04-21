@@ -20,14 +20,15 @@ macro_rules! run_test {
             let file_id = files.add($path, src);
 
             let lexer = Lexer::new(&files[file_id]);
-            let module = parser::parse_module(lexer).unwrap_or_else(|diagnostic| {
+            let module = parser::parse_module(file_id, lexer).unwrap_or_else(|diagnostic| {
                 let writer = &mut writer.lock();
                 language_reporting::emit(writer, &files, &diagnostic, &reporting_config).unwrap();
                 panic!("error encountered");
             });
             // FIXME: check lexer for errors
 
-            let context = mltt_elaborate::Context::default();
+            let mut context = mltt_elaborate::Context::default();
+            context.set_file_id(file_id);
             let module =
                 mltt_elaborate::check_module(&context, &module).unwrap_or_else(|diagnostic| {
                     let writer = &mut writer.lock();
