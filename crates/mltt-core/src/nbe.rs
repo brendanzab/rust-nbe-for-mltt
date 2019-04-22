@@ -56,11 +56,19 @@ pub struct PrimEntry {
 }
 
 impl PrimEntry {
-    fn interpret<'spine>(
+    /// Interpret a primitive if there are enough function eliminators provided
+    /// in the spine. `None` is returned if evaluation is stuck.
+    ///
+    /// Also known as [δ-reduction (delta-reduction)][δ-reduction].
+    ///
+    /// [δ-reduction]: http://barrywatson.se/lsi/lsi_delta_reduction.html
+    pub fn interpret<'spine>(
         &self,
         spine: &'spine [Elim],
     ) -> Option<Result<(RcValue, &'spine [Elim]), NbeError>> {
-        if spine.len() != self.arity as usize {
+        // Prevent `split_at` from panicking if we don't have enough eliminators
+        // in the spine.
+        if spine.len() < self.arity as usize {
             return None;
         }
 
@@ -72,10 +80,6 @@ impl PrimEntry {
                 Elim::Fun(_, arg) => args.push(arg.clone()),
                 Elim::Literal(_) | Elim::Record(_) => return None, // Return NbeError?
             }
-        }
-
-        if args.len() != self.arity as usize {
-            return None;
         }
 
         let result = (self.interpretation)(args)?;
