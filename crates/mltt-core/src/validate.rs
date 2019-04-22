@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::nbe::{self, NbeError};
-use crate::syntax::core::{Module, RcTerm, Term};
+use crate::syntax::core::{Item, Module, RcTerm, Term};
 use crate::syntax::domain::{AppClosure, Env, RcType, RcValue, Value};
 use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
 
@@ -114,6 +114,8 @@ impl Default for Context {
 /// An error produced during type checking.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
+    AlreadyDeclared(Label),
+    AlreadyDefined(Label),
     ExpectedFunType { found: RcType },
     ExpectedPairType { found: RcType },
     ExpectedUniverse { found: RcType },
@@ -148,6 +150,8 @@ impl Error for TypeError {
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            TypeError::AlreadyDeclared(label) => write!(f, "already declared: {}", label),
+            TypeError::AlreadyDefined(label) => write!(f, "already defined: {}", label),
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
@@ -181,20 +185,77 @@ impl fmt::Display for TypeError {
 /// Check that this is a valid module.
 pub fn check_module(context: &Context, module: &Module) -> Result<(), TypeError> {
     let mut context = context.clone();
+    check_items(&mut context, &module.items)?;
+    Ok(())
+}
 
-    for item in &module.items {
-        log::trace!("checking item:\t\t{}", item.label);
+/// Check the given items and add them to the context.
+fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
+    // Declarations that may be waiting to be defined
+    let mut forward_declarations = im::HashMap::new();
 
-        log::trace!("checking declaration:\t{}", item.term_ty);
-        synth_universe(&context, &item.term_ty)?;
-        let term_ty = context.eval_term(&item.term_ty)?;
+    for item in items {
+        use im::hashmap::Entry;
 
-        log::trace!("checking definition:\t{}", item.term);
-        check_term(&context, &item.term, &term_ty)?;
-        let value = context.eval_term(&item.term)?;
+        match item {
+            Item::Declaration(_, label, term_ty) => {
+                log::trace!("checking declaration:\t\t{}\t= {}", label, term_ty);
 
-        log::trace!("validated item:\t\t{}", item.label);
-        context.add_defn(value, term_ty);
+                match forward_declarations.entry(&label.0) {
+                    // No previous declaration for this name was seen, so we can
+                    // go-ahead and type check, elaborate, and then add it to
+                    // the context
+                    Entry::Vacant(entry) => {
+                        synth_universe(&context, &term_ty)?;
+                        // Ensure that we evaluate the forward declaration in
+                        // the current context - if we wait until later more
+                        // definitions might have come in to scope!
+                        let term_ty = context.eval_term(&term_ty)?;
+                        entry.insert(Some(term_ty));
+                    },
+                    // There's a declaration for this name already pending - we
+                    // can't add a new one!
+                    Entry::Occupied(_) => return Err(TypeError::AlreadyDeclared(label.clone())),
+                }
+
+                log::trace!("validated declaration:\t{}", label);
+            },
+            Item::Definition(_, label, term) => {
+                log::trace!("checking definition:\t\t{}\t= {}", label, term);
+
+                let (term, ty) = match forward_declarations.entry(&label.0) {
+                    // No prior declaration was found, so we'll try synthesizing
+                    // its type instead
+                    Entry::Vacant(entry) => {
+                        let term_ty = synth_term(&context, term)?;
+                        entry.insert(None);
+                        (term, term_ty)
+                    },
+                    // Something has happened with this declaration, let's
+                    // 'take' a look!
+                    Entry::Occupied(mut entry) => match entry.get_mut().take() {
+                        // We found a prior declaration, so we'll use it as a
+                        // basis for checking the definition
+                        Some(term_ty) => {
+                            check_term(&context, term, &term_ty)?;
+                            (term, term_ty)
+                        },
+                        // This declaration was already given a definition, so
+                        // this is an error!
+                        //
+                        // NOTE: Some languages (eg. Haskell, Agda, Idris, and
+                        // Erlang) turn duplicate definitions into case matches.
+                        // Languages like Elm don't. What should we do here?
+                        None => return Err(TypeError::AlreadyDefined(label.clone())),
+                    },
+                };
+
+                log::trace!("validated definition:\t{}", label);
+
+                let value = context.eval_term(&term)?;
+                context.add_defn(value, ty);
+            },
+        }
     }
 
     Ok(())
@@ -246,15 +307,10 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             None => Err(TypeError::UnknownPrim(name.clone())),
             Some(_) => Ok(()),
         },
-        Term::Let(def, def_ty, body) => {
-            let mut body_context = context.clone();
-            synth_universe(context, def_ty)?;
-            let def_ty = context.eval_term(def_ty)?;
-            check_term(context, &def, &def_ty)?;
-            let def = context.eval_term(def)?;
-            body_context.add_defn(def, def_ty);
-
-            check_term(&body_context, body, expected_ty)
+        Term::Let(items, body) => {
+            let mut context = context.clone();
+            check_items(&mut context, items)?;
+            check_term(&context, body, expected_ty)
         },
 
         Term::LiteralElim(scrutinee, clauses, default_body) => {
@@ -349,15 +405,17 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             None => Err(TypeError::UnknownPrim(name.clone())),
             Some(_) => Err(TypeError::AmbiguousTerm(term.clone())),
         },
-        Term::Let(def, def_ty, body) => {
-            let mut body_context = context.clone();
-            synth_universe(context, def_ty)?;
-            let def_ty = context.eval_term(def_ty)?;
-            check_term(context, def, &def_ty)?;
-            let def = context.eval_term(def)?;
-            body_context.add_defn(def, def_ty);
 
-            synth_term(&body_context, body)
+        Term::Ann(term, term_ty) => {
+            synth_universe(context, term_ty)?;
+            let term_ty = context.eval_term(&term_ty)?;
+            check_term(context, term, &term_ty)?;
+            Ok(term_ty)
+        },
+        Term::Let(items, body) => {
+            let mut context = context.clone();
+            check_items(&mut context, items)?;
+            synth_term(&context, body)
         },
 
         Term::LiteralType(_) => Ok(RcValue::universe(0)),

@@ -31,27 +31,16 @@ impl fmt::Display for Module {
 
 /// Top-level item.
 #[derive(Clone, PartialEq)]
-pub struct Item {
-    /// A doc string that describes this item.
-    pub doc: DocString,
-    /// The label that identifies this item.
-    pub label: Label,
-    /// The type of the item.
-    pub term_ty: RcTerm,
-    /// The term.
-    pub term: RcTerm,
+pub enum Item {
+    /// Forward-declarations.
+    Declaration(DocString, Label, RcTerm),
+    /// Term definitions.
+    Definition(DocString, Label, RcTerm),
 }
 
 impl fmt::Debug for Item {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let doc = self.to_debug_doc().group();
-        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
-    }
-}
-
-impl fmt::Display for Item {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let doc = self.to_display_doc(&mut DisplayEnv::new()).group();
         fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
     }
 }
@@ -133,8 +122,10 @@ pub enum Term {
     /// Primitives
     Prim(String),
 
+    /// A term that is explicitly annotated with a type
+    Ann(RcTerm, RcTerm),
     /// Let bindings
-    Let(RcTerm, RcTerm, RcTerm),
+    Let(Vec<Item>, RcTerm),
 
     /// Literal types
     LiteralType(LiteralType),
@@ -213,9 +204,22 @@ impl Term {
         match (self, other) {
             (Term::Var(index1), Term::Var(index2)) => index1 == index2,
             (Term::Prim(name1), Term::Prim(name2)) => name1 == name2,
-            (Term::Let(def1, def_ty1, body1), Term::Let(def2, def_ty2, body2)) => {
-                Term::alpha_eq(def1, def2)
-                    && Term::alpha_eq(def_ty1, def_ty2)
+            (Term::Ann(term1, term_ty1), Term::Ann(term2, term_ty2)) => {
+                Term::alpha_eq(term1, term2) && Term::alpha_eq(term_ty1, term_ty2)
+            },
+            (Term::Let(items1, body1), Term::Let(items2, body2)) => {
+                items1.len() == items2.len()
+                    && Iterator::zip(items1.iter(), items2.iter()).all(|(item1, item2)| {
+                        match (item1, item2) {
+                            (Item::Declaration(_, _, ty1), Item::Declaration(_, _, ty2)) => {
+                                Term::alpha_eq(ty1, ty2)
+                            },
+                            (Item::Definition(_, _, term1), Item::Definition(_, _, term2)) => {
+                                Term::alpha_eq(term1, term2)
+                            },
+                            (_, _) => false,
+                        }
+                    })
                     && Term::alpha_eq(body1, body2)
             },
 

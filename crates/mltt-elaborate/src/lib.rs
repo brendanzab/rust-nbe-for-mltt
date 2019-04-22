@@ -11,10 +11,11 @@
 #![warn(rust_2018_idioms)]
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_concrete::{Arg, Item, Term, TypeParam};
+use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
 use mltt_core::nbe;
 use mltt_core::syntax::{
-    core, domain, AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
+    core, domain, AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
+    VarLevel,
 };
 use mltt_span::FileSpan;
 use std::borrow::Cow;
@@ -23,7 +24,6 @@ use std::rc::Rc;
 use crate::clause::{CaseClause, Clause};
 
 mod clause;
-mod docs;
 mod literal;
 
 /// Local elaboration context.
@@ -226,6 +226,22 @@ pub fn check_module(
     Ok(core::Module { items })
 }
 
+/// Concatenate a bunch of lines of documentation into a single string, removing
+/// comment prefixes if they are found.
+fn concat_docs(doc_lines: &[SpannedString<'_>]) -> DocString {
+    let mut doc = String::new();
+    for doc_line in doc_lines {
+        // Strip the `||| ` or `|||` prefix left over from tokenization
+        // We assume that each line of documentation has a trailing new line
+        doc.push_str(match doc_line.slice {
+            doc_line if doc_line.starts_with("||| ") => &doc_line["||| ".len()..],
+            doc_line if doc_line.starts_with("|||") => &doc_line["|||".len()..],
+            doc_line => &doc_line[..],
+        });
+    }
+    DocString::from(doc)
+}
+
 /// Check the given items and add them to the context.
 ///
 /// Returns the elaborated items.
@@ -256,12 +272,18 @@ fn check_items(
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
                     Entry::Vacant(entry) => {
+                        let docs = concat_docs(&declaration.docs);
+                        let label = Label(label.to_owned());
                         let (body_ty, _) = synth_universe(&context, &concrete_body_ty)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
-                        let body_ty = context.eval_term(concrete_body_ty.span(), &body_ty)?;
-                        entry.insert(Some((&declaration.docs, body_ty)));
+                        let body_ty_value = context.eval_term(concrete_body_ty.span(), &body_ty)?;
+
+                        log::trace!("elaborated declaration:\t{}\t: {}", label, body_ty);
+
+                        core_items.push(core::Item::Declaration(docs, label, body_ty));
+                        entry.insert(Some(body_ty_value));
                     },
                     // There's a declaration for this name already pending - we
                     // can't add a new one!
@@ -279,29 +301,27 @@ fn check_items(
 
                 log::trace!("checking definition:\t\t{}\t= {}", label, body);
 
-                let (doc, term, term_span, ty) = match forward_declarations.entry(label) {
+                let (term, term_span, ty) = match forward_declarations.entry(label) {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
-                        let docs = docs::concat(&definition.docs);
                         let clause = Clause::new(params, body_ty, body);
                         let (term, ty) = clause::synth_clause(&context, clause)?;
 
                         entry.insert(None);
 
-                        (docs, term, body.span(), ty)
+                        (term, body.span(), ty)
                     },
                     // Something has happened with this declaration, let's
                     // 'take' a look!
                     Entry::Occupied(mut entry) => match entry.get_mut().take() {
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
-                        Some((decl_docs, ty)) => {
-                            let docs = docs::merge(&definition.label, decl_docs, &definition.docs)?;
+                        Some(ty) => {
                             let clause = Clause::new(params, body_ty, body);
                             let term = clause::check_clause(&context, clause, &ty)?;
 
-                            (docs, term, body.span(), ty)
+                            (term, body.span(), ty)
                         },
                         // This declaration was already given a definition, so
                         // this is an error!
@@ -316,20 +336,15 @@ fn check_items(
                         },
                     },
                 };
-                let value = context.eval_term(term_span, &term)?;
-                // NOTE: Not sure how expensive this readback is here!
-                let term_ty = context.read_back_value(None, &ty)?;
 
-                log::trace!("elaborated declaration:\t{}\t: {}", label, term_ty);
                 log::trace!("elaborated definition:\t{}\t= {}", label, term);
 
-                context.add_defn(label, value, ty);
-                core_items.push(core::Item {
-                    doc,
-                    label: Label(label.to_owned()),
-                    term_ty,
-                    term,
-                });
+                let label = Label(label.to_owned());
+                let docs = concat_docs(&definition.docs);
+                let value = context.eval_term(term_span, &term)?;
+
+                context.add_defn(label.to_string(), value, ty);
+                core_items.push(core::Item::Definition(docs, label, term));
             },
         }
     }
@@ -423,10 +438,7 @@ pub fn check_term(
             let items = check_items(&mut context, concrete_items)?;
             let body = check_term(&context, concrete_body, expected_ty)?;
 
-            Ok(items.into_iter().rev().fold(body, |acc, item| {
-                // TODO: other item fields?
-                core::RcTerm::from(core::Term::Let(item.term, item.term_ty, acc))
-            }))
+            Ok(core::RcTerm::from(core::Term::Let(items, body)))
         },
         Term::If(_, condition, consequent, alternative) => {
             let bool_ty = domain::RcValue::literal_ty(LiteralType::Bool);
@@ -541,22 +553,20 @@ pub fn synth_term(
         Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
             let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
-            let term_ty = context.eval_term(concrete_term_ty.span(), &term_ty)?;
-            let term = check_term(context, concrete_term, &term_ty)?;
-            Ok((term, term_ty))
+            let term_ty_value = context.eval_term(concrete_term_ty.span(), &term_ty)?;
+            let term = check_term(context, concrete_term, &term_ty_value)?;
+
+            Ok((
+                core::RcTerm::from(core::Term::Ann(term, term_ty)),
+                term_ty_value,
+            ))
         },
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, concrete_items)?;
             let (body, body_ty) = synth_term(&context, concrete_body)?;
 
-            Ok((
-                items.into_iter().rev().fold(body, |acc, item| {
-                    // TODO: other item fields?
-                    core::RcTerm::from(core::Term::Let(item.term, item.term_ty, acc))
-                }),
-                body_ty,
-            ))
+            Ok((core::RcTerm::from(core::Term::Let(items, body)), body_ty))
         },
         Term::If(span, _, _, _) => Err(Diagnostic::new_error("ambiguous term").with_label(
             DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
@@ -686,7 +696,7 @@ pub fn synth_term(
             let ty_fields = concrete_ty_fields
                 .iter()
                 .map(|concrete_ty_field| {
-                    let docs = docs::concat(&concrete_ty_field.docs);
+                    let docs = concat_docs(&concrete_ty_field.docs);
                     let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
                     let ty_value = context.eval_term(concrete_ty_field.ann.span(), &ty)?;
 

@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::core::{RcTerm, Term};
+use crate::syntax::core::{Item, RcTerm, Term};
 use crate::syntax::domain::{
     AppClosure, Elim, Env, Head, LiteralClosure, RcType, RcValue, Spine, Value,
 };
@@ -440,10 +440,15 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
                 None => Ok(RcValue::prim(name.clone())),
             }
         },
-        Term::Let(def, _, body) => {
-            let def = eval_term(prims, env, def)?;
+
+        Term::Ann(term, _) => eval_term(prims, env, term),
+        Term::Let(items, body) => {
             let mut env = env.clone();
-            env.add_defn(def);
+            for item in items {
+                if let Item::Definition(_, _, term) = item {
+                    env.add_defn(eval_term(prims, &env, term)?);
+                }
+            }
             eval_term(prims, &env, body)
         },
 

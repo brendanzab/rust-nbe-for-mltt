@@ -139,62 +139,86 @@ impl core::Module {
     }
 
     pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::concat(self.items.iter().map(|item| {
-            Doc::group(item.to_display_doc(env).append(";"))
-                .append(Doc::newline())
-                .append(Doc::newline())
-        }))
+        let (num_defs, items_doc) = items_to_display_doc(&self.items, env);
+        for _ in 0..num_defs {
+            env.pop_name();
+        }
+
+        items_doc
     }
 }
 
 impl core::Item {
     pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::nil()
-            .append(self.label.to_doc())
-            .append(Doc::space())
-            .append(":")
-            .group()
-            .append(
-                Doc::nil()
-                    .append(Doc::space())
-                    .append(self.term_ty.to_debug_doc())
-                    .group()
-                    .nest(4),
-            )
-            .append(Doc::space())
-            .append("=")
-            .group()
-            .append(
-                Doc::newline()
-                    .append(self.term.to_debug_doc())
-                    .group()
-                    .nest(4),
-            )
+        match self {
+            core::Item::Declaration(_, label, term_ty) => Doc::nil()
+                .append(label.to_doc())
+                .append(Doc::space())
+                .append(":")
+                .group()
+                .append(
+                    Doc::nil()
+                        .append(Doc::space())
+                        .append(term_ty.to_debug_doc())
+                        .group()
+                        .nest(4),
+                ),
+            core::Item::Definition(_, label, term) => Doc::nil()
+                .append(label.to_doc())
+                .append(Doc::space())
+                .append("=")
+                .group()
+                .append(Doc::newline().append(term.to_debug_doc()).group().nest(4)),
+        }
     }
+}
 
-    pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::nil()
-            .append(self.label.to_doc())
-            .append(Doc::space())
-            .append(":")
-            .group()
-            .append(
-                Doc::nil()
+pub fn items_to_display_doc<'doc>(
+    items: &'doc [core::Item],
+    env: &mut DisplayEnv,
+) -> (usize, Doc<'doc, BoxDoc<'doc, ()>>) {
+    let mut num_defs = 0;
+    let item_docs = items
+        .iter()
+        .map(|item| match item {
+            core::Item::Declaration(_, label, term_ty) => Doc::nil()
+                .append(label.to_doc())
+                .append(Doc::space())
+                .append(":")
+                .group()
+                .append(
+                    Doc::nil()
+                        .append(Doc::space())
+                        .append(term_ty.to_display_doc(env))
+                        .group()
+                        .append(";")
+                        .nest(4),
+                )
+                .append(Doc::newline())
+                .append(Doc::newline()),
+            core::Item::Definition(_, label, term) => {
+                let doc = Doc::nil()
+                    .append(label.to_doc())
                     .append(Doc::space())
-                    .append(self.term_ty.to_display_doc(env))
+                    .append("=")
                     .group()
-                    .nest(4),
-            )
-            .append(Doc::space())
-            .append("=")
-            .group()
-            .append(
-                Doc::newline()
-                    .append(self.term.to_display_doc(env))
-                    .group()
-                    .nest(4),
-            )
-    }
+                    .append(
+                        Doc::newline()
+                            .append(term.to_display_doc(env))
+                            .group()
+                            .append(";")
+                            .nest(4),
+                    )
+                    .append(Doc::newline())
+                    .append(Doc::newline());
+                env.fresh_name(Some(&label.0));
+                num_defs += 1;
+                doc
+            },
+        })
+        .collect::<Vec<_>>();
+
+    (num_defs, Doc::concat(item_docs))
 }
 
 impl core::Term {
@@ -206,23 +230,23 @@ impl core::Term {
                 .append("primitive")
                 .append(Doc::space())
                 .append(format!("{:?}", name)),
-            core::Term::Let(def, def_ty, body) => Doc::nil()
+
+            core::Term::Ann(term, term_ty) => Doc::nil()
+                .append(term.to_debug_doc())
+                .append(Doc::space())
+                .append(":")
+                .group()
+                .append(Doc::space().append(term_ty.to_debug_doc()).group().nest(4)),
+            core::Term::Let(items, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
-                .append(Doc::text("_").append(Doc::space()).append(":").group())
-                .append(Doc::space())
-                .append(def_ty.to_debug_doc())
-                .append(Doc::space())
-                .append("=")
-                .group()
-                .append(
-                    Doc::space()
-                        .append(def.to_debug_doc())
+                .append(Doc::concat(items.iter().map(|item| {
+                    Doc::nil()
+                        .append(item.to_debug_doc())
                         .append(";")
-                        .group()
-                        .nest(4),
-                )
-                .append(Doc::space())
+                        .append(Doc::newline())
+                        .append(Doc::newline())
+                })))
                 .append("in")
                 .append(Doc::space().append(body.to_debug_doc()).group().nest(4)),
 
@@ -466,31 +490,30 @@ impl core::Term {
                 .append("primitive")
                 .append(Doc::space())
                 .append(format!("{:?}", name)),
-            core::Term::Let(def, def_ty, body) => {
-                let def_doc = def.to_display_doc(env);
-                let def_ty_doc = def_ty.to_display_doc(env);
-                let def_name = env.fresh_name(None);
+
+            core::Term::Ann(term, term_ty) => Doc::nil()
+                .append(term.to_display_doc(env))
+                .append(Doc::space())
+                .append(":")
+                .group()
+                .append(
+                    Doc::space()
+                        .append(term_ty.to_display_doc(env))
+                        .group()
+                        .nest(4),
+                ),
+            core::Term::Let(items, body) => {
+                let (num_defs, items_doc) = items_to_display_doc(items, env);
                 let body_doc = body.to_display_doc(env);
-                env.pop_name();
+                for _ in 0..num_defs {
+                    env.pop_name();
+                }
 
                 // TODO: flatten definitions
                 Doc::nil()
                     .append("let")
                     .append(Doc::space())
-                    .append(
-                        Doc::nil()
-                            .append(def_name)
-                            .append(Doc::space())
-                            .append(":")
-                            .group(),
-                    )
-                    .append(Doc::space())
-                    .append(def_ty_doc)
-                    .append(Doc::space())
-                    .append("=")
-                    .group()
-                    .append(Doc::space().append(def_doc).append(";").group().nest(4))
-                    .append(Doc::space())
+                    .append(items_doc)
                     .append("in")
                     .append(Doc::space().append(body_doc).group().nest(4))
             },

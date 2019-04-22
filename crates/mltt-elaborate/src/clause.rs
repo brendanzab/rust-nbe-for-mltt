@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
-use mltt_core::syntax::{core, domain, AppMode, LiteralIntro};
+use mltt_core::syntax::{core, domain, AppMode, Label, LiteralIntro};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -114,13 +114,9 @@ pub fn check_case<'file>(
                 let scrutinee_level = context.values().level();
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
                 let scrutinee_value = context.eval_term(scrutinee.span(), &scrutinee_term)?;
-                let scrutinee_ty_term = context.read_back_value(None, &scrutinee_ty)?;
                 context.add_fresh_defn(scrutinee_value);
 
-                (
-                    (scrutinee_term, scrutinee_ty_term),
-                    (scrutinee_level, scrutinee_ty),
-                )
+                ((scrutinee_term, None), (scrutinee_level, scrutinee_ty))
             };
 
             let mut literal_branches =
@@ -295,10 +291,27 @@ fn synth_clause_body(
 
 /// Finish elaborating the patterns into a case tree.
 fn done(
-    scrutinees: Vec<(core::RcTerm, core::RcTerm)>,
+    scrutinees: Vec<(core::RcTerm, Option<core::RcTerm>)>,
     param_app_modes: Vec<AppMode>,
     body: core::RcTerm,
 ) -> core::RcTerm {
+    let mut items = Vec::new();
+
+    for (scrutinee, scrutinee_ty) in scrutinees {
+        if let Some(scrutinee_ty) = scrutinee_ty {
+            items.push(core::Item::Declaration(
+                Rc::from(""),
+                Label("_".to_owned()),
+                scrutinee_ty,
+            ));
+        }
+        items.push(core::Item::Definition(
+            Rc::from(""),
+            Label("_".to_owned()),
+            scrutinee,
+        ));
+    }
+
     let body = param_app_modes
         .into_iter()
         .rev()
@@ -306,10 +319,9 @@ fn done(
             core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
         });
 
-    scrutinees
-        .into_iter()
-        .rev()
-        .fold(body, |acc, (scrutinee, scrutinee_ty)| {
-            core::RcTerm::from(core::Term::Let(scrutinee, scrutinee_ty, acc))
-        })
+    if items.is_empty() {
+        body
+    } else {
+        core::RcTerm::from(core::Term::Let(items, body))
+    }
 }
