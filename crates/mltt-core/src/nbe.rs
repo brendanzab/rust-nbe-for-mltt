@@ -602,26 +602,22 @@ pub fn read_back_neutral(
 
     spine.iter().fold(Ok(head), |acc, elim| match elim {
         Elim::Literal(closure) => {
-            let clauses = closure
-                .clauses
-                .iter()
-                .map(|(literal_intro, body)| {
-                    let body =
-                        read_back_value(prims, level, &eval_term(prims, &closure.env, body)?)?;
-                    Ok((literal_intro.clone(), body))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            let default_body = read_back_value(
-                prims,
-                level,
-                &eval_term(prims, &closure.env, &closure.default)?,
-            )?;
+            let clauses = Rc::from(
+                closure
+                    .clauses
+                    .iter()
+                    .map(|(literal_intro, body)| {
+                        let body = eval_term(prims, &closure.env, body)?;
+                        let body = read_back_value(prims, level, &body)?;
+                        Ok((literal_intro.clone(), body))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            );
 
-            Ok(RcTerm::from(Term::LiteralElim(
-                acc?,
-                clauses.into(),
-                default_body,
-            )))
+            let default_body = eval_term(prims, &closure.env, &closure.default)?;
+            let default_body = read_back_value(prims, level, &default_body)?;
+
+            Ok(RcTerm::from(Term::LiteralElim(acc?, clauses, default_body)))
         },
         Elim::Fun(app_mode, arg) => {
             let arg = read_back_value(prims, level, &arg)?;
