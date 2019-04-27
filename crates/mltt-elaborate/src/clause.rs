@@ -146,7 +146,7 @@ pub fn check_case<'file>(
                 }
             }
 
-            let default = match default_clause.pattern {
+            let default_body = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
                     context
@@ -164,10 +164,11 @@ pub fn check_case<'file>(
                 },
             };
 
+            let scrutinee = core::RcTerm::var(context.values().level().0 - (param_level.0 + 1));
             let body = core::RcTerm::from(core::Term::LiteralElim(
-                context.read_back_value(None, &domain::RcValue::var(param_level))?,
+                scrutinee,
                 Rc::from(literal_branches),
-                default,
+                default_body,
             ));
 
             Ok(done(vec![checked_scrutinee], Vec::new(), body))
