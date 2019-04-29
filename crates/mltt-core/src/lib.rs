@@ -8,6 +8,7 @@ use std::ops;
 use std::rc::Rc;
 
 pub mod domain;
+pub mod env;
 pub mod literal;
 pub mod pretty;
 pub mod syntax;

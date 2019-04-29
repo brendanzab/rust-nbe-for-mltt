@@ -1,6 +1,7 @@
 //! Wrappers around the core NBE functions that return diagnostics on errors.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
+use mltt_core::env::{Env, EnvSize};
 use mltt_core::nbe;
 use mltt_core::{domain, syntax, MetaEnv};
 use mltt_span::FileSpan;
@@ -20,7 +21,7 @@ pub fn app_closure(
 pub fn eval_term(
     prims: &nbe::PrimEnv,
     metas: &MetaEnv,
-    values: &domain::Env,
+    values: &Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
     term: &syntax::RcTerm,
 ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
@@ -34,7 +35,7 @@ pub fn eval_term(
 pub fn read_back_value(
     prims: &nbe::PrimEnv,
     metas: &MetaEnv,
-    env_size: domain::EnvSize,
+    env_size: EnvSize,
     span: impl Into<Option<FileSpan>>,
     value: &domain::RcValue,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -48,7 +49,7 @@ pub fn read_back_value(
 pub fn normalize_term(
     prims: &nbe::PrimEnv,
     metas: &MetaEnv,
-    values: &domain::Env,
+    values: &Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
     term: &syntax::RcTerm,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -62,7 +63,7 @@ pub fn normalize_term(
 pub fn check_subtype(
     prims: &nbe::PrimEnv,
     metas: &MetaEnv,
-    env_size: domain::EnvSize,
+    env_size: EnvSize,
     span: FileSpan,
     ty1: &domain::RcType,
     ty2: &domain::RcType,

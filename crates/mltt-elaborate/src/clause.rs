@@ -56,7 +56,7 @@ pub fn check_clause(
         clause.params.split_first(),
     ) {
         let param_var = match check_param_app_mode(head_param, &app_mode)? {
-            CheckedPattern::Var(None) => context.add_fresh_param(),
+            CheckedPattern::Var(None) => context.add_fresh_param(param_ty),
             CheckedPattern::Var(Some(var_name)) => {
                 clause.params = rest_params;
                 context.add_param(var_name, param_ty)
@@ -118,7 +118,7 @@ pub fn check_case<'file>(
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, metas, scrutinee)?;
                 let scrutinee_value =
                     context.eval_term(metas, scrutinee.span(), &scrutinee_term)?;
-                context.add_fresh_defn(scrutinee_value);
+                context.add_fresh_defn(scrutinee_value, scrutinee_ty.clone());
 
                 ((scrutinee_term, None), (scrutinee_level, scrutinee_ty))
             };
@@ -154,9 +154,7 @@ pub fn check_case<'file>(
             let default_body = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
-                    context
-                        .binders
-                        .insert(name.to_string(), (param_level, param_ty));
+                    context.names.insert(name.to_string(), param_level);
                     check_term(&context, metas, &default_clause.body, expected_ty)?
                 },
                 _ => {

@@ -12,6 +12,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
+use mltt_core::env::Env;
 use mltt_core::literal::{LiteralIntro, LiteralType};
 use mltt_core::{
     domain, syntax, AppMode, DocString, Label, MetaEnv, UniverseLevel, VarIndex, VarLevel,
@@ -32,7 +33,9 @@ pub struct Context {
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
-    values: domain::Env,
+    values: Env<domain::RcValue>,
+    /// Types of the entries in the context.
+    tys: Env<domain::RcType>,
     /// A mapping from the user-defined names to the level in which they were
     /// bound.
     ///
@@ -40,7 +43,7 @@ pub struct Context {
     /// correct debruijn index once we reach a variable name in a nested scope.
     /// Not all entries in the context will have a corresponding name - for
     /// example we don't define a name for non-dependent function types.
-    binders: im::HashMap<String, (VarLevel, domain::RcType)>,
+    names: im::HashMap<String, VarLevel>,
     /// Local bound levels.
     ///
     /// This is used for making spines for fresh metas.
@@ -52,8 +55,9 @@ impl Context {
     pub fn new() -> Context {
         Context {
             prims: nbe::PrimEnv::new(),
-            values: domain::Env::new(),
-            binders: im::HashMap::new(),
+            values: Env::new(),
+            tys: Env::new(),
+            names: im::HashMap::new(),
             bound_levels: im::Vector::new(),
         }
     }
@@ -64,14 +68,16 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &domain::Env {
+    pub fn values(&self) -> &Env<domain::RcValue> {
         &self.values
     }
 
     /// Add a fresh definition to the context.
-    pub fn add_fresh_defn(&mut self, value: domain::RcValue) {
+    pub fn add_fresh_defn(&mut self, value: domain::RcValue, ty: domain::RcType) {
         log::trace!("add fresh definition");
-        self.values.add_defn(value);
+
+        self.values.add_entry(value);
+        self.tys.add_entry(ty);
     }
 
     /// Add a definition to the context.
@@ -82,27 +88,38 @@ impl Context {
         ty: domain::RcType,
     ) {
         let name = name.into();
-        let var_level = self.values().size().next_var_level();
         log::trace!("add definition: {}", name);
-        self.binders.insert(name, (var_level, ty));
-        self.values.add_defn(value);
+
+        let var_level = self.values.size().next_var_level();
+        self.names.insert(name, var_level);
+        self.values.add_entry(value);
+        self.tys.add_entry(ty);
     }
 
     /// Add a fresh parameter the context, returning a variable that points to
     /// the introduced binder.
-    pub fn add_fresh_param(&mut self) -> domain::RcValue {
+    pub fn add_fresh_param(&mut self, ty: domain::RcType) -> domain::RcValue {
         log::trace!("add fresh parameter");
-        self.values.add_param()
+
+        let var_level = self.values.size().next_var_level();
+        let value = domain::RcValue::var(var_level);
+        self.values.add_entry(value.clone());
+        self.tys.add_entry(ty);
+        value
     }
 
     /// Add a parameter the context, returning a variable that points to
     /// the introduced binder.
     pub fn add_param(&mut self, name: impl Into<String>, ty: domain::RcType) -> domain::RcValue {
         let name = name.into();
-        let var_level = self.values().size().next_var_level();
         log::trace!("add parameter: {}", name);
-        self.binders.insert(name, (var_level, ty));
-        self.values.add_param()
+
+        let var_level = self.values.size().next_var_level();
+        self.names.insert(name, var_level);
+        let value = domain::RcValue::var(var_level);
+        self.values.add_entry(value.clone());
+        self.tys.add_entry(ty);
+        value
     }
 
     /// Create a fresh meta and return the meta applied to all of the currently
@@ -122,8 +139,9 @@ impl Context {
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name.
     pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
-        let (var_level, ty) = self.binders.get(name)?;
+        let var_level = self.names.get(name)?;
         let var_index = self.values().size().var_index(*var_level);
+        let ty = self.tys.lookup_entry(var_index)?;
         log::trace!("lookup binder: {} -> @{}", name, var_index.0);
         Some((var_index, ty))
     }
@@ -667,7 +685,8 @@ pub fn synth_term(
             let (param_ty, param_level) = synth_universe(context, metas, concrete_param_ty)?;
             let (body_ty, body_level) = {
                 let mut context = context.clone();
-                context.add_fresh_param();
+                let param_ty = context.eval_term(metas, concrete_param_ty.span(), &param_ty)?;
+                context.add_fresh_param(param_ty);
                 synth_universe(&context, metas, concrete_body_ty)?
             };
 
@@ -835,10 +854,12 @@ mod test {
         let mut context = Context::new();
 
         let ty1 = RcValue::universe(0);
+        let ty2 = RcValue::universe(1);
+        let ty3 = RcValue::universe(2);
 
         let param1 = context.add_param("x", ty1.clone());
-        let param2 = context.add_fresh_param();
-        let param3 = context.add_fresh_param();
+        let param2 = context.add_fresh_param(ty2.clone());
+        let param3 = context.add_fresh_param(ty3.clone());
 
         assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
         assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));

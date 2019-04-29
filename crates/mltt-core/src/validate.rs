@@ -9,7 +9,8 @@ use std::error::Error;
 use std::fmt;
 
 use super::literal::{LiteralIntro, LiteralType};
-use crate::domain::{AppClosure, Env, RcType, RcValue, Value};
+use crate::domain::{AppClosure, RcType, RcValue, Value};
+use crate::env::Env;
 use crate::nbe::{self, NbeError};
 use crate::syntax::{Item, Module, RcTerm, Term};
 use crate::{AppMode, Label, MetaEnv, MetaLevel, MetaSolution, UniverseLevel, VarIndex};
@@ -20,9 +21,9 @@ pub struct Context {
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
-    values: Env,
+    values: Env<RcValue>,
     /// Types of the entries in the context.
-    tys: im::Vector<RcType>,
+    tys: Env<RcType>,
 }
 
 impl Context {
@@ -31,7 +32,7 @@ impl Context {
         Context {
             prims: nbe::PrimEnv::new(),
             values: Env::new(),
-            tys: im::Vector::new(),
+            tys: Env::new(),
         }
     }
 
@@ -41,28 +42,30 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &Env {
+    pub fn values(&self) -> &Env<RcValue> {
         &self.values
     }
 
     /// Lookup the type of a variable in the context.
-    pub fn lookup_ty(&self, index: VarIndex) -> Option<&RcType> {
-        self.tys.get(index.0 as usize)
+    pub fn lookup_ty(&self, var_index: VarIndex) -> Option<&RcType> {
+        self.tys.lookup_entry(var_index)
     }
 
     /// Add a definition to the context.
     pub fn add_defn(&mut self, value: RcValue, ty: RcType) {
         log::trace!("add definition");
-        self.tys.push_front(ty);
-        self.values.add_defn(value);
+        self.values.add_entry(value);
+        self.tys.add_entry(ty);
     }
 
     /// Add a bound variable the context, returning a variable that points to
     /// the correct binder.
     pub fn add_param(&mut self, ty: RcType) -> RcValue {
         log::trace!("add parameter");
-        self.tys.push_front(ty);
-        self.values.add_param()
+        let value = RcValue::var(self.values.size().next_var_level());
+        self.values.add_entry(value.clone());
+        self.tys.add_entry(ty);
+        value
     }
 
     /// Apply a closure to an argument.

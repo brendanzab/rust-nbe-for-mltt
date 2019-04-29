@@ -9,9 +9,8 @@ use std::fmt;
 use std::rc::Rc;
 
 use super::literal::LiteralIntro;
-use crate::domain::{
-    AppClosure, Elim, Env, EnvSize, Head, LiteralClosure, RcType, RcValue, Spine, Value,
-};
+use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value};
+use crate::env::{Env, EnvSize};
 use crate::syntax::{Item, RcTerm, Term};
 use crate::{AppMode, Label, MetaEnv, MetaSolution};
 
@@ -414,7 +413,7 @@ pub fn app_closure(
     arg: RcValue,
 ) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
-    env.add_defn(arg);
+    env.add_entry(arg);
     eval_term(prims, metas, &env, &closure.term)
 }
 
@@ -438,11 +437,11 @@ pub fn inst_closure(
 pub fn eval_term(
     prims: &PrimEnv,
     metas: &MetaEnv,
-    env: &Env,
+    env: &Env<RcValue>,
     term: &RcTerm,
 ) -> Result<RcValue, NbeError> {
     match term.as_ref() {
-        Term::Var(var_index) => match env.lookup_value(*var_index) {
+        Term::Var(var_index) => match env.lookup_entry(*var_index) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
         },
@@ -467,7 +466,7 @@ pub fn eval_term(
             let mut env = env.clone();
             for item in items {
                 if let Item::Definition(_, _, term) = item {
-                    env.add_defn(eval_term(prims, metas, &env, term)?);
+                    env.add_entry(eval_term(prims, metas, &env, term)?);
                 }
             }
             eval_term(prims, metas, &env, body)
@@ -663,7 +662,7 @@ pub fn read_back_neutral(
 pub fn normalize_term(
     prims: &PrimEnv,
     metas: &MetaEnv,
-    env: &Env,
+    env: &Env<RcValue>,
     term: &RcTerm,
 ) -> Result<RcTerm, NbeError> {
     let value = eval_term(prims, metas, env, term)?;

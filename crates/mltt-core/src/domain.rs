@@ -4,8 +4,9 @@ use std::ops;
 use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
+use crate::env::Env;
 use crate::syntax::RcTerm;
-use crate::{AppMode, DocString, Label, MetaLevel, UniverseLevel, VarIndex, VarLevel};
+use crate::{AppMode, DocString, Label, MetaLevel, UniverseLevel, VarLevel};
 
 /// Reference counted value.
 #[derive(Debug, Clone, PartialEq)]
@@ -183,11 +184,11 @@ pub struct AppClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env,
+    pub env: Env<RcValue>,
 }
 
 impl AppClosure {
-    pub fn new(term: RcTerm, env: Env) -> AppClosure {
+    pub fn new(term: RcTerm, env: Env<RcValue>) -> AppClosure {
         AppClosure { term, env }
     }
 }
@@ -203,120 +204,19 @@ pub struct LiteralClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env,
+    pub env: Env<RcValue>,
 }
 
 impl LiteralClosure {
-    pub fn new(clauses: Rc<[(LiteralIntro, RcTerm)]>, default: RcTerm, env: Env) -> LiteralClosure {
+    pub fn new(
+        clauses: Rc<[(LiteralIntro, RcTerm)]>,
+        default: RcTerm,
+        env: Env<RcValue>,
+    ) -> LiteralClosure {
         LiteralClosure {
             clauses,
             default,
             env,
-        }
-    }
-}
-
-/// An environment of entries that can be looked up based on a debruijn index.
-///
-/// It is backed by an `im::Vector` to allow for efficient sharing between
-/// multiple closures.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Env {
-    /// The entries in the environment
-    entries: im::Vector<EnvEntry>,
-}
-
-impl Env {
-    /// Create a new, empty environment.
-    pub fn new() -> Env {
-        Env {
-            entries: im::Vector::new(),
-        }
-    }
-
-    /// Get the size of the environment.
-    pub fn size(&self) -> EnvSize {
-        EnvSize(self.entries.len() as u32)
-    }
-
-    /// Lookup a value in the environment.
-    pub fn lookup_value(&self, index: VarIndex) -> Option<&RcValue> {
-        self.entries.get(index.0 as usize).map(EnvEntry::value)
-    }
-
-    /// Add a new definition to the environment.
-    pub fn add_defn(&mut self, value: RcValue) {
-        self.entries.push_front(EnvEntry {
-            value: Some(value),
-            var: RcValue::var(self.size().next_var_level()),
-        });
-    }
-
-    /// Add a new parameter to the environment.
-    pub fn add_param(&mut self) -> RcValue {
-        let var = RcValue::var(self.size().next_var_level());
-        self.entries.push_front(EnvEntry {
-            value: None,
-            var: var.clone(),
-        });
-        var
-    }
-}
-
-/// The size of the environment.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EnvSize(pub u32);
-
-impl EnvSize {
-    /// Return the level of the next variable to be added to the environment.
-    pub fn next_var_level(self) -> VarLevel {
-        VarLevel(self.0)
-    }
-
-    /// Convert a variable level to a variable index in the current environment.
-    pub fn var_index(self, level: VarLevel) -> VarIndex {
-        VarIndex(self.0 - (level.0 + 1)) // FIXME: Check for over/underflow?
-    }
-}
-
-impl From<u32> for EnvSize {
-    fn from(src: u32) -> EnvSize {
-        EnvSize(src)
-    }
-}
-
-impl ops::AddAssign<u32> for EnvSize {
-    fn add_assign(&mut self, other: u32) {
-        self.0 += other;
-    }
-}
-
-impl ops::Add<u32> for EnvSize {
-    type Output = EnvSize;
-
-    fn add(mut self, other: u32) -> EnvSize {
-        self += other;
-        self
-    }
-}
-
-/// An entry in the evaluation environment.
-#[derive(Debug, Clone, PartialEq)]
-struct EnvEntry {
-    /// The value. `Some` if this entry has an associated definition, or `None`
-    /// if it is a parameter.
-    value: Option<RcValue>,
-    /// The variable representation of this entry. This is useful if we don't
-    /// want to unfold the value - say, if this entry is a parameter, or if we
-    /// want to increase the amount of sharing that we do during elaboration.
-    var: RcValue,
-}
-
-impl EnvEntry {
-    fn value(&self) -> &RcValue {
-        match &self.value {
-            Some(value) => value,
-            None => &self.var,
         }
     }
 }
