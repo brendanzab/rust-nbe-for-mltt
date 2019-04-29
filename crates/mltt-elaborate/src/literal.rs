@@ -11,7 +11,8 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{LiteralKind, SpannedString};
-use mltt_core::{domain, LiteralIntro, MetaEnv};
+use mltt_core::literal::LiteralIntro;
+use mltt_core::{domain, MetaEnv};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -27,7 +28,7 @@ pub fn check(
 ) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as LitKind;
     use mltt_core::domain::Value::LiteralType;
-    use mltt_core::{LiteralIntro as LitIntro, LiteralType as LitType};
+    use mltt_core::literal::{LiteralIntro as LitIntro, LiteralType as LitType};
 
     match (kind, expected_ty.as_ref()) {
         (LitKind::String, LiteralType(LitType::String)) => {
@@ -59,7 +60,7 @@ pub fn synth(
     src: &SpannedString<'_>,
 ) -> Result<(LiteralIntro, domain::RcType), Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as LitKind;
-    use mltt_core::{LiteralIntro as LitIntro, LiteralType as LitType};
+    use mltt_core::literal::{LiteralIntro as LitIntro, LiteralType as LitType};
 
     match kind {
         LitKind::String => Ok((

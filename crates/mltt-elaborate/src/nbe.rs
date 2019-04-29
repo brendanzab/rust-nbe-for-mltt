@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_core::nbe;
-use mltt_core::{syntax, domain, MetaEnv};
+use mltt_core::{domain, syntax, MetaEnv};
 use mltt_span::FileSpan;
 
 pub use mltt_core::nbe::PrimEnv;

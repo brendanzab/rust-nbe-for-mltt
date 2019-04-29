@@ -2,7 +2,8 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
-use mltt_core::{domain, syntax, AppMode, DocString, Label, LiteralIntro, MetaEnv};
+use mltt_core::literal::LiteralIntro;
+use mltt_core::{domain, syntax, AppMode, DocString, Label, MetaEnv};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 

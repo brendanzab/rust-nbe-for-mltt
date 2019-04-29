@@ -8,13 +8,11 @@ use itertools::Itertools;
 use std::error::Error;
 use std::fmt;
 
+use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, Env, RcType, RcValue, Value};
 use crate::nbe::{self, NbeError};
 use crate::syntax::{Item, Module, RcTerm, Term};
-use crate::{
-    AppMode, Label, LiteralIntro, LiteralType, MetaEnv, MetaLevel, MetaSolution, UniverseLevel,
-    VarIndex,
-};
+use crate::{AppMode, Label, MetaEnv, MetaLevel, MetaSolution, UniverseLevel, VarIndex};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]

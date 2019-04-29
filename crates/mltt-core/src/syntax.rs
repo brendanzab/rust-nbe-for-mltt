@@ -4,10 +4,9 @@ use std::fmt;
 use std::ops;
 use std::rc::Rc;
 
+use super::literal::{LiteralIntro, LiteralType};
 use crate::pretty::DisplayEnv;
-use crate::{
-    AppMode, DocString, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex,
-};
+use crate::{AppMode, DocString, Label, MetaLevel, UniverseLevel, VarIndex};
 
 /// Top-level module.
 #[derive(Clone, PartialEq)]

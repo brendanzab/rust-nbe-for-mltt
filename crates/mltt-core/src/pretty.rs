@@ -3,8 +3,9 @@
 use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
 
+use super::literal::{LiteralIntro, LiteralType};
 use super::syntax;
-use super::{AppMode, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex};
+use super::{AppMode, Label, MetaLevel, UniverseLevel, VarIndex};
 
 /// An environment that can assist in pretty printing terms with pretty names.
 pub struct DisplayEnv {

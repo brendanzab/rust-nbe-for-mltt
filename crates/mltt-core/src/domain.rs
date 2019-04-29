@@ -3,11 +3,9 @@
 use std::ops;
 use std::rc::Rc;
 
+use super::literal::{LiteralIntro, LiteralType};
 use crate::syntax::RcTerm;
-use crate::{
-    AppMode, DocString, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex,
-    VarLevel,
-};
+use crate::{AppMode, DocString, Label, MetaLevel, UniverseLevel, VarIndex, VarLevel};
 
 /// Reference counted value.
 #[derive(Debug, Clone, PartialEq)]

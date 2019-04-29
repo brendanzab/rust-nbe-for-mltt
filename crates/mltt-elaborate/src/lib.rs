@@ -12,11 +12,11 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
-use mltt_span::FileSpan;
+use mltt_core::literal::{LiteralIntro, LiteralType};
 use mltt_core::{
-    domain, syntax, AppMode, DocString, Label, LiteralIntro, LiteralType, MetaEnv, UniverseLevel,
-    VarIndex, VarLevel,
+    domain, syntax, AppMode, DocString, Label, MetaEnv, UniverseLevel, VarIndex, VarLevel,
 };
+use mltt_span::FileSpan;
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -183,7 +183,7 @@ impl Context {
 impl Default for Context {
     fn default() -> Context {
         use mltt_core::domain::RcValue;
-        use mltt_core::LiteralType as LitType;
+        use mltt_core::literal::LiteralType as LitType;
 
         let mut context = Context::new();
         let u0 = RcValue::universe(0);
