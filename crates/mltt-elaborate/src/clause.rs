@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
-use mltt_core::syntax::{core, domain, AppMode, DocString, Label, LiteralIntro, MetaEnv};
+use mltt_core::{domain, syntax, AppMode, DocString, Label, LiteralIntro, MetaEnv};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -45,7 +45,7 @@ pub fn check_clause(
     metas: &mut MetaEnv,
     mut clause: Clause<'_>,
     expected_ty: &domain::RcType,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
     let mut context = context.clone();
     let mut param_app_modes = Vec::new();
     let mut expected_ty = expected_ty.clone();
@@ -100,7 +100,7 @@ pub fn check_case<'file>(
     scrutinee: &Term<'file>,
     clauses: Vec<CaseClause<'file>>,
     expected_ty: &domain::RcType,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
     // TODO: Merge with `check_clause`
     // TODO: Zero or more scrutinees
     // TODO: One-or-more patterns per case clause
@@ -123,7 +123,7 @@ pub fn check_case<'file>(
             };
 
             let mut literal_branches =
-                Vec::<(LiteralIntro, core::RcTerm)>::with_capacity(literal_clauses.len());
+                Vec::<(LiteralIntro, syntax::RcTerm)>::with_capacity(literal_clauses.len());
 
             for literal_clause in literal_clauses {
                 match literal_clause.pattern {
@@ -168,8 +168,8 @@ pub fn check_case<'file>(
                 },
             };
 
-            let body = core::RcTerm::from(core::Term::LiteralElim(
-                core::RcTerm::var(context.values().size().var_index(param_level)),
+            let body = syntax::RcTerm::from(syntax::Term::LiteralElim(
+                syntax::RcTerm::var(context.values().size().var_index(param_level)),
                 Rc::from(literal_branches),
                 default_body,
             ));
@@ -186,7 +186,7 @@ pub fn synth_clause(
     context: &Context,
     metas: &mut MetaEnv,
     clause: Clause<'_>,
-) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     if let Some(param) = clause.params.first() {
         // TODO: We will be able to type this once we have annotated patterns!
         return Err(
@@ -263,7 +263,7 @@ fn check_clause_body(
     metas: &mut MetaEnv,
     clause: &Clause<'_>,
     expected_body_ty: &domain::RcType,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
     match clause.body_ty {
         None => check_term(&context, metas, clause.body, &expected_body_ty),
         Some(body_ty) => {
@@ -283,7 +283,7 @@ fn synth_clause_body(
     context: &Context,
     metas: &mut MetaEnv,
     clause: &Clause<'_>,
-) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     match clause.body_ty {
         None => synth_term(context, metas, clause.body),
         Some(body_ty) => {
@@ -298,11 +298,11 @@ fn synth_clause_body(
 
 /// Finish elaborating the patterns into a case tree.
 fn done(
-    scrutinees: Vec<(core::RcTerm, Option<core::RcTerm>)>,
+    scrutinees: Vec<(syntax::RcTerm, Option<syntax::RcTerm>)>,
     param_app_modes: Vec<AppMode>,
-    body: core::RcTerm,
-) -> core::RcTerm {
-    use mltt_core::syntax::core::Item::{Declaration, Definition};
+    body: syntax::RcTerm,
+) -> syntax::RcTerm {
+    use mltt_core::syntax::Item::{Declaration, Definition};
 
     let mut items = Vec::new();
 
@@ -319,12 +319,12 @@ fn done(
         .into_iter()
         .rev()
         .fold(body, |acc, app_mode| {
-            core::RcTerm::from(core::Term::FunIntro(app_mode, acc))
+            syntax::RcTerm::from(syntax::Term::FunIntro(app_mode, acc))
         });
 
     if items.is_empty() {
         body
     } else {
-        core::RcTerm::from(core::Term::Let(items, body))
+        syntax::RcTerm::from(syntax::Term::Let(items, body))
     }
 }

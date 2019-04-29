@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_core::nbe;
-use mltt_core::syntax::{core, domain, MetaEnv};
+use mltt_core::{syntax, domain, MetaEnv};
 use mltt_span::FileSpan;
 
 pub use mltt_core::nbe::PrimEnv;
@@ -22,7 +22,7 @@ pub fn eval_term(
     metas: &MetaEnv,
     values: &domain::Env,
     span: impl Into<Option<FileSpan>>,
-    term: &core::RcTerm,
+    term: &syntax::RcTerm,
 ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
     nbe::eval_term(prims, metas, values, term).map_err(|error| match span.into() {
         None => Diagnostic::new_bug(format!("failed to evaluate term: {}", error)),
@@ -37,7 +37,7 @@ pub fn read_back_value(
     env_size: domain::EnvSize,
     span: impl Into<Option<FileSpan>>,
     value: &domain::RcValue,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
     nbe::read_back_value(prims, metas, env_size, value).map_err(|error| match span.into() {
         None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
         Some(span) => Diagnostic::new_bug("failed to read-back value")
@@ -50,8 +50,8 @@ pub fn normalize_term(
     metas: &MetaEnv,
     values: &domain::Env,
     span: impl Into<Option<FileSpan>>,
-    term: &core::RcTerm,
-) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
+    term: &syntax::RcTerm,
+) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
     nbe::normalize_term(prims, metas, values, term).map_err(|error| match span.into() {
         None => Diagnostic::new_bug(format!("failed to normalize term: {}", error)),
         Some(span) => Diagnostic::new_bug("failed to normalize term")

@@ -3,8 +3,8 @@
 use std::ops;
 use std::rc::Rc;
 
-use crate::syntax::core::RcTerm;
-use crate::syntax::{
+use crate::syntax::RcTerm;
+use crate::{
     AppMode, DocString, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex,
     VarLevel,
 };

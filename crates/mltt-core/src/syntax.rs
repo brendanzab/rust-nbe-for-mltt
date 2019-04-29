@@ -1,11 +1,11 @@
-//! The checked core syntax.
+//! The core syntax of the language.
 
 use std::fmt;
 use std::ops;
 use std::rc::Rc;
 
-use crate::syntax::pretty::DisplayEnv;
-use crate::syntax::{
+use crate::pretty::DisplayEnv;
+use crate::{
     AppMode, DocString, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex,
 };
 

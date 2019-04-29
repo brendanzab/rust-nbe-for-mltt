@@ -3,7 +3,7 @@
 use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
 
-use super::core;
+use super::syntax;
 use super::{AppMode, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex};
 
 /// An environment that can assist in pretty printing terms with pretty names.
@@ -135,7 +135,7 @@ impl UniverseLevel {
     }
 }
 
-impl core::Module {
+impl syntax::Module {
     pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::concat(self.items.iter().map(|item| {
             Doc::group(item.to_debug_doc().append(";"))
@@ -154,10 +154,10 @@ impl core::Module {
     }
 }
 
-impl core::Item {
+impl syntax::Item {
     pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
-            core::Item::Declaration(_, label, term_ty) => Doc::nil()
+            syntax::Item::Declaration(_, label, term_ty) => Doc::nil()
                 .append(label.to_doc())
                 .append(Doc::space())
                 .append(":")
@@ -169,7 +169,7 @@ impl core::Item {
                         .group()
                         .nest(4),
                 ),
-            core::Item::Definition(_, label, term) => Doc::nil()
+            syntax::Item::Definition(_, label, term) => Doc::nil()
                 .append(label.to_doc())
                 .append(Doc::space())
                 .append("=")
@@ -180,14 +180,14 @@ impl core::Item {
 }
 
 pub fn items_to_display_doc<'doc>(
-    items: &'doc [core::Item],
+    items: &'doc [syntax::Item],
     env: &mut DisplayEnv,
 ) -> (usize, Doc<'doc, BoxDoc<'doc, ()>>) {
     let mut num_defs = 0;
     let item_docs = items
         .iter()
         .map(|item| match item {
-            core::Item::Declaration(_, label, term_ty) => Doc::nil()
+            syntax::Item::Declaration(_, label, term_ty) => Doc::nil()
                 .append(label.to_doc())
                 .append(Doc::space())
                 .append(":")
@@ -202,7 +202,7 @@ pub fn items_to_display_doc<'doc>(
                 )
                 .append(Doc::newline())
                 .append(Doc::newline()),
-            core::Item::Definition(_, label, term) => {
+            syntax::Item::Definition(_, label, term) => {
                 let doc = Doc::nil()
                     .append(label.to_doc())
                     .append(Doc::space())
@@ -227,24 +227,24 @@ pub fn items_to_display_doc<'doc>(
     (num_defs, Doc::concat(item_docs))
 }
 
-impl core::Term {
+impl syntax::Term {
     pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
-            core::Term::Var(var_index) => var_index.to_doc(),
-            core::Term::Meta(meta_level) => meta_level.to_doc(),
-            core::Term::Prim(name) => Doc::nil()
+            syntax::Term::Var(var_index) => var_index.to_doc(),
+            syntax::Term::Meta(meta_level) => meta_level.to_doc(),
+            syntax::Term::Prim(name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
                 .append(format!("{:?}", name)),
 
-            core::Term::Ann(term, term_ty) => Doc::nil()
+            syntax::Term::Ann(term, term_ty) => Doc::nil()
                 .append(term.to_debug_doc())
                 .append(Doc::space())
                 .append(":")
                 .group()
                 .append(Doc::space().append(term_ty.to_debug_doc()).group().nest(4)),
-            core::Term::Let(items, body) => Doc::nil()
+            syntax::Term::Let(items, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
                 .append(Doc::concat(items.iter().map(|item| {
@@ -257,9 +257,9 @@ impl core::Term {
                 .append("in")
                 .append(Doc::space().append(body.to_debug_doc()).group().nest(4)),
 
-            core::Term::LiteralType(literal_ty) => literal_ty.to_doc(),
-            core::Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
-            core::Term::LiteralElim(scrutinee, clauses, default_body) => {
+            syntax::Term::LiteralType(literal_ty) => literal_ty.to_doc(),
+            syntax::Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
+            syntax::Term::LiteralElim(scrutinee, clauses, default_body) => {
                 let clauses = if clauses.is_empty() {
                     Doc::nil()
                 } else {
@@ -304,7 +304,7 @@ impl core::Term {
                     .append("}")
             },
 
-            core::Term::FunType(app_mode, param_ty, body_ty) => {
+            syntax::Term::FunType(app_mode, param_ty, body_ty) => {
                 let param = match app_mode {
                     AppMode::Explicit => Doc::nil()
                         .append("(")
@@ -347,7 +347,7 @@ impl core::Term {
                             .nest(4),
                     )
             },
-            core::Term::FunIntro(app_mode, body) => {
+            syntax::Term::FunIntro(app_mode, body) => {
                 let param = match app_mode {
                     AppMode::Explicit => Doc::text("_"),
                     AppMode::Implicit(label) => Doc::nil()
@@ -377,7 +377,7 @@ impl core::Term {
                     .group()
                     .append(Doc::space().append(body.to_debug_doc()).group().nest(4))
             },
-            core::Term::FunElim(fun, app_mode, arg) => {
+            syntax::Term::FunElim(fun, app_mode, arg) => {
                 let arg = match app_mode {
                     AppMode::Explicit => arg.to_debug_arg_doc(),
                     AppMode::Implicit(label) => Doc::nil()
@@ -404,8 +404,8 @@ impl core::Term {
                     .append(arg.group())
             },
 
-            core::Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
-            core::Term::RecordType(ty_fields) => Doc::nil()
+            syntax::Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
+            syntax::Term::RecordType(ty_fields) => Doc::nil()
                 .append("Record")
                 .append(Doc::space())
                 .append("{")
@@ -434,10 +434,10 @@ impl core::Term {
                 )
                 .append(Doc::space())
                 .append("}"),
-            core::Term::RecordIntro(intro_fields) if intro_fields.is_empty() => {
+            syntax::Term::RecordIntro(intro_fields) if intro_fields.is_empty() => {
                 Doc::text("record {}")
             },
-            core::Term::RecordIntro(intro_fields) => Doc::nil()
+            syntax::Term::RecordIntro(intro_fields) => Doc::nil()
                 .append("record")
                 .append(Doc::space())
                 .append("{")
@@ -467,22 +467,22 @@ impl core::Term {
                 )
                 .append(Doc::newline())
                 .append("}"),
-            core::Term::RecordElim(record, label) => {
+            syntax::Term::RecordElim(record, label) => {
                 record.to_debug_arg_doc().append(".").append(label.to_doc())
             },
 
-            core::Term::Universe(level) => Doc::text("Type^").append(level.to_doc()),
+            syntax::Term::Universe(level) => Doc::text("Type^").append(level.to_doc()),
         }
     }
 
     pub fn to_debug_arg_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
-            core::Term::Var(_)
-            | core::Term::Meta(_)
-            | core::Term::LiteralIntro(_)
-            | core::Term::LiteralType(_)
-            | core::Term::RecordElim(_, _)
-            | core::Term::Universe(_) => self.to_debug_doc(),
+            syntax::Term::Var(_)
+            | syntax::Term::Meta(_)
+            | syntax::Term::LiteralIntro(_)
+            | syntax::Term::LiteralType(_)
+            | syntax::Term::RecordElim(_, _)
+            | syntax::Term::Universe(_) => self.to_debug_doc(),
             _ => Doc::nil()
                 .append("(")
                 .append(self.to_debug_doc())
@@ -493,14 +493,14 @@ impl core::Term {
     pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
-            core::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
-            core::Term::Meta(meta_level) => meta_level.to_doc(),
-            core::Term::Prim(name) => Doc::nil()
+            syntax::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
+            syntax::Term::Meta(meta_level) => meta_level.to_doc(),
+            syntax::Term::Prim(name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
                 .append(format!("{:?}", name)),
 
-            core::Term::Ann(term, term_ty) => Doc::nil()
+            syntax::Term::Ann(term, term_ty) => Doc::nil()
                 .append(term.to_display_doc(env))
                 .append(Doc::space())
                 .append(":")
@@ -511,7 +511,7 @@ impl core::Term {
                         .group()
                         .nest(4),
                 ),
-            core::Term::Let(items, body) => {
+            syntax::Term::Let(items, body) => {
                 let (num_defs, items_doc) = items_to_display_doc(items, env);
                 let body_doc = body.to_display_doc(env);
                 for _ in 0..num_defs {
@@ -527,9 +527,9 @@ impl core::Term {
                     .append(Doc::space().append(body_doc).group().nest(4))
             },
 
-            core::Term::LiteralType(literal_ty) => literal_ty.to_doc(),
-            core::Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
-            core::Term::LiteralElim(scrutinee, clauses, default_body) => {
+            syntax::Term::LiteralType(literal_ty) => literal_ty.to_doc(),
+            syntax::Term::LiteralIntro(literal_intro) => literal_intro.to_doc(),
+            syntax::Term::LiteralElim(scrutinee, clauses, default_body) => {
                 let scrutinee = scrutinee.to_display_arg_doc(env);
                 let clauses = if clauses.is_empty() {
                     Doc::nil()
@@ -575,10 +575,11 @@ impl core::Term {
                     .append("}")
             },
 
-            core::Term::FunType(app_mode, param_ty, body_ty) => {
+            syntax::Term::FunType(app_mode, param_ty, body_ty) => {
                 let mut body_ty = body_ty;
                 let mut params = vec![(app_mode, param_ty)];
-                while let core::Term::FunType(app_mode, param_ty, next_body_ty) = body_ty.as_ref() {
+                while let syntax::Term::FunType(app_mode, param_ty, next_body_ty) = body_ty.as_ref()
+                {
                     params.push((app_mode, param_ty));
                     body_ty = next_body_ty;
                 }
@@ -671,10 +672,10 @@ impl core::Term {
                             .nest(4),
                     )
             },
-            core::Term::FunIntro(app_mode, body) => {
+            syntax::Term::FunIntro(app_mode, body) => {
                 let mut body = body;
                 let mut app_modes = vec![app_mode];
-                while let core::Term::FunIntro(app_mode, next_body) = body.as_ref() {
+                while let syntax::Term::FunIntro(app_mode, next_body) = body.as_ref() {
                     app_modes.push(app_mode);
                     body = next_body;
                 }
@@ -737,10 +738,10 @@ impl core::Term {
                     .group()
                     .append(Doc::space().append(body_doc).group().nest(4))
             },
-            core::Term::FunElim(fun, app_mode, arg) => {
+            syntax::Term::FunElim(fun, app_mode, arg) => {
                 let mut fun = fun;
                 let mut args = vec![(app_mode, arg)];
-                while let core::Term::FunElim(next_fun, app_mode, arg) = fun.as_ref() {
+                while let syntax::Term::FunElim(next_fun, app_mode, arg) = fun.as_ref() {
                     args.push((app_mode, arg));
                     fun = next_fun;
                 }
@@ -775,8 +776,8 @@ impl core::Term {
                     .append(Doc::space().append(args_doc).nest(4))
             },
 
-            core::Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
-            core::Term::RecordType(ty_fields) => {
+            syntax::Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
+            syntax::Term::RecordType(ty_fields) => {
                 let mut field_count = 0;
 
                 let fields_doc = {
@@ -821,10 +822,10 @@ impl core::Term {
                     .append(Doc::space())
                     .append("}")
             },
-            core::Term::RecordIntro(intro_fields) if intro_fields.is_empty() => {
+            syntax::Term::RecordIntro(intro_fields) if intro_fields.is_empty() => {
                 Doc::text("record {}")
             },
-            core::Term::RecordIntro(intro_fields) => Doc::nil()
+            syntax::Term::RecordIntro(intro_fields) => Doc::nil()
                 .append("record")
                 .append(Doc::space())
                 .append("{")
@@ -855,23 +856,23 @@ impl core::Term {
                 )
                 .append(Doc::space())
                 .append("}"),
-            core::Term::RecordElim(record, label) => record
+            syntax::Term::RecordElim(record, label) => record
                 .to_display_arg_doc(env)
                 .append(".")
                 .append(label.to_doc()),
 
-            core::Term::Universe(level) => Doc::text("Type^").append(level.to_doc()),
+            syntax::Term::Universe(level) => Doc::text("Type^").append(level.to_doc()),
         }
     }
 
     pub fn to_display_arg_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
-            core::Term::Var(_)
-            | core::Term::Meta(_)
-            | core::Term::LiteralIntro(_)
-            | core::Term::LiteralType(_)
-            | core::Term::RecordElim(_, _)
-            | core::Term::Universe(_) => self.to_display_doc(env),
+            syntax::Term::Var(_)
+            | syntax::Term::Meta(_)
+            | syntax::Term::LiteralIntro(_)
+            | syntax::Term::LiteralType(_)
+            | syntax::Term::RecordElim(_, _)
+            | syntax::Term::Universe(_) => self.to_display_doc(env),
             _ => Doc::nil()
                 .append("(")
                 .append(self.to_display_doc(env))

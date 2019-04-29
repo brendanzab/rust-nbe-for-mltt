@@ -8,11 +8,11 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::syntax::core::{Item, RcTerm, Term};
-use crate::syntax::domain::{
+use crate::domain::{
     AppClosure, Elim, Env, EnvSize, Head, LiteralClosure, RcType, RcValue, Spine, Value,
 };
-use crate::syntax::{AppMode, Label, LiteralIntro, MetaEnv, MetaSolution};
+use crate::syntax::{Item, RcTerm, Term};
+use crate::{AppMode, Label, LiteralIntro, MetaEnv, MetaSolution};
 
 /// An error produced during normalization.
 ///

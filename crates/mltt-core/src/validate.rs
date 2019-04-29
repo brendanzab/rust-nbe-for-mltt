@@ -8,10 +8,10 @@ use itertools::Itertools;
 use std::error::Error;
 use std::fmt;
 
+use crate::domain::{AppClosure, Env, RcType, RcValue, Value};
 use crate::nbe::{self, NbeError};
-use crate::syntax::core::{Item, Module, RcTerm, Term};
-use crate::syntax::domain::{AppClosure, Env, RcType, RcValue, Value};
-use crate::syntax::{
+use crate::syntax::{Item, Module, RcTerm, Term};
+use crate::{
     AppMode, Label, LiteralIntro, LiteralType, MetaEnv, MetaLevel, MetaSolution, UniverseLevel,
     VarIndex,
 };
@@ -535,7 +535,7 @@ pub fn synth_term(context: &Context, metas: &MetaEnv, term: &RcTerm) -> Result<R
 mod test {
     use super::*;
 
-    use crate::syntax::{VarIndex, VarLevel};
+    use crate::{VarIndex, VarLevel};
 
     #[test]
     fn add_params() {

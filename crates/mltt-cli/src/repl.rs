@@ -34,7 +34,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     }
 
     let mut files = Files::new();
-    let mut metas = mltt_core::syntax::MetaEnv::new();
+    let mut metas = mltt_core::MetaEnv::new();
     let context = mltt_elaborate::Context::default();
 
     let writer = StandardStream::stdout(ColorChoice::Always);
