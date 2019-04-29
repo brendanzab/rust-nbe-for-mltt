@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
-use mltt_core::syntax::{core, domain, AppMode, Label, LiteralIntro, DocString};
+use mltt_core::syntax::{core, domain, AppMode, DocString, Label, LiteralIntro, MetaEnv};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -42,6 +42,7 @@ impl<'file> Clause<'file> {
 /// Returns the elaborated term.
 pub fn check_clause(
     context: &Context,
+    metas: &mut MetaEnv,
     mut clause: Clause<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
@@ -68,10 +69,10 @@ pub fn check_clause(
         };
 
         param_app_modes.push(app_mode);
-        expected_ty = context.app_closure(next_body_ty, param_var)?;
+        expected_ty = context.app_closure(metas, next_body_ty, param_var)?;
     }
 
-    let body = check_clause_body(&context, &clause, &expected_ty)?;
+    let body = check_clause_body(&context, metas, &clause, &expected_ty)?;
 
     Ok(done(Vec::new(), param_app_modes, body))
 }
@@ -94,6 +95,7 @@ impl<'file> CaseClause<'file> {
 /// elaborate them into a case tree.
 pub fn check_case<'file>(
     context: &Context,
+    metas: &mut MetaEnv,
     span: FileSpan,
     scrutinee: &Term<'file>,
     clauses: Vec<CaseClause<'file>>,
@@ -112,8 +114,9 @@ pub fn check_case<'file>(
 
             let (checked_scrutinee, (param_level, param_ty)) = {
                 let scrutinee_level = context.values().size().next_var_level();
-                let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
-                let scrutinee_value = context.eval_term(scrutinee.span(), &scrutinee_term)?;
+                let (scrutinee_term, scrutinee_ty) = synth_term(&context, metas, scrutinee)?;
+                let scrutinee_value =
+                    context.eval_term(metas, scrutinee.span(), &scrutinee_term)?;
                 context.add_fresh_defn(scrutinee_value);
 
                 ((scrutinee_term, None), (scrutinee_level, scrutinee_ty))
@@ -125,8 +128,9 @@ pub fn check_case<'file>(
             for literal_clause in literal_clauses {
                 match literal_clause.pattern {
                     Pattern::LiteralIntro(kind, literal) => {
-                        let literal_intro = literal::check(&context, *kind, literal, &param_ty)?;
-                        let body = check_term(&context, &literal_clause.body, expected_ty)?;
+                        let literal_intro =
+                            literal::check(&context, metas, *kind, literal, &param_ty)?;
+                        let body = check_term(&context, metas, &literal_clause.body, expected_ty)?;
 
                         match literal_branches
                             .binary_search_by(|(l, _)| l.partial_cmp(&literal_intro).unwrap()) // NaN?
@@ -152,7 +156,7 @@ pub fn check_case<'file>(
                     context
                         .binders
                         .insert(name.to_string(), (param_level, param_ty));
-                    check_term(&context, &default_clause.body, expected_ty)?
+                    check_term(&context, metas, &default_clause.body, expected_ty)?
                 },
                 _ => {
                     return Err(
@@ -180,6 +184,7 @@ pub fn check_case<'file>(
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_clause(
     context: &Context,
+    metas: &mut MetaEnv,
     clause: Clause<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     if let Some(param) = clause.params.first() {
@@ -190,7 +195,7 @@ pub fn synth_clause(
         );
     }
 
-    synth_clause_body(&context, &clause)
+    synth_clause_body(&context, metas, &clause)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -255,18 +260,19 @@ fn check_param_app_mode<'param, 'file>(
 /// elaborate it.
 fn check_clause_body(
     context: &Context,
+    metas: &mut MetaEnv,
     clause: &Clause<'_>,
     expected_body_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
     match clause.body_ty {
-        None => check_term(&context, clause.body, &expected_body_ty),
+        None => check_term(&context, metas, clause.body, &expected_body_ty),
         Some(body_ty) => {
             let body_ty_span = body_ty.span();
-            let (body_ty, _) = synth_universe(&context, body_ty)?;
-            let body_ty = context.eval_term(body_ty_span, &body_ty)?;
-            let body = check_term(&context, clause.body, &body_ty)?;
+            let (body_ty, _) = synth_universe(&context, metas, body_ty)?;
+            let body_ty = context.eval_term(metas, body_ty_span, &body_ty)?;
+            let body = check_term(&context, metas, clause.body, &body_ty)?;
             // TODO: Ensure that this is respecting variance correctly!
-            context.expect_subtype(clause.body.span(), &body_ty, &expected_body_ty)?;
+            context.check_subtype(metas, clause.body.span(), &body_ty, &expected_body_ty)?;
             Ok(body)
         },
     }
@@ -275,15 +281,16 @@ fn check_clause_body(
 /// Synthesize the type of the body of a clause, and elaborate it.
 fn synth_clause_body(
     context: &Context,
+    metas: &mut MetaEnv,
     clause: &Clause<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     match clause.body_ty {
-        None => synth_term(context, clause.body),
+        None => synth_term(context, metas, clause.body),
         Some(body_ty) => {
             let body_ty_span = body_ty.span();
-            let (body_ty, _) = synth_universe(context, body_ty)?;
-            let body_ty = context.eval_term(body_ty_span, &body_ty)?;
-            let body = check_term(context, clause.body, &body_ty)?;
+            let (body_ty, _) = synth_universe(context, metas, body_ty)?;
+            let body_ty = context.eval_term(metas, body_ty_span, &body_ty)?;
+            let body = check_term(context, metas, clause.body, &body_ty)?;
             Ok((body, body_ty))
         },
     }

@@ -11,4 +11,5 @@ publish = false
 im = "12.2.0"
 itertools = "0.8.0"
 log = "0.4"
+mltt-span = { path = "../mltt-span" }
 pretty = "0.5.2"

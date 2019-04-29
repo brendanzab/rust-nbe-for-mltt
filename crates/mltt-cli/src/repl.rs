@@ -34,6 +34,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     }
 
     let mut files = Files::new();
+    let mut metas = mltt_core::syntax::MetaEnv::new();
     let context = mltt_elaborate::Context::default();
 
     let writer = StandardStream::stdout(ColorChoice::Always);
@@ -51,23 +52,28 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                     Ok(concrete_term) => concrete_term,
                     Err(diagnostic) => {
                         let config = language_reporting::DefaultConfig;
-                        language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
+                        let writer = &mut writer.lock();
+                        language_reporting::emit(writer, &files, &diagnostic, &config)?;
                         continue;
                     },
                 };
 
-                let (core_term, ty) = match mltt_elaborate::synth_term(&context, &concrete_term) {
-                    Ok((core_term, ty)) => (core_term, ty),
-                    Err(diagnostic) => {
-                        let config = language_reporting::DefaultConfig;
-                        language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
-                        continue;
-                    },
-                };
+                let (core_term, ty) =
+                    match mltt_elaborate::synth_term(&context, &mut metas, &concrete_term) {
+                        Ok((core_term, ty)) => (core_term, ty),
+                        Err(diagnostic) => {
+                            let config = language_reporting::DefaultConfig;
+                            let writer = &mut writer.lock();
+                            language_reporting::emit(writer, &files, &diagnostic, &config)?;
+                            continue;
+                        },
+                    };
 
                 let term_span = concrete_term.span();
-                let term = context.normalize_term(term_span, &core_term).unwrap();
-                let ty = context.read_back_value(None, &ty).unwrap();
+                let term = context
+                    .normalize_term(&metas, term_span, &core_term)
+                    .unwrap();
+                let ty = context.read_back_value(&metas, None, &ty).unwrap();
 
                 println!("{} : {}", term, ty);
             },

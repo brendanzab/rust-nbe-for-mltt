@@ -1,7 +1,8 @@
 //! Bidirectional type checking of the core syntax.
 //!
 //! This is used to verify that the core syntax is correctly formed, for
-//! debugging purposes.
+//! debugging purposes. We assume that all metavariables have been solved by
+//! this stage.
 
 use itertools::Itertools;
 use std::error::Error;
@@ -10,7 +11,10 @@ use std::fmt;
 use crate::nbe::{self, NbeError};
 use crate::syntax::core::{Item, Module, RcTerm, Term};
 use crate::syntax::domain::{AppClosure, Env, RcType, RcValue, Value};
-use crate::syntax::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
+use crate::syntax::{
+    AppMode, Label, LiteralIntro, LiteralType, MetaEnv, MetaLevel, MetaSolution, UniverseLevel,
+    VarIndex,
+};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]
@@ -64,18 +68,28 @@ impl Context {
     }
 
     /// Apply a closure to an argument.
-    pub fn app_closure(&self, closure: &AppClosure, arg: RcValue) -> Result<RcValue, NbeError> {
-        nbe::app_closure(self.prims(), closure, arg)
+    pub fn app_closure(
+        &self,
+        metas: &MetaEnv,
+        closure: &AppClosure,
+        arg: RcValue,
+    ) -> Result<RcValue, NbeError> {
+        nbe::app_closure(self.prims(), metas, closure, arg)
     }
 
     /// Evaluate a term using the evaluation environment.
-    pub fn eval_term(&self, term: &RcTerm) -> Result<RcValue, NbeError> {
-        nbe::eval_term(self.prims(), self.values(), term)
+    pub fn eval_term(&self, metas: &MetaEnv, term: &RcTerm) -> Result<RcValue, NbeError> {
+        nbe::eval_term(self.prims(), metas, self.values(), term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
-    pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.prims(), self.values().size(), ty1, ty2)? {
+    pub fn check_subtype(
+        &self,
+        metas: &MetaEnv,
+        ty1: &RcType,
+        ty2: &RcType,
+    ) -> Result<(), TypeError> {
+        if nbe::check_subtype(self.prims(), metas, self.values().size(), ty1, ty2)? {
             Ok(())
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))
@@ -121,7 +135,9 @@ pub enum TypeError {
     ExpectedUniverse { found: RcType },
     ExpectedSubtype(RcType, RcType),
     AmbiguousTerm(RcTerm),
-    UnboundVariable,
+    UnboundVariable(VarIndex),
+    UnboundMeta(MetaLevel),
+    UnsolvedMeta(MetaLevel),
     UnknownPrim(String),
     BadLiteralPatterns(Vec<LiteralIntro>),
     NoFieldInType(Label),
@@ -157,7 +173,9 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
-            TypeError::UnboundVariable => write!(f, "unbound variable"),
+            TypeError::UnboundVariable(index) => write!(f, "unbound variable: @{}", index.0),
+            TypeError::UnboundMeta(level) => write!(f, "unbound metavariable: `?{}`", level.0),
+            TypeError::UnsolvedMeta(level) => write!(f, "unsolved metavariable `?{}`", level.0),
             TypeError::UnknownPrim(name) => write!(f, "unbound primitive: {:?}", name),
             TypeError::BadLiteralPatterns(literal_intros) => write!(
                 f,
@@ -183,14 +201,14 @@ impl fmt::Display for TypeError {
 }
 
 /// Check that this is a valid module.
-pub fn check_module(context: &Context, module: &Module) -> Result<(), TypeError> {
+pub fn check_module(context: &Context, metas: &MetaEnv, module: &Module) -> Result<(), TypeError> {
     let mut context = context.clone();
-    check_items(&mut context, &module.items)?;
+    check_items(&mut context, metas, &module.items)?;
     Ok(())
 }
 
 /// Check the given items and add them to the context.
-fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
+fn check_items(context: &mut Context, metas: &MetaEnv, items: &[Item]) -> Result<(), TypeError> {
     // Declarations that may be waiting to be defined
     let mut forward_declarations = im::HashMap::new();
 
@@ -206,11 +224,11 @@ fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
                     Entry::Vacant(entry) => {
-                        synth_universe(&context, &term_ty)?;
+                        synth_universe(&context, metas, &term_ty)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
-                        let term_ty = context.eval_term(&term_ty)?;
+                        let term_ty = context.eval_term(metas, &term_ty)?;
                         entry.insert(Some(term_ty));
                     },
                     // There's a declaration for this name already pending - we
@@ -227,7 +245,7 @@ fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
-                        let term_ty = synth_term(&context, term)?;
+                        let term_ty = synth_term(&context, metas, term)?;
                         entry.insert(None);
                         (term, term_ty)
                     },
@@ -237,7 +255,7 @@ fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
                         Some(term_ty) => {
-                            check_term(&context, term, &term_ty)?;
+                            check_term(&context, metas, term, &term_ty)?;
                             (term, term_ty)
                         },
                         // This declaration was already given a definition, so
@@ -252,7 +270,7 @@ fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
 
                 log::trace!("validated definition:\t{}", label);
 
-                let value = context.eval_term(&term)?;
+                let value = context.eval_term(metas, &term)?;
                 context.add_defn(value, ty);
             },
         }
@@ -264,10 +282,11 @@ fn check_items(context: &mut Context, items: &[Item]) -> Result<(), TypeError> {
 /// Check that a literal conforms to a given type.
 pub fn check_literal(
     context: &Context,
+    metas: &MetaEnv,
     literal_intro: &LiteralIntro,
     expected_ty: &RcType,
 ) -> Result<(), TypeError> {
-    context.expect_subtype(&synth_literal(literal_intro), expected_ty)
+    context.check_subtype(metas, &synth_literal(literal_intro), expected_ty)
 }
 
 /// Synthesize the type of the literal.
@@ -290,8 +309,12 @@ pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
 }
 
 /// Ensures that the given term is a universe, returning the level of that universe.
-pub fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel, TypeError> {
-    let ty = synth_term(context, term)?;
+pub fn synth_universe(
+    context: &Context,
+    metas: &MetaEnv,
+    term: &RcTerm,
+) -> Result<UniverseLevel, TypeError> {
+    let ty = synth_term(context, metas, term)?;
     match ty.as_ref() {
         Value::Universe(level) => Ok(*level),
         _ => Err(TypeError::ExpectedUniverse { found: ty.clone() }),
@@ -299,7 +322,12 @@ pub fn synth_universe(context: &Context, term: &RcTerm) -> Result<UniverseLevel,
 }
 
 /// Check that a term conforms to a given type.
-pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Result<(), TypeError> {
+pub fn check_term(
+    context: &Context,
+    metas: &MetaEnv,
+    term: &RcTerm,
+    expected_ty: &RcType,
+) -> Result<(), TypeError> {
     log::trace!("checking term:\t\t{}", term);
 
     match term.as_ref() {
@@ -309,12 +337,12 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
         },
         Term::Let(items, body) => {
             let mut context = context.clone();
-            check_items(&mut context, items)?;
-            check_term(&context, body, expected_ty)
+            check_items(&mut context, metas, items)?;
+            check_term(&context, metas, body, expected_ty)
         },
 
         Term::LiteralElim(scrutinee, clauses, default_body) => {
-            let scrutinee_ty = synth_term(context, scrutinee)?;
+            let scrutinee_ty = synth_term(context, metas, scrutinee)?;
 
             // Check that the clauses are sorted by patterns and that patterns aren't duplicated
             // TODO: use `Iterator::is_sorted_by` when it is stable
@@ -330,20 +358,20 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }
 
             for (literal_intro, body) in clauses.iter() {
-                check_literal(context, literal_intro, &scrutinee_ty)?;
-                check_term(context, body, &expected_ty)?;
+                check_literal(context, metas, literal_intro, &scrutinee_ty)?;
+                check_term(context, metas, body, &expected_ty)?;
             }
 
-            check_term(context, default_body, expected_ty)
+            check_term(context, metas, default_body, expected_ty)
         },
 
         Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
             Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
                 let param = body_context.add_param(param_ty.clone());
-                let body_ty = context.app_closure(body_ty, param)?;
+                let body_ty = context.app_closure(metas, body_ty, param)?;
 
-                check_term(&body_context, body, &body_ty)
+                check_term(&body_context, metas, body, &body_ty)
             },
             Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
                 found: intro_app_mode.clone(),
@@ -369,11 +397,11 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
                         });
                     }
 
-                    check_term(&context, term, expected_term_ty)?;
-                    let term_value = context.eval_term(term)?;
+                    check_term(&context, metas, term, expected_term_ty)?;
+                    let term_value = context.eval_term(metas, term)?;
 
                     context.add_defn(term_value.clone(), expected_term_ty.clone());
-                    expected_ty = context.app_closure(&rest, term_value)?;
+                    expected_ty = context.app_closure(metas, &rest, term_value)?;
                 } else {
                     return Err(TypeError::TooManyFieldsFound);
                 }
@@ -386,20 +414,28 @@ pub fn check_term(context: &Context, term: &RcTerm, expected_ty: &RcType) -> Res
             }
         },
 
-        _ => context.expect_subtype(&synth_term(context, term)?, expected_ty),
+        _ => {
+            let synth_ty = synth_term(context, metas, term)?;
+            context.check_subtype(metas, &synth_ty, expected_ty)
+        },
     }
 }
 
 /// Synthesize the type of the term.
-pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError> {
+pub fn synth_term(context: &Context, metas: &MetaEnv, term: &RcTerm) -> Result<RcType, TypeError> {
     use std::cmp;
 
     log::trace!("synthesizing term:\t{}", term);
 
     match term.as_ref() {
-        Term::Var(index) => match context.lookup_ty(*index) {
-            None => Err(TypeError::UnboundVariable),
+        Term::Var(var_index) => match context.lookup_ty(*var_index) {
+            None => Err(TypeError::UnboundVariable(*var_index)),
             Some(ann) => Ok(ann.clone()),
+        },
+        Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
+            Some((_, MetaSolution::Solved(_value))) => unimplemented!("synth solved metas"), // FIXME: Type?
+            Some((_, MetaSolution::Unsolved)) => Err(TypeError::UnsolvedMeta(*meta_level)),
+            None => Err(TypeError::UnboundMeta(*meta_level)),
         },
         Term::Prim(name) => match context.prims().lookup_entry(name) {
             None => Err(TypeError::UnknownPrim(name.clone())),
@@ -407,15 +443,15 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         },
 
         Term::Ann(term, term_ty) => {
-            synth_universe(context, term_ty)?;
-            let term_ty = context.eval_term(&term_ty)?;
-            check_term(context, term, &term_ty)?;
+            synth_universe(context, metas, term_ty)?;
+            let term_ty = context.eval_term(metas, &term_ty)?;
+            check_term(context, metas, term, &term_ty)?;
             Ok(term_ty)
         },
         Term::Let(items, body) => {
             let mut context = context.clone();
-            check_items(&mut context, items)?;
-            synth_term(&context, body)
+            check_items(&mut context, metas, items)?;
+            synth_term(&context, metas, body)
         },
 
         Term::LiteralType(_) => Ok(RcValue::universe(0)),
@@ -423,25 +459,25 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
         Term::LiteralElim(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
         Term::FunType(_app_mode, param_ty, body_ty) => {
-            let param_level = synth_universe(context, param_ty)?;
-            let param_ty_value = context.eval_term(param_ty)?;
+            let param_level = synth_universe(context, metas, param_ty)?;
+            let param_ty_value = context.eval_term(metas, param_ty)?;
 
             let mut body_ty_context = context.clone();
             body_ty_context.add_param(param_ty_value);
 
-            let body_level = synth_universe(&body_ty_context, body_ty)?;
+            let body_level = synth_universe(&body_ty_context, metas, body_ty)?;
 
             Ok(RcValue::universe(cmp::max(param_level, body_level)))
         },
         Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
         Term::FunElim(fun, arg_app_mode, arg) => {
-            let fun_ty = synth_term(context, fun)?;
+            let fun_ty = synth_term(context, metas, fun)?;
             match fun_ty.as_ref() {
                 Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
-                    check_term(context, arg, arg_ty)?;
-                    let arg_value = context.eval_term(arg)?;
-                    Ok(context.app_closure(body_ty, arg_value)?)
+                    check_term(context, metas, arg, arg_ty)?;
+                    let arg_value = context.eval_term(metas, arg)?;
+                    Ok(context.app_closure(metas, body_ty, arg_value)?)
                 },
                 Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
                     found: arg_app_mode.clone(),
@@ -458,8 +494,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             let mut max_level = UniverseLevel(0);
 
             for (_, _, ty) in ty_fields {
-                let ty_level = synth_universe(&context, &ty)?;
-                context.add_param(context.eval_term(&ty)?);
+                let ty_level = synth_universe(&context, metas, &ty)?;
+                context.add_param(context.eval_term(metas, &ty)?);
                 max_level = cmp::max(max_level, ty_level);
             }
 
@@ -473,7 +509,7 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
             }
         },
         Term::RecordElim(record, label) => {
-            let mut record_ty = synth_term(context, record)?;
+            let mut record_ty = synth_term(context, metas, record)?;
 
             while let Value::RecordTypeExtend(_, current_label, current_ty, rest) =
                 record_ty.as_ref()
@@ -483,7 +519,8 @@ pub fn synth_term(context: &Context, term: &RcTerm) -> Result<RcType, TypeError>
                 } else {
                     let label = current_label.clone();
                     let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
-                    record_ty = context.app_closure(rest, context.eval_term(&expr)?)?;
+                    record_ty =
+                        context.app_closure(metas, rest, context.eval_term(metas, &expr)?)?;
                 }
             }
 

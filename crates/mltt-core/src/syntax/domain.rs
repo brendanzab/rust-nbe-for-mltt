@@ -5,7 +5,8 @@ use std::rc::Rc;
 
 use crate::syntax::core::RcTerm;
 use crate::syntax::{
-    AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex, VarLevel,
+    AppMode, DocString, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex,
+    VarLevel,
 };
 
 /// Reference counted value.
@@ -19,6 +20,11 @@ impl RcValue {
     /// Construct a variable.
     pub fn var(level: impl Into<VarLevel>) -> RcValue {
         RcValue::from(Value::var(level))
+    }
+
+    /// Construct a metavariable.
+    pub fn meta(level: impl Into<MetaLevel>) -> RcValue {
+        RcValue::from(Value::meta(level))
     }
 
     /// Construct a primitive.
@@ -105,6 +111,11 @@ impl Value {
         Value::Neutral(Head::Var(level.into()), Vec::new())
     }
 
+    /// Construct a metavariable.
+    pub fn meta(level: impl Into<MetaLevel>) -> Value {
+        Value::Neutral(Head::Meta(level.into()), Vec::new())
+    }
+
     /// Construct a primitive.
     pub fn prim(name: String) -> Value {
         Value::Neutral(Head::Prim(name), Vec::new())
@@ -139,6 +150,8 @@ pub type RcType = RcValue;
 pub enum Head {
     /// Variables
     Var(VarLevel),
+    /// Metavariables
+    Meta(MetaLevel),
     /// Primitives
     Prim(String),
 }

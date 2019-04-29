@@ -2,6 +2,7 @@
 //!
 //! The core, domain, and normal syntaxes are mainly based off Mini-TT
 
+use mltt_span::FileSpan;
 use std::fmt;
 use std::ops;
 use std::rc::Rc;
@@ -73,6 +74,64 @@ impl ops::Add<u32> for VarIndex {
     fn add(mut self, other: u32) -> VarIndex {
         self += other;
         self
+    }
+}
+
+/// Metavariable level.
+///
+/// These are used as placeholders for undetermined terms that we will need to
+/// eventually fill in during elaboration. They can also be used to stand for
+/// 'holes' in the concrete syntax, to support type-directed editing.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MetaLevel(pub u32);
+
+impl From<u32> for MetaLevel {
+    fn from(src: u32) -> MetaLevel {
+        MetaLevel(src)
+    }
+}
+
+/// An entry in the metavariable environment.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MetaSolution {
+    Unsolved,
+    Solved(domain::RcValue),
+}
+
+/// An environment of solved and unsolved metavariables.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MetaEnv {
+    /// The solutions.
+    solutions: Vec<(FileSpan, MetaSolution)>,
+}
+
+impl MetaEnv {
+    /// Create a new, empty environment.
+    pub fn new() -> MetaEnv {
+        MetaEnv {
+            solutions: Vec::new(),
+        }
+    }
+
+    /// Lookup a the solution for a metavariable in the environment.
+    pub fn lookup_solution(&self, level: MetaLevel) -> Option<&(FileSpan, MetaSolution)> {
+        self.solutions.get(level.0 as usize)
+    }
+
+    /// Add a solution to the given metavariable level.
+    pub fn update_solution(&mut self, level: MetaLevel, term: domain::RcValue) {
+        match self.solutions.get_mut(level.0 as usize) {
+            Some((_, solution @ MetaSolution::Unsolved)) => *solution = MetaSolution::Solved(term),
+            Some((_, MetaSolution::Solved(_))) => unimplemented!("updating solved solution"),
+            None => unimplemented!("no corresponding solution"),
+        }
+    }
+
+    /// Create a fresh metavariable level.
+    pub fn fresh_meta_level(&mut self, span: FileSpan) -> MetaLevel {
+        let level = MetaLevel(self.solutions.len() as u32);
+        self.solutions.push((span, MetaSolution::Unsolved));
+        level
     }
 }
 

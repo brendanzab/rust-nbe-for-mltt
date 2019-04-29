@@ -12,7 +12,7 @@ use crate::syntax::core::{Item, RcTerm, Term};
 use crate::syntax::domain::{
     AppClosure, Elim, Env, EnvSize, Head, LiteralClosure, RcType, RcValue, Spine, Value,
 };
-use crate::syntax::{AppMode, Label, LiteralIntro};
+use crate::syntax::{AppMode, Label, LiteralIntro, MetaEnv, MetaSolution};
 
 /// An error produced during normalization.
 ///
@@ -329,8 +329,9 @@ impl Default for PrimEnv {
 }
 
 /// Case split on a literal.
-fn do_literal_elim(
+pub fn do_literal_elim(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     scrutinee: RcValue,
     closure: LiteralClosure,
 ) -> Result<RcValue, NbeError> {
@@ -340,10 +341,11 @@ fn do_literal_elim(
                 l.partial_cmp(literal_intro).unwrap() // NaN?
             });
 
-            match index {
-                Ok(index) => eval_term(prims, &closure.env, &closure.clauses.get(index).unwrap().1),
-                Err(_) => eval_term(prims, &closure.env, &closure.default),
-            }
+            let clause_body = match index {
+                Ok(index) => &closure.clauses.get(index).unwrap().1,
+                Err(_) => &closure.default,
+            };
+            eval_term(prims, metas, &closure.env, clause_body)
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
@@ -355,7 +357,7 @@ fn do_literal_elim(
 }
 
 /// Return the field in from a record.
-fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
+pub fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
             Some((_, term)) => Ok(term.clone()),
@@ -377,14 +379,15 @@ fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
 /// Apply a function to an argument.
 pub fn do_fun_elim(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     fun: RcValue,
-    app_mode: AppMode,
+    app_mode: &AppMode,
     arg: RcValue,
 ) -> Result<RcValue, NbeError> {
     match fun.as_ref() {
         Value::FunIntro(fun_app_mode, body) => {
-            if *fun_app_mode == app_mode {
-                app_closure(prims, body, arg)
+            if fun_app_mode == app_mode {
+                app_closure(prims, metas, body, arg)
             } else {
                 Err(NbeError::new(format!(
                     "do_ap: unexpected application mode - {:?} != {:?}",
@@ -394,7 +397,7 @@ pub fn do_fun_elim(
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
-            spine.push(Elim::Fun(app_mode, arg));
+            spine.push(Elim::Fun(app_mode.clone(), arg));
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
@@ -405,30 +408,47 @@ pub fn do_fun_elim(
 /// Apply a closure to an argument.
 pub fn app_closure(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     closure: &AppClosure,
     arg: RcValue,
 ) -> Result<RcValue, NbeError> {
     let mut env = closure.env.clone();
     env.add_defn(arg);
-    eval_term(prims, &env, &closure.term)
+    eval_term(prims, metas, &env, &closure.term)
 }
 
 /// Instantiate a closure at the given level.
 pub fn inst_closure(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     closure: &AppClosure,
     env_size: EnvSize,
 ) -> Result<RcValue, NbeError> {
-    app_closure(prims, closure, RcValue::var(env_size.next_var_level()))
+    app_closure(
+        prims,
+        metas,
+        closure,
+        RcValue::var(env_size.next_var_level()),
+    )
 }
 
 /// Evaluate a term in the environment that corresponds to the context in which
 /// the term was typed.
-pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, NbeError> {
+pub fn eval_term(
+    prims: &PrimEnv,
+    metas: &MetaEnv,
+    env: &Env,
+    term: &RcTerm,
+) -> Result<RcValue, NbeError> {
     match term.as_ref() {
-        Term::Var(index) => match env.lookup_value(*index) {
+        Term::Var(var_index) => match env.lookup_value(*var_index) {
             Some(value) => Ok(value.clone()),
             None => Err(NbeError::new("eval: variable not found")),
+        },
+        Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
+            Some((_, MetaSolution::Solved(value))) => Ok(value.clone()),
+            Some((_, MetaSolution::Unsolved)) => Ok(RcValue::meta(*meta_level)),
+            None => Err(NbeError::new("eval: metavariable not found")),
         },
         Term::Prim(name) => {
             let prim = prims
@@ -441,31 +461,31 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
             }
         },
 
-        Term::Ann(term, _) => eval_term(prims, env, term),
+        Term::Ann(term, _) => eval_term(prims, metas, env, term),
         Term::Let(items, body) => {
             let mut env = env.clone();
             for item in items {
                 if let Item::Definition(_, _, term) = item {
-                    env.add_defn(eval_term(prims, &env, term)?);
+                    env.add_defn(eval_term(prims, metas, &env, term)?);
                 }
             }
-            eval_term(prims, &env, body)
+            eval_term(prims, metas, &env, body)
         },
 
         // Literals
         Term::LiteralType(literal_ty) => Ok(RcValue::literal_ty(literal_ty.clone())),
         Term::LiteralIntro(literal_intro) => Ok(RcValue::literal_intro(literal_intro.clone())),
         Term::LiteralElim(scrutinee, clauses, default_body) => {
-            let scrutinee = eval_term(prims, env, scrutinee)?;
+            let scrutinee = eval_term(prims, metas, env, scrutinee)?;
             let closure = LiteralClosure::new(clauses.clone(), default_body.clone(), env.clone());
 
-            do_literal_elim(prims, scrutinee, closure)
+            do_literal_elim(prims, metas, scrutinee, closure)
         },
 
         // Functions
         Term::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let param_ty = eval_term(prims, env, param_ty)?;
+            let param_ty = eval_term(prims, metas, env, param_ty)?;
             let body_ty = AppClosure::new(body_ty.clone(), env.clone());
 
             Ok(RcValue::from(Value::FunType(app_mode, param_ty, body_ty)))
@@ -477,11 +497,10 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
             Ok(RcValue::from(Value::FunIntro(app_mode, body)))
         },
         Term::FunElim(fun, app_mode, arg) => {
-            let fun = eval_term(prims, env, fun)?;
-            let app_mode = app_mode.clone();
-            let arg = eval_term(prims, env, arg)?;
+            let fun = eval_term(prims, metas, env, fun)?;
+            let arg = eval_term(prims, metas, env, arg)?;
 
-            do_fun_elim(prims, fun, app_mode, arg)
+            do_fun_elim(prims, metas, fun, app_mode, arg)
         },
 
         // Records
@@ -490,7 +509,7 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
             Some(((doc, label, ty), rest)) => {
                 let doc = doc.clone();
                 let label = label.clone();
-                let ty = eval_term(prims, env, ty)?;
+                let ty = eval_term(prims, metas, env, ty)?;
                 let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
                 let rest =
                     AppClosure::new(RcTerm::from(Term::RecordType(rest_fields)), env.clone());
@@ -501,12 +520,14 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
         Term::RecordIntro(fields) => {
             let fields = fields
                 .iter()
-                .map(|(label, term)| Ok((label.clone(), eval_term(prims, env, term)?)))
+                .map(|(label, term)| Ok((label.clone(), eval_term(prims, metas, env, term)?)))
                 .collect::<Result<_, _>>()?;
 
             Ok(RcValue::from(Value::RecordIntro(fields)))
         },
-        Term::RecordElim(record, label) => do_record_elim(eval_term(prims, env, record)?, label),
+        Term::RecordElim(record, label) => {
+            do_record_elim(eval_term(prims, metas, env, record)?, label)
+        },
 
         // Universes
         Term::Universe(level) => Ok(RcValue::universe(*level)),
@@ -516,11 +537,12 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
 /// Read a value back into the core syntax, normalizing as required.
 pub fn read_back_value(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     env_size: EnvSize,
     term: &RcValue,
 ) -> Result<RcTerm, NbeError> {
     match term.as_ref() {
-        Value::Neutral(head, spine) => read_back_neutral(prims, env_size, head, spine),
+        Value::Neutral(head, spine) => read_back_neutral(prims, metas, env_size, head, spine),
 
         // Literals
         Value::LiteralType(literal_ty) => Ok(RcTerm::literal_ty(literal_ty.clone())),
@@ -529,16 +551,16 @@ pub fn read_back_value(
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let param_ty = read_back_value(prims, env_size, param_ty)?;
-            let body_ty = inst_closure(prims, body_ty, env_size)?;
-            let body_ty = read_back_value(prims, env_size + 1, &body_ty)?;
+            let body_ty = inst_closure(prims, metas, body_ty, env_size)?;
+            let param_ty = read_back_value(prims, metas, env_size, param_ty)?;
+            let body_ty = read_back_value(prims, metas, env_size + 1, &body_ty)?;
 
             Ok(RcTerm::from(Term::FunType(app_mode, param_ty, body_ty)))
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
-            let body = inst_closure(prims, body, env_size)?;
-            let body = read_back_value(prims, env_size + 1, &body)?;
+            let body = inst_closure(prims, metas, body, env_size)?;
+            let body = read_back_value(prims, metas, env_size + 1, &body)?;
 
             Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
         },
@@ -547,18 +569,18 @@ pub fn read_back_value(
         Value::RecordTypeExtend(doc, label, term_ty, rest_ty) => {
             let mut env_size = env_size;
 
-            let term_ty = read_back_value(prims, env_size, term_ty)?;
+            let term_ty = read_back_value(prims, metas, env_size, term_ty)?;
 
-            let mut rest_ty = inst_closure(prims, rest_ty, env_size)?;
+            let mut rest_ty = inst_closure(prims, metas, rest_ty, env_size)?;
             let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
 
             while let Value::RecordTypeExtend(next_doc, next_label, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
             {
                 env_size += 1;
-                let next_term_ty = read_back_value(prims, env_size, next_term_ty)?;
+                let next_term_ty = read_back_value(prims, metas, env_size, next_term_ty)?;
                 field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
-                rest_ty = inst_closure(prims, next_rest_ty, env_size)?;
+                rest_ty = inst_closure(prims, metas, next_rest_ty, env_size)?;
             }
 
             Ok(RcTerm::from(Term::RecordType(field_tys)))
@@ -567,7 +589,12 @@ pub fn read_back_value(
         Value::RecordIntro(fields) => {
             let fields = fields
                 .iter()
-                .map(|(label, term)| Ok((label.clone(), read_back_value(prims, env_size, term)?)))
+                .map(|(label, term)| {
+                    Ok((
+                        label.clone(),
+                        read_back_value(prims, metas, env_size, term)?,
+                    ))
+                })
                 .collect::<Result<_, _>>()?;
 
             Ok(RcTerm::from(Term::RecordIntro(fields)))
@@ -581,15 +608,14 @@ pub fn read_back_value(
 /// Read a neutral value back into the core syntax, normalizing as required.
 pub fn read_back_neutral(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     env_size: EnvSize,
     head: &Head,
     spine: &Spine,
 ) -> Result<RcTerm, NbeError> {
     let (head, spine) = match head {
-        Head::Var(var_level) => (
-            RcTerm::var(env_size.var_index(*var_level)),
-            spine.as_slice(),
-        ),
+        Head::Var(level) => (RcTerm::var(env_size.var_index(*level)), spine.as_slice()),
+        Head::Meta(meta_level) => (RcTerm::meta(*meta_level), spine.as_slice()),
         Head::Prim(name) => {
             let prim = prims
                 .lookup_entry(name)
@@ -598,7 +624,7 @@ pub fn read_back_neutral(
             match prim.interpret(spine) {
                 Some(result) => {
                     let (value, rest_spine) = result?;
-                    (read_back_value(prims, env_size, &value)?, rest_spine)
+                    (read_back_value(prims, metas, env_size, &value)?, rest_spine)
                 },
                 None => (RcTerm::prim(name.clone()), spine.as_slice()),
             }
@@ -612,20 +638,19 @@ pub fn read_back_neutral(
                     .clauses
                     .iter()
                     .map(|(literal_intro, body)| {
-                        let body = eval_term(prims, &closure.env, body)?;
-                        let body = read_back_value(prims, env_size, &body)?;
+                        let body = eval_term(prims, metas, &closure.env, body)?;
+                        let body = read_back_value(prims, metas, env_size, &body)?;
                         Ok((literal_intro.clone(), body))
                     })
                     .collect::<Result<Vec<_>, _>>()?,
             );
-
-            let default_body = eval_term(prims, &closure.env, &closure.default)?;
-            let default_body = read_back_value(prims, env_size, &default_body)?;
+            let default_body = eval_term(prims, metas, &closure.env, &closure.default)?;
+            let default_body = read_back_value(prims, metas, env_size, &default_body)?;
 
             Ok(RcTerm::from(Term::LiteralElim(acc?, clauses, default_body)))
         },
         Elim::Fun(app_mode, arg) => {
-            let arg = read_back_value(prims, env_size, &arg)?;
+            let arg = read_back_value(prims, metas, env_size, &arg)?;
 
             Ok(RcTerm::from(Term::FunElim(acc?, app_mode.clone(), arg)))
         },
@@ -634,22 +659,28 @@ pub fn read_back_neutral(
 }
 
 /// Fully normalize a term by first evaluating it, then reading it back.
-pub fn normalize_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcTerm, NbeError> {
-    let value = eval_term(prims, env, term)?;
-    read_back_value(prims, env.size(), &value)
+pub fn normalize_term(
+    prims: &PrimEnv,
+    metas: &MetaEnv,
+    env: &Env,
+    term: &RcTerm,
+) -> Result<RcTerm, NbeError> {
+    let value = eval_term(prims, metas, env, term)?;
+    read_back_value(prims, metas, env.size(), &value)
 }
 
 /// Check whether a semantic type is a subtype of another.
 pub fn check_subtype(
     prims: &PrimEnv,
+    metas: &MetaEnv,
     env_size: EnvSize,
     ty1: &RcType,
     ty2: &RcType,
 ) -> Result<bool, NbeError> {
     match (ty1.as_ref(), ty2.as_ref()) {
         (Value::Neutral(head1, spine1), Value::Neutral(head2, spine2)) => {
-            let term1 = read_back_neutral(prims, env_size, head1, spine1)?;
-            let term2 = read_back_neutral(prims, env_size, head2, spine2)?;
+            let term1 = read_back_neutral(prims, metas, env_size, head1, spine1)?;
+            let term2 = read_back_neutral(prims, metas, env_size, head2, spine2)?;
 
             Ok(Term::alpha_eq(&term1, &term2))
         },
@@ -659,20 +690,22 @@ pub fn check_subtype(
         (
             Value::FunType(app_mode1, param_ty1, body_ty1),
             Value::FunType(app_mode2, param_ty2, body_ty2),
-        ) if app_mode1 == app_mode2 => Ok(check_subtype(prims, env_size, param_ty2, param_ty1)?
-            && {
-                let body_ty1 = inst_closure(prims, body_ty1, env_size)?;
-                let body_ty2 = inst_closure(prims, body_ty2, env_size)?;
-                check_subtype(prims, env_size + 1, &body_ty1, &body_ty2)?
-            }),
+        ) if app_mode1 == app_mode2 => Ok(check_subtype(
+            prims, metas, env_size, param_ty2, param_ty1,
+        )? && {
+            let body_ty1 = inst_closure(prims, metas, body_ty1, env_size)?;
+            let body_ty2 = inst_closure(prims, metas, body_ty2, env_size)?;
+            check_subtype(prims, metas, env_size + 1, &body_ty1, &body_ty2)?
+        }),
         (
             Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
             Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
-        ) if label1 == label2 => Ok(check_subtype(prims, env_size, term_ty1, term_ty2)? && {
-            let rest_ty1 = inst_closure(prims, rest_ty1, env_size)?;
-            let rest_ty2 = inst_closure(prims, rest_ty2, env_size)?;
-            check_subtype(prims, env_size + 1, &rest_ty1, &rest_ty2)?
-        }),
+        ) if label1 == label2 => Ok(check_subtype(prims, metas, env_size, term_ty1, term_ty2)?
+            && {
+                let rest_ty1 = inst_closure(prims, metas, rest_ty1, env_size)?;
+                let rest_ty2 = inst_closure(prims, metas, rest_ty2, env_size)?;
+                check_subtype(prims, metas, env_size + 1, &rest_ty1, &rest_ty2)?
+            }),
         (Value::RecordTypeEmpty, Value::RecordTypeEmpty) => Ok(true),
         (Value::Universe(level1), Value::Universe(level2)) => Ok(level1 <= level2),
         _ => Ok(false),

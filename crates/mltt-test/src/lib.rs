@@ -27,9 +27,10 @@ macro_rules! run_test {
             });
             // FIXME: check lexer for errors
 
+            let mut metas = mltt_core::syntax::MetaEnv::new();
             let context = mltt_elaborate::Context::default();
-            let module =
-                mltt_elaborate::check_module(&context, &module).unwrap_or_else(|diagnostic| {
+            let module = mltt_elaborate::check_module(&context, &mut metas, &module)
+                .unwrap_or_else(|diagnostic| {
                     let writer = &mut writer.lock();
                     language_reporting::emit(writer, &files, &diagnostic, &reporting_config)
                         .unwrap();
@@ -37,7 +38,7 @@ macro_rules! run_test {
                 });
 
             let context = validate::Context::default();
-            validate::check_module(&context, &module).unwrap_or_else(|error| {
+            validate::check_module(&context, &metas, &module).unwrap_or_else(|error| {
                 panic!("failed validation: {}\n\n{:#?}", error, error);
             });
         }

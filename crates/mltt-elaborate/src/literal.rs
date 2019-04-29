@@ -11,7 +11,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{LiteralKind, SpannedString};
-use mltt_core::syntax::{domain, LiteralIntro};
+use mltt_core::syntax::{domain, LiteralIntro, MetaEnv};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -20,6 +20,7 @@ use super::Context;
 /// Check the type of a literal in a context.
 pub fn check(
     context: &Context,
+    metas: &MetaEnv,
     kind: LiteralKind,
     src: &SpannedString<'_>,
     expected_ty: &domain::RcType,
@@ -46,7 +47,7 @@ pub fn check(
         (_, _) => Err(Diagnostic::new_error("mismatched literal").with_label(
             DiagnosticLabel::new_primary(src.span()).with_message(format!(
                 "expected: {}",
-                context.read_back_value(None, expected_ty)?,
+                context.read_back_value(metas, None, expected_ty)?,
             )),
         )),
     }

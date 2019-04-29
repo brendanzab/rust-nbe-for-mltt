@@ -4,7 +4,7 @@ use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
 
 use super::core;
-use super::{AppMode, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex};
+use super::{AppMode, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex};
 
 /// An environment that can assist in pretty printing terms with pretty names.
 pub struct DisplayEnv {
@@ -73,6 +73,12 @@ impl DisplayEnv {
 impl VarIndex {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::as_string(format!("@{}", self.0))
+    }
+}
+
+impl MetaLevel {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(format!("?{}", self.0))
     }
 }
 
@@ -225,7 +231,8 @@ impl core::Term {
     pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
-            core::Term::Var(index) => index.to_doc(),
+            core::Term::Var(var_index) => var_index.to_doc(),
+            core::Term::Meta(meta_level) => meta_level.to_doc(),
             core::Term::Prim(name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
@@ -471,6 +478,7 @@ impl core::Term {
     pub fn to_debug_arg_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             core::Term::Var(_)
+            | core::Term::Meta(_)
             | core::Term::LiteralIntro(_)
             | core::Term::LiteralType(_)
             | core::Term::RecordElim(_, _)
@@ -485,7 +493,8 @@ impl core::Term {
     pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
-            core::Term::Var(index) => Doc::as_string(env.lookup_name(*index)),
+            core::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
+            core::Term::Meta(meta_level) => meta_level.to_doc(),
             core::Term::Prim(name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
@@ -858,6 +867,7 @@ impl core::Term {
     pub fn to_display_arg_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
             core::Term::Var(_)
+            | core::Term::Meta(_)
             | core::Term::LiteralIntro(_)
             | core::Term::LiteralType(_)
             | core::Term::RecordElim(_, _)

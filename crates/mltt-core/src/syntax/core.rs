@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::syntax::pretty::DisplayEnv;
 use crate::syntax::{
-    AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
+    AppMode, DocString, Label, LiteralIntro, LiteralType, MetaLevel, UniverseLevel, VarIndex,
 };
 
 /// Top-level module.
@@ -56,6 +56,11 @@ impl RcTerm {
     /// Construct a variable.
     pub fn var(index: impl Into<VarIndex>) -> RcTerm {
         RcTerm::from(Term::var(index))
+    }
+
+    /// Construct a metavariable.
+    pub fn meta(level: impl Into<MetaLevel>) -> RcTerm {
+        RcTerm::from(Term::meta(level))
     }
 
     /// Construct a primitive.
@@ -119,6 +124,8 @@ impl fmt::Display for RcTerm {
 pub enum Term {
     /// Variables
     Var(VarIndex),
+    /// Metavariables
+    Meta(MetaLevel),
     /// Primitives
     Prim(String),
 
@@ -160,6 +167,11 @@ impl Term {
     /// Construct a variable.
     pub fn var(index: impl Into<VarIndex>) -> Term {
         Term::Var(index.into())
+    }
+
+    /// Construct a metavariable.
+    pub fn meta(level: impl Into<MetaLevel>) -> Term {
+        Term::Meta(level.into())
     }
 
     /// Construct a primitive.

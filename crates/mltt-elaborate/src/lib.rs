@@ -13,8 +13,8 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
 use mltt_core::syntax::{
-    core, domain, AppMode, DocString, Label, LiteralIntro, LiteralType, UniverseLevel, VarIndex,
-    VarLevel,
+    core, domain, AppMode, DocString, Label, LiteralIntro, LiteralType, MetaEnv, UniverseLevel,
+    VarIndex, VarLevel,
 };
 use mltt_span::FileSpan;
 use std::borrow::Cow;
@@ -41,6 +41,10 @@ pub struct Context {
     /// Not all entries in the context will have a corresponding name - for
     /// example we don't define a name for non-dependent function types.
     binders: im::HashMap<String, (VarLevel, domain::RcType)>,
+    /// Local bound levels.
+    ///
+    /// This is used for making spines for fresh metas.
+    bound_levels: im::Vector<VarLevel>,
 }
 
 impl Context {
@@ -50,6 +54,7 @@ impl Context {
             prims: nbe::PrimEnv::new(),
             values: domain::Env::new(),
             binders: im::HashMap::new(),
+            bound_levels: im::Vector::new(),
         }
     }
 
@@ -100,6 +105,20 @@ impl Context {
         self.values.add_param()
     }
 
+    /// Create a fresh meta and return the meta applied to all of the currently
+    /// bound vars.
+    fn new_meta(&self, metas: &mut MetaEnv, span: FileSpan) -> core::RcTerm {
+        let args = self.bound_levels.iter().map(|var_level| {
+            let var_index = self.values().size().var_index(*var_level);
+            core::RcTerm::var(var_index)
+        });
+
+        args.fold(
+            core::RcTerm::from(core::Term::Meta(metas.fresh_meta_level(span))),
+            |acc, arg| core::RcTerm::from(core::Term::FunElim(acc, AppMode::Explicit, arg)),
+        )
+    }
+
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name.
     pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
@@ -112,47 +131,52 @@ impl Context {
     /// Apply a closure to an argument.
     pub fn app_closure(
         &self,
+        metas: &MetaEnv,
         closure: &domain::AppClosure,
         arg: domain::RcValue,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::app_closure(self.prims(), closure, arg)
+        nbe::app_closure(self.prims(), metas, closure, arg)
     }
 
     /// Evaluate a term using the evaluation environment
     pub fn eval_term(
         &self,
+        metas: &MetaEnv,
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::eval_term(self.prims(), self.values(), span, term)
+        nbe::eval_term(self.prims(), metas, self.values(), span, term)
     }
 
     /// Read a value back into the core syntax, normalizing as required.
     pub fn read_back_value(
         &self,
+        metas: &MetaEnv,
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        nbe::read_back_value(self.prims(), self.values().size(), span, value)
+        nbe::read_back_value(self.prims(), metas, self.values().size(), span, value)
     }
 
     /// Fully normalize a term by first evaluating it, then reading it back.
     pub fn normalize_term(
         &self,
+        metas: &MetaEnv,
         span: impl Into<Option<FileSpan>>,
         term: &core::RcTerm,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        nbe::normalize_term(self.prims(), self.values(), span, term)
+        nbe::normalize_term(self.prims(), metas, self.values(), span, term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
-    pub fn expect_subtype(
+    pub fn check_subtype(
         &self,
+        metas: &MetaEnv,
         span: FileSpan,
         ty1: &domain::RcType,
         ty2: &domain::RcType,
     ) -> Result<(), Diagnostic<FileSpan>> {
-        nbe::expect_subtype(self.prims(), self.values().size(), span, ty1, ty2)
+        nbe::check_subtype(self.prims(), metas, self.values().size(), span, ty1, ty2)
     }
 }
 
@@ -192,11 +216,12 @@ impl Default for Context {
 /// Returns the elaborated items.
 pub fn check_module(
     context: &Context,
+    metas: &mut MetaEnv,
     concrete_items: &[Item<'_>],
 ) -> Result<core::Module, Diagnostic<FileSpan>> {
     // The local elaboration context
     let mut context = context.clone();
-    let items = check_items(&mut context, concrete_items)?;
+    let items = check_items(&mut context, metas, concrete_items)?;
 
     Ok(core::Module { items })
 }
@@ -222,6 +247,7 @@ fn concat_docs(doc_lines: &[SpannedString<'_>]) -> DocString {
 /// Returns the elaborated items.
 fn check_items(
     context: &mut Context,
+    metas: &mut MetaEnv,
     concrete_items: &[Item<'_>],
 ) -> Result<Vec<core::Item>, Diagnostic<FileSpan>> {
     // Declarations that may be waiting to be defined
@@ -249,11 +275,12 @@ fn check_items(
                     Entry::Vacant(entry) => {
                         let docs = concat_docs(&declaration.docs);
                         let label = Label(label.to_owned());
-                        let (body_ty, _) = synth_universe(&context, &concrete_body_ty)?;
+                        let (body_ty, _) = synth_universe(&context, metas, &concrete_body_ty)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
                         // definitions might have come in to scope!
-                        let body_ty_value = context.eval_term(concrete_body_ty.span(), &body_ty)?;
+                        let body_ty_value =
+                            context.eval_term(metas, concrete_body_ty.span(), &body_ty)?;
 
                         log::trace!("elaborated declaration:\t{}\t: {}", label, body_ty);
 
@@ -281,7 +308,7 @@ fn check_items(
                     // its type instead
                     Entry::Vacant(entry) => {
                         let clause = Clause::new(params, body_ty, body);
-                        let (term, ty) = clause::synth_clause(&context, clause)?;
+                        let (term, ty) = clause::synth_clause(&context, metas, clause)?;
 
                         entry.insert(None);
 
@@ -294,7 +321,7 @@ fn check_items(
                         // basis for checking the definition
                         Some(ty) => {
                             let clause = Clause::new(params, body_ty, body);
-                            let term = clause::check_clause(&context, clause, &ty)?;
+                            let term = clause::check_clause(&context, metas, clause, &ty)?;
 
                             (term, body.span(), ty)
                         },
@@ -316,7 +343,7 @@ fn check_items(
 
                 let label = Label(label.to_owned());
                 let docs = concat_docs(&definition.docs);
-                let value = context.eval_term(term_span, &term)?;
+                let value = context.eval_term(metas, term_span, &term)?;
 
                 context.add_defn(label.to_string(), value, ty);
                 core_items.push(core::Item::Definition(docs, label, term));
@@ -376,14 +403,17 @@ fn check_arg_app_mode<'arg, 'file>(
 /// universe and its elaborated form.
 fn synth_universe(
     context: &Context,
+    metas: &mut MetaEnv,
     concrete_term: &Term<'_>,
 ) -> Result<(core::RcTerm, UniverseLevel), Diagnostic<FileSpan>> {
-    let (term, ty) = synth_term(context, concrete_term)?;
+    let (term, ty) = synth_term(context, metas, concrete_term)?;
     match ty.as_ref() {
         domain::Value::Universe(level) => Ok((term, *level)),
         _ => Err(Diagnostic::new_error("type expected").with_label(
-            DiagnosticLabel::new_primary(concrete_term.span())
-                .with_message(format!("found `{}`", context.read_back_value(None, &ty)?)),
+            DiagnosticLabel::new_primary(concrete_term.span()).with_message(format!(
+                "found `{}`",
+                context.read_back_value(metas, None, &ty)?
+            )),
         )),
     }
 }
@@ -393,6 +423,7 @@ fn synth_universe(
 /// Returns the elaborated term.
 pub fn check_term(
     context: &Context,
+    metas: &mut MetaEnv,
     concrete_term: &Term<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
@@ -407,19 +438,20 @@ pub fn check_term(
                 Some(_) => Ok(core::RcTerm::prim(parsed_name)),
             }
         },
-        Term::Parens(_, concrete_term) => check_term(context, concrete_term, expected_ty),
+        Term::Hole(span) => Ok(context.new_meta(metas, *span)),
+        Term::Parens(_, concrete_term) => check_term(context, metas, concrete_term, expected_ty),
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
-            let items = check_items(&mut context, concrete_items)?;
-            let body = check_term(&context, concrete_body, expected_ty)?;
+            let items = check_items(&mut context, metas, concrete_items)?;
+            let body = check_term(&context, metas, concrete_body, expected_ty)?;
 
             Ok(core::RcTerm::from(core::Term::Let(items, body)))
         },
         Term::If(_, condition, consequent, alternative) => {
             let bool_ty = domain::RcValue::literal_ty(LiteralType::Bool);
-            let condition = check_term(context, condition, &bool_ty)?;
-            let consequent = check_term(context, consequent, expected_ty)?;
-            let alternative = check_term(context, alternative, expected_ty)?;
+            let condition = check_term(context, metas, condition, &bool_ty)?;
+            let consequent = check_term(context, metas, consequent, expected_ty)?;
+            let alternative = check_term(context, metas, alternative, expected_ty)?;
 
             Ok(core::RcTerm::from(core::Term::LiteralElim(
                 condition,
@@ -433,17 +465,17 @@ pub fn check_term(
                 .map(|(pattern, body)| CaseClause::new(pattern, body))
                 .collect();
 
-            clause::check_case(context, *span, scrutinee, clauses, expected_ty)
+            clause::check_case(context, metas, *span, scrutinee, clauses, expected_ty)
         },
 
         Term::LiteralIntro(kind, literal) => {
-            let literal_intro = literal::check(context, *kind, literal, expected_ty)?;
+            let literal_intro = literal::check(context, metas, *kind, literal, expected_ty)?;
             Ok(core::RcTerm::literal_intro(literal_intro))
         },
 
         Term::FunIntro(_, concrete_params, concrete_body) => {
             let clause = Clause::new(concrete_params, None, concrete_body);
-            clause::check_clause(context, clause, expected_ty)
+            clause::check_clause(context, metas, clause, expected_ty)
         },
 
         Term::RecordIntro(span, concrete_intro_fields) => {
@@ -462,14 +494,14 @@ pub fn check_term(
 
                 if found_label.slice == expected_label.0 {
                     let clause = Clause::new(params, body_ty, &body);
-                    let term = clause::check_clause(&context, clause, expected_term_ty)?;
+                    let term = clause::check_clause(&context, metas, clause, expected_term_ty)?;
 
-                    let term_value = context.eval_term(body.span(), &term)?;
+                    let term_value = context.eval_term(metas, body.span(), &term)?;
                     let term_ty = expected_term_ty.clone();
 
                     fields.push((expected_label.clone(), term));
                     context.add_defn(found_label, term_value.clone(), term_ty);
-                    expected_ty = context.app_closure(&rest, term_value)?;
+                    expected_ty = context.app_closure(metas, &rest, term_value)?;
                 } else {
                     return Err(Diagnostic::new_error("field not found").with_label(
                         DiagnosticLabel::new_primary(found_label.span()).with_message(format!(
@@ -489,8 +521,8 @@ pub fn check_term(
         },
 
         _ => {
-            let (synth, synth_ty) = synth_term(context, concrete_term)?;
-            context.expect_subtype(concrete_term.span(), &synth_ty, expected_ty)?;
+            let (synth, synth_ty) = synth_term(context, metas, concrete_term)?;
+            context.check_subtype(metas, concrete_term.span(), &synth_ty, expected_ty)?;
             Ok(synth)
         },
     }
@@ -501,6 +533,7 @@ pub fn check_term(
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_term(
     context: &Context,
+    metas: &mut MetaEnv,
     concrete_term: &Term<'_>,
 ) -> Result<(core::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     use std::cmp;
@@ -521,15 +554,17 @@ pub fn synth_term(
                 DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
             )),
         },
-        Term::Hole(span) => Err(Diagnostic::new_error("ambiguous term").with_label(
-            DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
-        )),
+        Term::Hole(span) => {
+            let term = context.new_meta(metas, *span);
+            let ty = context.new_meta(metas, *span);
+            Ok((term, context.eval_term(metas, None, &ty)?))
+        },
 
-        Term::Parens(_, concrete_term) => synth_term(context, concrete_term),
+        Term::Parens(_, concrete_term) => synth_term(context, metas, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
-            let (term_ty, _) = synth_universe(context, concrete_term_ty)?;
-            let term_ty_value = context.eval_term(concrete_term_ty.span(), &term_ty)?;
-            let term = check_term(context, concrete_term, &term_ty_value)?;
+            let (term_ty, _) = synth_universe(context, metas, concrete_term_ty)?;
+            let term_ty_value = context.eval_term(metas, concrete_term_ty.span(), &term_ty)?;
+            let term = check_term(context, metas, concrete_term, &term_ty_value)?;
 
             Ok((
                 core::RcTerm::from(core::Term::Ann(term, term_ty)),
@@ -538,8 +573,8 @@ pub fn synth_term(
         },
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
-            let items = check_items(&mut context, concrete_items)?;
-            let (body, body_ty) = synth_term(&context, concrete_body)?;
+            let items = check_items(&mut context, metas, concrete_items)?;
+            let (body, body_ty) = synth_term(&context, metas, concrete_body)?;
 
             Ok((core::RcTerm::from(core::Term::Let(items, body)), body_ty))
         },
@@ -568,8 +603,10 @@ pub fn synth_term(
                         for param_name in param_names {
                             let app_mode = AppMode::Explicit;
                             let param_ty_span = concrete_param_ty.span();
-                            let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
-                            let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
+                            let (param_ty, level) =
+                                synth_universe(&context, metas, concrete_param_ty)?;
+                            let param_ty_value =
+                                context.eval_term(metas, param_ty_span, &param_ty)?;
 
                             context.add_param(param_name, param_ty_value);
                             param_tys.push((app_mode, param_ty));
@@ -587,8 +624,10 @@ pub fn synth_term(
                         for param_label in param_labels {
                             let app_mode = AppMode::Implicit(Label(param_label.to_string()));
                             let param_ty_span = concrete_param_ty.span();
-                            let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
-                            let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
+                            let (param_ty, level) =
+                                synth_universe(&context, metas, concrete_param_ty)?;
+                            let param_ty_value =
+                                context.eval_term(metas, param_ty_span, &param_ty)?;
 
                             context.add_param(param_label, param_ty_value);
                             param_tys.push((app_mode, param_ty));
@@ -598,8 +637,8 @@ pub fn synth_term(
                     TypeParam::Instance(_, param_label, concrete_param_ty) => {
                         let app_mode = AppMode::Instance(Label(param_label.to_string()));
                         let param_ty_span = concrete_param_ty.span();
-                        let (param_ty, level) = synth_universe(&context, concrete_param_ty)?;
-                        let param_ty_value = context.eval_term(param_ty_span, &param_ty)?;
+                        let (param_ty, level) = synth_universe(&context, metas, concrete_param_ty)?;
+                        let param_ty_value = context.eval_term(metas, param_ty_span, &param_ty)?;
 
                         context.add_param(param_label, param_ty_value);
                         param_tys.push((app_mode, param_ty));
@@ -608,7 +647,7 @@ pub fn synth_term(
                 }
             }
 
-            let (body_ty, body_level) = synth_universe(&context, concrete_body_ty)?;
+            let (body_ty, body_level) = synth_universe(&context, metas, concrete_body_ty)?;
             max_level = cmp::max(max_level, body_level);
 
             Ok((
@@ -622,11 +661,11 @@ pub fn synth_term(
             ))
         },
         Term::FunArrowType(concrete_param_ty, concrete_body_ty) => {
-            let (param_ty, param_level) = synth_universe(context, concrete_param_ty)?;
+            let (param_ty, param_level) = synth_universe(context, metas, concrete_param_ty)?;
             let (body_ty, body_level) = {
                 let mut context = context.clone();
                 context.add_fresh_param();
-                synth_universe(&context, concrete_body_ty)?
+                synth_universe(&context, metas, concrete_body_ty)?
             };
 
             Ok((
@@ -636,10 +675,10 @@ pub fn synth_term(
         },
         Term::FunIntro(_, concrete_params, concrete_body) => {
             let clause = Clause::new(concrete_params, None, concrete_body);
-            clause::synth_clause(context, clause)
+            clause::synth_clause(context, metas, clause)
         },
         Term::FunElim(concrete_fun, concrete_args) => {
-            let (mut fun, mut fun_ty) = synth_term(context, concrete_fun)?;
+            let (mut fun, mut fun_ty) = synth_term(context, metas, concrete_fun)?;
             for concrete_arg in concrete_args {
                 let (ty_app_mode, param_ty, body_ty) = match fun_ty.as_ref() {
                     domain::Value::FunType(ty_app_mode, param_ty, body_ty) => {
@@ -648,17 +687,17 @@ pub fn synth_term(
                     _ => Err(Diagnostic::new_error("expected a function").with_label(
                         DiagnosticLabel::new_primary(concrete_fun.span()).with_message(format!(
                             "found: {}",
-                            context.read_back_value(None, &fun_ty)?
+                            context.read_back_value(metas, None, &fun_ty)?
                         )),
                     )),
                 }?;
 
                 let concrete_arg = check_arg_app_mode(concrete_arg, ty_app_mode)?;
-                let arg = check_term(context, concrete_arg.as_ref(), param_ty)?;
-                let arg_value = context.eval_term(concrete_arg.span(), &arg)?;
+                let arg = check_term(context, metas, concrete_arg.as_ref(), param_ty)?;
+                let arg_value = context.eval_term(metas, concrete_arg.span(), &arg)?;
 
                 fun = core::RcTerm::from(core::Term::FunElim(fun, ty_app_mode.clone(), arg));
-                fun_ty = context.app_closure(body_ty, arg_value)?;
+                fun_ty = context.app_closure(metas, body_ty, arg_value)?;
             }
 
             Ok((fun, fun_ty))
@@ -672,8 +711,8 @@ pub fn synth_term(
                 .iter()
                 .map(|concrete_ty_field| {
                     let docs = concat_docs(&concrete_ty_field.docs);
-                    let (ty, ty_level) = synth_universe(&context, &concrete_ty_field.ann)?;
-                    let ty_value = context.eval_term(concrete_ty_field.ann.span(), &ty)?;
+                    let (ty, ty_level) = synth_universe(&context, metas, &concrete_ty_field.ann)?;
+                    let ty_value = context.eval_term(metas, concrete_ty_field.ann.span(), &ty)?;
 
                     context.add_param(concrete_ty_field.label, ty_value);
                     max_level = cmp::max(max_level, ty_level);
@@ -701,7 +740,7 @@ pub fn synth_term(
             }
         },
         Term::RecordElim(concrete_record, label) => {
-            let (record, mut record_ty) = synth_term(context, concrete_record)?;
+            let (record, mut record_ty) = synth_term(context, metas, concrete_record)?;
 
             while let domain::Value::RecordTypeExtend(_, current_label, current_ty, rest) =
                 record_ty.as_ref()
@@ -714,8 +753,8 @@ pub fn synth_term(
                 if current_label.0 == label.slice {
                     return Ok((expr, current_ty.clone()));
                 } else {
-                    let expr = context.eval_term(None, &expr)?;
-                    record_ty = context.app_closure(rest, expr)?;
+                    let expr = context.eval_term(metas, None, &expr)?;
+                    record_ty = context.app_closure(metas, rest, expr)?;
                 }
             }
 
