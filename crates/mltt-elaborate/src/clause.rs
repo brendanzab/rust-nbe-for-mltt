@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
-use mltt_core::syntax::{core, domain, AppMode, Label, LiteralIntro};
+use mltt_core::syntax::{core, domain, AppMode, Label, LiteralIntro, DocString};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -295,21 +295,17 @@ fn done(
     param_app_modes: Vec<AppMode>,
     body: core::RcTerm,
 ) -> core::RcTerm {
+    use mltt_core::syntax::core::Item::{Declaration, Definition};
+
     let mut items = Vec::new();
 
     for (scrutinee, scrutinee_ty) in scrutinees {
+        let doc = DocString::from("");
+        let label = Label("_".to_owned());
         if let Some(scrutinee_ty) = scrutinee_ty {
-            items.push(core::Item::Declaration(
-                Rc::from(""),
-                Label("_".to_owned()),
-                scrutinee_ty,
-            ));
+            items.push(Declaration(doc.clone(), label.clone(), scrutinee_ty));
         }
-        items.push(core::Item::Definition(
-            Rc::from(""),
-            Label("_".to_owned()),
-            scrutinee,
-        ));
+        items.push(Definition(doc, label, scrutinee));
     }
 
     let body = param_app_modes
