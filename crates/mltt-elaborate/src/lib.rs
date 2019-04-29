@@ -77,8 +77,9 @@ impl Context {
         ty: domain::RcType,
     ) {
         let name = name.into();
+        let var_level = self.values().size().next_var_level();
         log::trace!("add definition: {}", name);
-        self.binders.insert(name, (self.values().level(), ty));
+        self.binders.insert(name, (var_level, ty));
         self.values.add_defn(value);
     }
 
@@ -93,18 +94,19 @@ impl Context {
     /// the introduced binder.
     pub fn add_param(&mut self, name: impl Into<String>, ty: domain::RcType) -> domain::RcValue {
         let name = name.into();
+        let var_level = self.values().size().next_var_level();
         log::trace!("add parameter: {}", name);
-        self.binders.insert(name, (self.values().level(), ty));
+        self.binders.insert(name, (var_level, ty));
         self.values.add_param()
     }
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name.
     pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
-        let (level, ty) = self.binders.get(name)?;
-        let index = VarIndex(self.values().level().0 - (level.0 + 1));
-        log::trace!("lookup binder: {} -> @{}", name, index.0);
-        Some((index, ty))
+        let (var_level, ty) = self.binders.get(name)?;
+        let var_index = self.values().size().var_index(*var_level);
+        log::trace!("lookup binder: {} -> @{}", name, var_index.0);
+        Some((var_index, ty))
     }
 
     /// Apply a closure to an argument.
@@ -136,8 +138,8 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<core::RcTerm, Diagnostic<FileSpan>> {
-        let level = self.values().level();
-        nbe::read_back_value(self.prims(), level, value).map_err(|error| match span.into() {
+        let env_size = self.values().size();
+        nbe::read_back_value(self.prims(), env_size, value).map_err(|error| match span.into() {
             None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
             Some(span) => Diagnostic::new_bug("failed to read-back value")
                 .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
@@ -164,7 +166,7 @@ impl Context {
         ty1: &domain::RcType,
         ty2: &domain::RcType,
     ) -> Result<(), Diagnostic<FileSpan>> {
-        match nbe::check_subtype(self.prims(), self.values().level(), ty1, ty2) {
+        match nbe::check_subtype(self.prims(), self.values().size(), ty1, ty2) {
             Ok(true) => Ok(()),
             Ok(false) => Err(Diagnostic::new_error("not a subtype").with_label(
                 DiagnosticLabel::new_primary(span).with_message(format!(

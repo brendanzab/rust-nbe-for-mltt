@@ -111,7 +111,7 @@ pub fn check_case<'file>(
             let mut context = context.clone();
 
             let (checked_scrutinee, (param_level, param_ty)) = {
-                let scrutinee_level = context.values().level();
+                let scrutinee_level = context.values().size().next_var_level();
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, scrutinee)?;
                 let scrutinee_value = context.eval_term(scrutinee.span(), &scrutinee_term)?;
                 context.add_fresh_defn(scrutinee_value);
@@ -164,9 +164,8 @@ pub fn check_case<'file>(
                 },
             };
 
-            let scrutinee = core::RcTerm::var(context.values().level().0 - (param_level.0 + 1));
             let body = core::RcTerm::from(core::Term::LiteralElim(
-                scrutinee,
+                core::RcTerm::var(context.values().size().var_index(param_level)),
                 Rc::from(literal_branches),
                 default_body,
             ));

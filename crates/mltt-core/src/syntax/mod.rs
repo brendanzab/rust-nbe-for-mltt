@@ -75,6 +75,7 @@ impl ops::Add<u32> for VarIndex {
         self
     }
 }
+
 /// Literal types.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum LiteralType {

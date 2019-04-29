@@ -75,7 +75,7 @@ impl Context {
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn expect_subtype(&self, ty1: &RcType, ty2: &RcType) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.prims(), self.values().level(), ty1, ty2)? {
+        if nbe::check_subtype(self.prims(), self.values().size(), ty1, ty2)? {
             Ok(())
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))

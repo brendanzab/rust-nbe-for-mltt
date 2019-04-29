@@ -10,9 +10,9 @@ use std::rc::Rc;
 
 use crate::syntax::core::{Item, RcTerm, Term};
 use crate::syntax::domain::{
-    AppClosure, Elim, Env, Head, LiteralClosure, RcType, RcValue, Spine, Value,
+    AppClosure, Elim, Env, EnvSize, Head, LiteralClosure, RcType, RcValue, Spine, Value,
 };
-use crate::syntax::{AppMode, Label, LiteralIntro, VarLevel};
+use crate::syntax::{AppMode, Label, LiteralIntro};
 
 /// An error produced during normalization.
 ///
@@ -417,9 +417,9 @@ pub fn app_closure(
 pub fn inst_closure(
     prims: &PrimEnv,
     closure: &AppClosure,
-    level: VarLevel,
+    env_size: EnvSize,
 ) -> Result<RcValue, NbeError> {
-    app_closure(prims, closure, RcValue::var(level))
+    app_closure(prims, closure, RcValue::var(env_size.next_var_level()))
 }
 
 /// Evaluate a term in the environment that corresponds to the context in which
@@ -516,11 +516,11 @@ pub fn eval_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcValue, N
 /// Read a value back into the core syntax, normalizing as required.
 pub fn read_back_value(
     prims: &PrimEnv,
-    level: VarLevel,
+    env_size: EnvSize,
     term: &RcValue,
 ) -> Result<RcTerm, NbeError> {
     match term.as_ref() {
-        Value::Neutral(head, spine) => read_back_neutral(prims, level, head, spine),
+        Value::Neutral(head, spine) => read_back_neutral(prims, env_size, head, spine),
 
         // Literals
         Value::LiteralType(literal_ty) => Ok(RcTerm::literal_ty(literal_ty.clone())),
@@ -529,34 +529,36 @@ pub fn read_back_value(
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let param_ty = read_back_value(prims, level, param_ty)?;
-            let body_ty = read_back_value(prims, level + 1, &inst_closure(prims, body_ty, level)?)?;
+            let param_ty = read_back_value(prims, env_size, param_ty)?;
+            let body_ty = inst_closure(prims, body_ty, env_size)?;
+            let body_ty = read_back_value(prims, env_size + 1, &body_ty)?;
 
             Ok(RcTerm::from(Term::FunType(app_mode, param_ty, body_ty)))
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
-            let body = read_back_value(prims, level + 1, &inst_closure(prims, body, level)?)?;
+            let body = inst_closure(prims, body, env_size)?;
+            let body = read_back_value(prims, env_size + 1, &body)?;
 
             Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
         },
 
         // Records
         Value::RecordTypeExtend(doc, label, term_ty, rest_ty) => {
-            let mut level = level;
+            let mut env_size = env_size;
 
-            let term_ty = read_back_value(prims, level, term_ty)?;
+            let term_ty = read_back_value(prims, env_size, term_ty)?;
 
-            let mut rest_ty = inst_closure(prims, rest_ty, level)?;
+            let mut rest_ty = inst_closure(prims, rest_ty, env_size)?;
             let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
 
             while let Value::RecordTypeExtend(next_doc, next_label, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
             {
-                level += 1;
-                let next_term_ty = read_back_value(prims, level, next_term_ty)?;
+                env_size += 1;
+                let next_term_ty = read_back_value(prims, env_size, next_term_ty)?;
                 field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
-                rest_ty = inst_closure(prims, next_rest_ty, level)?;
+                rest_ty = inst_closure(prims, next_rest_ty, env_size)?;
             }
 
             Ok(RcTerm::from(Term::RecordType(field_tys)))
@@ -565,7 +567,7 @@ pub fn read_back_value(
         Value::RecordIntro(fields) => {
             let fields = fields
                 .iter()
-                .map(|(label, term)| Ok((label.clone(), read_back_value(prims, level, term)?)))
+                .map(|(label, term)| Ok((label.clone(), read_back_value(prims, env_size, term)?)))
                 .collect::<Result<_, _>>()?;
 
             Ok(RcTerm::from(Term::RecordIntro(fields)))
@@ -579,12 +581,15 @@ pub fn read_back_value(
 /// Read a neutral value back into the core syntax, normalizing as required.
 pub fn read_back_neutral(
     prims: &PrimEnv,
-    level: VarLevel,
+    env_size: EnvSize,
     head: &Head,
     spine: &Spine,
 ) -> Result<RcTerm, NbeError> {
     let (head, spine) = match head {
-        Head::Var(var_level) => (RcTerm::var(level.0 - (var_level.0 + 1)), spine.as_slice()),
+        Head::Var(var_level) => (
+            RcTerm::var(env_size.var_index(*var_level)),
+            spine.as_slice(),
+        ),
         Head::Prim(name) => {
             let prim = prims
                 .lookup_entry(name)
@@ -593,7 +598,7 @@ pub fn read_back_neutral(
             match prim.interpret(spine) {
                 Some(result) => {
                     let (value, rest_spine) = result?;
-                    (read_back_value(prims, level, &value)?, rest_spine)
+                    (read_back_value(prims, env_size, &value)?, rest_spine)
                 },
                 None => (RcTerm::prim(name.clone()), spine.as_slice()),
             }
@@ -608,19 +613,19 @@ pub fn read_back_neutral(
                     .iter()
                     .map(|(literal_intro, body)| {
                         let body = eval_term(prims, &closure.env, body)?;
-                        let body = read_back_value(prims, level, &body)?;
+                        let body = read_back_value(prims, env_size, &body)?;
                         Ok((literal_intro.clone(), body))
                     })
                     .collect::<Result<Vec<_>, _>>()?,
             );
 
             let default_body = eval_term(prims, &closure.env, &closure.default)?;
-            let default_body = read_back_value(prims, level, &default_body)?;
+            let default_body = read_back_value(prims, env_size, &default_body)?;
 
             Ok(RcTerm::from(Term::LiteralElim(acc?, clauses, default_body)))
         },
         Elim::Fun(app_mode, arg) => {
-            let arg = read_back_value(prims, level, &arg)?;
+            let arg = read_back_value(prims, env_size, &arg)?;
 
             Ok(RcTerm::from(Term::FunElim(acc?, app_mode.clone(), arg)))
         },
@@ -631,20 +636,20 @@ pub fn read_back_neutral(
 /// Fully normalize a term by first evaluating it, then reading it back.
 pub fn normalize_term(prims: &PrimEnv, env: &Env, term: &RcTerm) -> Result<RcTerm, NbeError> {
     let value = eval_term(prims, env, term)?;
-    read_back_value(prims, env.level(), &value)
+    read_back_value(prims, env.size(), &value)
 }
 
 /// Check whether a semantic type is a subtype of another.
 pub fn check_subtype(
     prims: &PrimEnv,
-    level: VarLevel,
+    env_size: EnvSize,
     ty1: &RcType,
     ty2: &RcType,
 ) -> Result<bool, NbeError> {
     match (ty1.as_ref(), ty2.as_ref()) {
         (Value::Neutral(head1, spine1), Value::Neutral(head2, spine2)) => {
-            let term1 = read_back_neutral(prims, level, head1, spine1)?;
-            let term2 = read_back_neutral(prims, level, head2, spine2)?;
+            let term1 = read_back_neutral(prims, env_size, head1, spine1)?;
+            let term2 = read_back_neutral(prims, env_size, head2, spine2)?;
 
             Ok(Term::alpha_eq(&term1, &term2))
         },
@@ -654,18 +659,19 @@ pub fn check_subtype(
         (
             Value::FunType(app_mode1, param_ty1, body_ty1),
             Value::FunType(app_mode2, param_ty2, body_ty2),
-        ) if app_mode1 == app_mode2 => Ok(check_subtype(prims, level, param_ty2, param_ty1)? && {
-            let body_ty1 = inst_closure(prims, body_ty1, level)?;
-            let body_ty2 = inst_closure(prims, body_ty2, level)?;
-            check_subtype(prims, level + 1, &body_ty1, &body_ty2)?
-        }),
+        ) if app_mode1 == app_mode2 => Ok(check_subtype(prims, env_size, param_ty2, param_ty1)?
+            && {
+                let body_ty1 = inst_closure(prims, body_ty1, env_size)?;
+                let body_ty2 = inst_closure(prims, body_ty2, env_size)?;
+                check_subtype(prims, env_size + 1, &body_ty1, &body_ty2)?
+            }),
         (
             Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
             Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
-        ) if label1 == label2 => Ok(check_subtype(prims, level, term_ty1, term_ty2)? && {
-            let rest_ty1 = inst_closure(prims, rest_ty1, level)?;
-            let rest_ty2 = inst_closure(prims, rest_ty2, level)?;
-            check_subtype(prims, level + 1, &rest_ty1, &rest_ty2)?
+        ) if label1 == label2 => Ok(check_subtype(prims, env_size, term_ty1, term_ty2)? && {
+            let rest_ty1 = inst_closure(prims, rest_ty1, env_size)?;
+            let rest_ty2 = inst_closure(prims, rest_ty2, env_size)?;
+            check_subtype(prims, env_size + 1, &rest_ty1, &rest_ty2)?
         }),
         (Value::RecordTypeEmpty, Value::RecordTypeEmpty) => Ok(true),
         (Value::Universe(level1), Value::Universe(level2)) => Ok(level1 <= level2),
