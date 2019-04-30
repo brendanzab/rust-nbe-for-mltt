@@ -12,7 +12,7 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{LiteralKind, SpannedString};
 use mltt_core::literal::LiteralIntro;
-use mltt_core::{domain, MetaEnv};
+use mltt_core::{domain, meta};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -21,7 +21,7 @@ use super::Context;
 /// Check the type of a literal in a context.
 pub fn check(
     context: &Context,
-    metas: &MetaEnv,
+    metas: &meta::Env<domain::RcValue>,
     kind: LiteralKind,
     src: &SpannedString<'_>,
     expected_ty: &domain::RcType,

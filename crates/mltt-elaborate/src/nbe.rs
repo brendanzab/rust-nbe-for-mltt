@@ -3,14 +3,14 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_core::env::{Env, EnvSize};
 use mltt_core::nbe;
-use mltt_core::{domain, syntax, MetaEnv};
+use mltt_core::{domain, syntax, meta};
 use mltt_span::FileSpan;
 
 pub use mltt_core::prim::PrimEnv;
 
 pub fn app_closure(
     prims: &PrimEnv,
-    metas: &MetaEnv,
+    metas: &meta::Env<domain::RcValue>,
     closure: &domain::AppClosure,
     arg: domain::RcValue,
 ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
@@ -20,7 +20,7 @@ pub fn app_closure(
 
 pub fn eval_term(
     prims: &PrimEnv,
-    metas: &MetaEnv,
+    metas: &meta::Env<domain::RcValue>,
     values: &Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
     term: &syntax::RcTerm,
@@ -34,7 +34,7 @@ pub fn eval_term(
 
 pub fn read_back_value(
     prims: &PrimEnv,
-    metas: &MetaEnv,
+    metas: &meta::Env<domain::RcValue>,
     env_size: EnvSize,
     span: impl Into<Option<FileSpan>>,
     value: &domain::RcValue,
@@ -48,7 +48,7 @@ pub fn read_back_value(
 
 pub fn normalize_term(
     prims: &PrimEnv,
-    metas: &MetaEnv,
+    metas: &meta::Env<domain::RcValue>,
     values: &Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
     term: &syntax::RcTerm,
@@ -62,7 +62,7 @@ pub fn normalize_term(
 
 pub fn check_subtype(
     prims: &PrimEnv,
-    metas: &MetaEnv,
+    metas: &meta::Env<domain::RcValue>,
     env_size: EnvSize,
     span: FileSpan,
     ty1: &domain::RcType,

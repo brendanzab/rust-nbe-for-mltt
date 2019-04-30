@@ -15,7 +15,7 @@ use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
 use mltt_core::env::Env;
 use mltt_core::literal::{LiteralIntro, LiteralType};
 use mltt_core::{
-    domain, syntax, AppMode, DocString, Label, MetaEnv, UniverseLevel, VarIndex, VarLevel,
+    meta, domain, syntax, AppMode, DocString, Label, UniverseLevel, VarIndex, VarLevel,
 };
 use mltt_span::FileSpan;
 use std::borrow::Cow;
@@ -124,14 +124,14 @@ impl Context {
 
     /// Create a fresh meta and return the meta applied to all of the currently
     /// bound vars.
-    fn new_meta(&self, metas: &mut MetaEnv, span: FileSpan) -> syntax::RcTerm {
+    fn new_meta(&self, metas: &mut meta::Env<domain::RcValue>, span: FileSpan) -> syntax::RcTerm {
         let args = self.bound_levels.iter().map(|var_level| {
             let var_index = self.values().size().var_index(*var_level);
             syntax::RcTerm::var(var_index)
         });
 
         args.fold(
-            syntax::RcTerm::from(syntax::Term::Meta(metas.fresh_meta_level(span))),
+            syntax::RcTerm::from(syntax::Term::Meta(metas.add_unsolved(span))),
             |acc, arg| syntax::RcTerm::from(syntax::Term::FunElim(acc, AppMode::Explicit, arg)),
         )
     }
@@ -149,7 +149,7 @@ impl Context {
     /// Apply a closure to an argument.
     pub fn app_closure(
         &self,
-        metas: &MetaEnv,
+        metas: &meta::Env<domain::RcValue>,
         closure: &domain::AppClosure,
         arg: domain::RcValue,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
@@ -159,7 +159,7 @@ impl Context {
     /// Evaluate a term using the evaluation environment
     pub fn eval_term(
         &self,
-        metas: &MetaEnv,
+        metas: &meta::Env<domain::RcValue>,
         span: impl Into<Option<FileSpan>>,
         term: &syntax::RcTerm,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
@@ -169,7 +169,7 @@ impl Context {
     /// Read a value back into the core syntax, normalizing as required.
     pub fn read_back_value(
         &self,
-        metas: &MetaEnv,
+        metas: &meta::Env<domain::RcValue>,
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -179,7 +179,7 @@ impl Context {
     /// Fully normalize a term by first evaluating it, then reading it back.
     pub fn normalize_term(
         &self,
-        metas: &MetaEnv,
+        metas: &meta::Env<domain::RcValue>,
         span: impl Into<Option<FileSpan>>,
         term: &syntax::RcTerm,
     ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -189,7 +189,7 @@ impl Context {
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn check_subtype(
         &self,
-        metas: &MetaEnv,
+        metas: &meta::Env<domain::RcValue>,
         span: FileSpan,
         ty1: &domain::RcType,
         ty2: &domain::RcType,
@@ -234,7 +234,7 @@ impl Default for Context {
 /// Returns the elaborated items.
 pub fn check_module(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     concrete_items: &[Item<'_>],
 ) -> Result<syntax::Module, Diagnostic<FileSpan>> {
     // The local elaboration context
@@ -265,7 +265,7 @@ fn concat_docs(doc_lines: &[SpannedString<'_>]) -> DocString {
 /// Returns the elaborated items.
 fn check_items(
     context: &mut Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     concrete_items: &[Item<'_>],
 ) -> Result<Vec<syntax::Item>, Diagnostic<FileSpan>> {
     // Declarations that may be waiting to be defined
@@ -421,7 +421,7 @@ fn check_arg_app_mode<'arg, 'file>(
 /// universe and its elaborated form.
 fn synth_universe(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     concrete_term: &Term<'_>,
 ) -> Result<(syntax::RcTerm, UniverseLevel), Diagnostic<FileSpan>> {
     let (term, ty) = synth_term(context, metas, concrete_term)?;
@@ -441,7 +441,7 @@ fn synth_universe(
 /// Returns the elaborated term.
 pub fn check_term(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     concrete_term: &Term<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -551,7 +551,7 @@ pub fn check_term(
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_term(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     concrete_term: &Term<'_>,
 ) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     use std::cmp;

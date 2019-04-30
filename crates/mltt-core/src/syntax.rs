@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::pretty::DisplayEnv;
-use crate::{AppMode, DocString, Label, MetaLevel, UniverseLevel, VarIndex};
+use crate::{AppMode, DocString, Label, meta, UniverseLevel, VarIndex};
 
 /// Top-level module.
 #[derive(Clone, PartialEq)]
@@ -58,7 +58,7 @@ impl RcTerm {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<MetaLevel>) -> RcTerm {
+    pub fn meta(level: impl Into<meta::Index>) -> RcTerm {
         RcTerm::from(Term::meta(level))
     }
 
@@ -124,7 +124,7 @@ pub enum Term {
     /// Variables
     Var(VarIndex),
     /// Metavariables
-    Meta(MetaLevel),
+    Meta(meta::Index),
     /// Primitives
     Prim(String),
 
@@ -169,7 +169,7 @@ impl Term {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<MetaLevel>) -> Term {
+    pub fn meta(level: impl Into<meta::Index>) -> Term {
         Term::Meta(level.into())
     }
 

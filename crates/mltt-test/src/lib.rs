@@ -27,7 +27,7 @@ macro_rules! run_test {
             });
             // FIXME: check lexer for errors
 
-            let mut metas = mltt_core::MetaEnv::new();
+            let mut metas = mltt_core::meta::Env::new();
             let context = mltt_elaborate::Context::default();
             let module = mltt_elaborate::check_module(&context, &mut metas, &module)
                 .unwrap_or_else(|diagnostic| {

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use super::literal::{LiteralIntro, LiteralType};
 use super::syntax;
-use super::{AppMode, Label, MetaLevel, UniverseLevel, VarIndex};
+use super::{AppMode, Label, meta, UniverseLevel, VarIndex};
 
 /// An environment that can assist in pretty printing terms with pretty names.
 pub struct DisplayEnv {
@@ -77,7 +77,7 @@ impl VarIndex {
     }
 }
 
-impl MetaLevel {
+impl meta::Index {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::as_string(format!("?{}", self.0))
     }
@@ -233,7 +233,7 @@ impl syntax::Term {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             syntax::Term::Var(var_index) => var_index.to_doc(),
-            syntax::Term::Meta(meta_level) => meta_level.to_doc(),
+            syntax::Term::Meta(meta_index) => meta_index.to_doc(),
             syntax::Term::Prim(name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
@@ -495,7 +495,7 @@ impl syntax::Term {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
-            syntax::Term::Meta(meta_level) => meta_level.to_doc(),
+            syntax::Term::Meta(meta_index) => meta_index.to_doc(),
             syntax::Term::Prim(name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())

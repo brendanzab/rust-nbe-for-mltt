@@ -3,7 +3,7 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
 use mltt_core::literal::LiteralIntro;
-use mltt_core::{domain, syntax, AppMode, DocString, Label, MetaEnv};
+use mltt_core::{domain, syntax, AppMode, DocString, Label, meta};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -43,7 +43,7 @@ impl<'file> Clause<'file> {
 /// Returns the elaborated term.
 pub fn check_clause(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     mut clause: Clause<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -96,7 +96,7 @@ impl<'file> CaseClause<'file> {
 /// elaborate them into a case tree.
 pub fn check_case<'file>(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     span: FileSpan,
     scrutinee: &Term<'file>,
     clauses: Vec<CaseClause<'file>>,
@@ -183,7 +183,7 @@ pub fn check_case<'file>(
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_clause(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     clause: Clause<'_>,
 ) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     if let Some(param) = clause.params.first() {
@@ -259,7 +259,7 @@ fn check_param_app_mode<'param, 'file>(
 /// elaborate it.
 fn check_clause_body(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     clause: &Clause<'_>,
     expected_body_ty: &domain::RcType,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -280,7 +280,7 @@ fn check_clause_body(
 /// Synthesize the type of the body of a clause, and elaborate it.
 fn synth_clause_body(
     context: &Context,
-    metas: &mut MetaEnv,
+    metas: &mut meta::Env<domain::RcValue>,
     clause: &Clause<'_>,
 ) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     match clause.body_ty {

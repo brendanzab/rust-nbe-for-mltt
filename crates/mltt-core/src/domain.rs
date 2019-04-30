@@ -6,7 +6,7 @@ use std::rc::Rc;
 use super::literal::{LiteralIntro, LiteralType};
 use crate::env::Env;
 use crate::syntax::RcTerm;
-use crate::{AppMode, DocString, Label, MetaLevel, UniverseLevel, VarLevel};
+use crate::{AppMode, DocString, Label, meta, UniverseLevel, VarLevel};
 
 /// Reference counted value.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +22,7 @@ impl RcValue {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<MetaLevel>) -> RcValue {
+    pub fn meta(level: impl Into<meta::Index>) -> RcValue {
         RcValue::from(Value::meta(level))
     }
 
@@ -111,7 +111,7 @@ impl Value {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<MetaLevel>) -> Value {
+    pub fn meta(level: impl Into<meta::Index>) -> Value {
         Value::Neutral(Head::Meta(level.into()), Vec::new())
     }
 
@@ -150,7 +150,7 @@ pub enum Head {
     /// Variables
     Var(VarLevel),
     /// Metavariables
-    Meta(MetaLevel),
+    Meta(meta::Index),
     /// Primitives
     Prim(String),
 }
