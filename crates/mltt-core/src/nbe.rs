@@ -7,10 +7,9 @@
 use std::rc::Rc;
 
 use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value};
-use crate::env::{Env, EnvSize};
 use crate::prim::PrimEnv;
 use crate::syntax::{Item, RcTerm, Term};
-use crate::{meta, AppMode, Label};
+use crate::{meta, var, AppMode, Label};
 
 /// Case split on a literal.
 pub fn eval_literal_elim(
@@ -105,11 +104,10 @@ pub fn app_closure(
 pub fn inst_closure(
     prims: &PrimEnv,
     metas: &meta::Env<RcValue>,
-    env_size: EnvSize,
+    env_size: var::Size,
     closure: &AppClosure,
 ) -> Result<RcValue, String> {
-    let arg = RcValue::var(env_size.next_var_level());
-    app_closure(prims, metas, closure, arg)
+    app_closure(prims, metas, closure, RcValue::var(env_size.next_level()))
 }
 
 /// Evaluate a term in the environment that corresponds to the context in which
@@ -117,7 +115,7 @@ pub fn inst_closure(
 pub fn eval_term(
     prims: &PrimEnv,
     metas: &meta::Env<RcValue>,
-    env: &Env<RcValue>,
+    env: &var::Env<RcValue>,
     term: &RcTerm,
 ) -> Result<RcValue, String> {
     match term.as_ref() {
@@ -218,7 +216,7 @@ pub fn eval_term(
 pub fn read_back_value(
     prims: &PrimEnv,
     metas: &meta::Env<RcValue>,
-    env_size: EnvSize,
+    env_size: var::Size,
     term: &RcValue,
 ) -> Result<RcTerm, String> {
     match term.as_ref() {
@@ -289,12 +287,12 @@ pub fn read_back_value(
 pub fn read_back_neutral(
     prims: &PrimEnv,
     metas: &meta::Env<RcValue>,
-    env_size: EnvSize,
+    env_size: var::Size,
     head: &Head,
     spine: &Spine,
 ) -> Result<RcTerm, String> {
     let (head, spine) = match head {
-        Head::Var(level) => (RcTerm::var(env_size.var_index(*level)), spine.as_slice()),
+        Head::Var(var_level) => (RcTerm::var(env_size.index(*var_level)), spine.as_slice()),
         Head::Meta(meta_index) => (RcTerm::meta(*meta_index), spine.as_slice()),
         Head::Prim(name) => {
             let prim = prims
@@ -342,7 +340,7 @@ pub fn read_back_neutral(
 pub fn normalize_term(
     prims: &PrimEnv,
     metas: &meta::Env<RcValue>,
-    env: &Env<RcValue>,
+    env: &var::Env<RcValue>,
     term: &RcTerm,
 ) -> Result<RcTerm, String> {
     let value = eval_term(prims, metas, env, term)?;
@@ -353,7 +351,7 @@ pub fn normalize_term(
 pub fn check_subtype(
     prims: &PrimEnv,
     metas: &meta::Env<RcValue>,
-    env_size: EnvSize,
+    env_size: var::Size,
     ty1: &RcType,
     ty2: &RcType,
 ) -> Result<bool, String> {

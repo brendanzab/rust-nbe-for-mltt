@@ -10,11 +10,9 @@ use std::fmt;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, RcType, RcValue, Value};
-use crate::env::Env;
-use crate::nbe;
 use crate::prim::PrimEnv;
 use crate::syntax::{Item, Module, RcTerm, Term};
-use crate::{meta, AppMode, Label, UniverseLevel, VarIndex};
+use crate::{meta, nbe, var, AppMode, Label, UniverseLevel};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]
@@ -22,9 +20,9 @@ pub struct Context {
     /// Primitive entries.
     prims: PrimEnv,
     /// Values to be used during evaluation.
-    values: Env<RcValue>,
+    values: var::Env<RcValue>,
     /// Types of the entries in the context.
-    tys: Env<RcType>,
+    tys: var::Env<RcType>,
 }
 
 impl Context {
@@ -32,8 +30,8 @@ impl Context {
     pub fn new() -> Context {
         Context {
             prims: PrimEnv::new(),
-            values: Env::new(),
-            tys: Env::new(),
+            values: var::Env::new(),
+            tys: var::Env::new(),
         }
     }
 
@@ -43,12 +41,12 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &Env<RcValue> {
+    pub fn values(&self) -> &var::Env<RcValue> {
         &self.values
     }
 
     /// Lookup the type of a variable in the context.
-    pub fn lookup_ty(&self, var_index: VarIndex) -> Option<&RcType> {
+    pub fn lookup_ty(&self, var_index: var::Index) -> Option<&RcType> {
         self.tys.lookup_entry(var_index)
     }
 
@@ -63,7 +61,7 @@ impl Context {
     /// the correct binder.
     pub fn add_param(&mut self, ty: RcType) -> RcValue {
         log::trace!("add parameter");
-        let value = RcValue::var(self.values.size().next_var_level());
+        let value = RcValue::var(self.values.size().next_level());
         self.values.add_entry(value.clone());
         self.tys.add_entry(ty);
         value
@@ -80,7 +78,11 @@ impl Context {
     }
 
     /// Evaluate a term using the evaluation environment.
-    pub fn eval_term(&self, metas: &meta::Env<RcValue>, term: &RcTerm) -> Result<RcValue, TypeError> {
+    pub fn eval_term(
+        &self,
+        metas: &meta::Env<RcValue>,
+        term: &RcTerm,
+    ) -> Result<RcValue, TypeError> {
         nbe::eval_term(self.prims(), metas, self.values(), term).map_err(TypeError::Nbe)
     }
 
@@ -139,7 +141,7 @@ pub enum TypeError {
     ExpectedUniverse { found: RcType },
     ExpectedSubtype(RcType, RcType),
     AmbiguousTerm(RcTerm),
-    UnboundVariable(VarIndex),
+    UnboundVariable(var::Index),
     UnboundMeta(meta::Index),
     UnsolvedMeta(meta::Index),
     UnknownPrim(String),
@@ -192,14 +194,22 @@ impl fmt::Display for TypeError {
 }
 
 /// Check that this is a valid module.
-pub fn check_module(context: &Context, metas: &meta::Env<RcValue>, module: &Module) -> Result<(), TypeError> {
+pub fn check_module(
+    context: &Context,
+    metas: &meta::Env<RcValue>,
+    module: &Module,
+) -> Result<(), TypeError> {
     let mut context = context.clone();
     check_items(&mut context, metas, &module.items)?;
     Ok(())
 }
 
 /// Check the given items and add them to the context.
-fn check_items(context: &mut Context, metas: &meta::Env<RcValue>, items: &[Item]) -> Result<(), TypeError> {
+fn check_items(
+    context: &mut Context,
+    metas: &meta::Env<RcValue>,
+    items: &[Item],
+) -> Result<(), TypeError> {
     // Declarations that may be waiting to be defined
     let mut forward_declarations = im::HashMap::new();
 
@@ -413,7 +423,11 @@ pub fn check_term(
 }
 
 /// Synthesize the type of the term.
-pub fn synth_term(context: &Context, metas: &meta::Env<RcValue>, term: &RcTerm) -> Result<RcType, TypeError> {
+pub fn synth_term(
+    context: &Context,
+    metas: &meta::Env<RcValue>,
+    term: &RcTerm,
+) -> Result<RcType, TypeError> {
     use std::cmp;
 
     log::trace!("synthesizing term:\t{}", term);
@@ -526,8 +540,6 @@ pub fn synth_term(context: &Context, metas: &meta::Env<RcValue>, term: &RcTerm) 
 mod test {
     use super::*;
 
-    use crate::{VarIndex, VarLevel};
-
     #[test]
     fn add_params() {
         let mut context = Context::new();
@@ -540,12 +552,12 @@ mod test {
         let param2 = context.add_param(ty2.clone());
         let param3 = context.add_param(ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(var::Level(0))));
+        assert_eq!(param2, RcValue::from(Value::var(var::Level(1))));
+        assert_eq!(param3, RcValue::from(Value::var(var::Level(2))));
 
-        assert_eq!(context.lookup_ty(VarIndex(2)).unwrap(), &ty1);
-        assert_eq!(context.lookup_ty(VarIndex(1)).unwrap(), &ty2);
-        assert_eq!(context.lookup_ty(VarIndex(0)).unwrap(), &ty3);
+        assert_eq!(context.lookup_ty(var::Index(2)).unwrap(), &ty1);
+        assert_eq!(context.lookup_ty(var::Index(1)).unwrap(), &ty2);
+        assert_eq!(context.lookup_ty(var::Index(0)).unwrap(), &ty3);
     }
 }

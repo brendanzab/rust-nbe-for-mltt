@@ -4,9 +4,8 @@ use std::ops;
 use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
-use crate::env::Env;
 use crate::syntax::RcTerm;
-use crate::{AppMode, DocString, Label, meta, UniverseLevel, VarLevel};
+use crate::{meta, var, AppMode, DocString, Label, UniverseLevel};
 
 /// Reference counted value.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +16,7 @@ pub struct RcValue {
 
 impl RcValue {
     /// Construct a variable.
-    pub fn var(level: impl Into<VarLevel>) -> RcValue {
+    pub fn var(level: impl Into<var::Level>) -> RcValue {
         RcValue::from(Value::var(level))
     }
 
@@ -106,7 +105,7 @@ pub enum Value {
 
 impl Value {
     /// Construct a variable.
-    pub fn var(level: impl Into<VarLevel>) -> Value {
+    pub fn var(level: impl Into<var::Level>) -> Value {
         Value::Neutral(Head::Var(level.into()), Vec::new())
     }
 
@@ -148,7 +147,7 @@ pub type RcType = RcValue;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Head {
     /// Variables
-    Var(VarLevel),
+    Var(var::Level),
     /// Metavariables
     Meta(meta::Index),
     /// Primitives
@@ -184,11 +183,11 @@ pub struct AppClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env<RcValue>,
+    pub env: var::Env<RcValue>,
 }
 
 impl AppClosure {
-    pub fn new(term: RcTerm, env: Env<RcValue>) -> AppClosure {
+    pub fn new(term: RcTerm, env: var::Env<RcValue>) -> AppClosure {
         AppClosure { term, env }
     }
 }
@@ -204,14 +203,14 @@ pub struct LiteralClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: Env<RcValue>,
+    pub env: var::Env<RcValue>,
 }
 
 impl LiteralClosure {
     pub fn new(
         clauses: Rc<[(LiteralIntro, RcTerm)]>,
         default: RcTerm,
-        env: Env<RcValue>,
+        env: var::Env<RcValue>,
     ) -> LiteralClosure {
         LiteralClosure {
             clauses,

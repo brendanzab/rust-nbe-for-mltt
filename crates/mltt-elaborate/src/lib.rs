@@ -12,11 +12,8 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
-use mltt_core::env::Env;
 use mltt_core::literal::{LiteralIntro, LiteralType};
-use mltt_core::{
-    meta, domain, syntax, AppMode, DocString, Label, UniverseLevel, VarIndex, VarLevel,
-};
+use mltt_core::{domain, meta, syntax, var, AppMode, DocString, Label, UniverseLevel};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -33,9 +30,9 @@ pub struct Context {
     /// Primitive entries.
     prims: nbe::PrimEnv,
     /// Values to be used during evaluation.
-    values: Env<domain::RcValue>,
+    values: var::Env<domain::RcValue>,
     /// Types of the entries in the context.
-    tys: Env<domain::RcType>,
+    tys: var::Env<domain::RcType>,
     /// A mapping from the user-defined names to the level in which they were
     /// bound.
     ///
@@ -43,11 +40,11 @@ pub struct Context {
     /// correct debruijn index once we reach a variable name in a nested scope.
     /// Not all entries in the context will have a corresponding name - for
     /// example we don't define a name for non-dependent function types.
-    names: im::HashMap<String, VarLevel>,
+    names: im::HashMap<String, var::Level>,
     /// Local bound levels.
     ///
     /// This is used for making spines for fresh metas.
-    bound_levels: im::Vector<VarLevel>,
+    bound_levels: im::Vector<var::Level>,
 }
 
 impl Context {
@@ -55,8 +52,8 @@ impl Context {
     pub fn new() -> Context {
         Context {
             prims: nbe::PrimEnv::new(),
-            values: Env::new(),
-            tys: Env::new(),
+            values: var::Env::new(),
+            tys: var::Env::new(),
             names: im::HashMap::new(),
             bound_levels: im::Vector::new(),
         }
@@ -68,7 +65,7 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &Env<domain::RcValue> {
+    pub fn values(&self) -> &var::Env<domain::RcValue> {
         &self.values
     }
 
@@ -90,7 +87,7 @@ impl Context {
         let name = name.into();
         log::trace!("add definition: {}", name);
 
-        let var_level = self.values.size().next_var_level();
+        let var_level = self.values.size().next_level();
         self.names.insert(name, var_level);
         self.values.add_entry(value);
         self.tys.add_entry(ty);
@@ -101,7 +98,7 @@ impl Context {
     pub fn add_fresh_param(&mut self, ty: domain::RcType) -> domain::RcValue {
         log::trace!("add fresh parameter");
 
-        let var_level = self.values.size().next_var_level();
+        let var_level = self.values.size().next_level();
         let value = domain::RcValue::var(var_level);
         self.values.add_entry(value.clone());
         self.tys.add_entry(ty);
@@ -114,7 +111,7 @@ impl Context {
         let name = name.into();
         log::trace!("add parameter: {}", name);
 
-        let var_level = self.values.size().next_var_level();
+        let var_level = self.values.size().next_level();
         self.names.insert(name, var_level);
         let value = domain::RcValue::var(var_level);
         self.values.add_entry(value.clone());
@@ -126,7 +123,7 @@ impl Context {
     /// bound vars.
     fn new_meta(&self, metas: &mut meta::Env<domain::RcValue>, span: FileSpan) -> syntax::RcTerm {
         let args = self.bound_levels.iter().map(|var_level| {
-            let var_index = self.values().size().var_index(*var_level);
+            let var_index = self.values().size().index(*var_level);
             syntax::RcTerm::var(var_index)
         });
 
@@ -138,9 +135,9 @@ impl Context {
 
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name.
-    pub fn lookup_binder(&self, name: &str) -> Option<(VarIndex, &domain::RcType)> {
+    pub fn lookup_binder(&self, name: &str) -> Option<(var::Index, &domain::RcType)> {
         let var_level = self.names.get(name)?;
-        let var_index = self.values().size().var_index(*var_level);
+        let var_index = self.values().size().index(*var_level);
         let ty = self.tys.lookup_entry(var_index)?;
         log::trace!("lookup binder: {} -> @{}", name, var_index.0);
         Some((var_index, ty))
@@ -817,9 +814,9 @@ mod test {
         let param2 = context.add_param("y", ty2.clone());
         let param3 = context.add_param("z", ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(var::Level(0))));
+        assert_eq!(param2, RcValue::from(Value::var(var::Level(1))));
+        assert_eq!(param3, RcValue::from(Value::var(var::Level(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
         assert_eq!(context.lookup_binder("y").unwrap().1, &ty2);
@@ -840,9 +837,9 @@ mod test {
         let param2 = context.add_param("x", ty2.clone());
         let param3 = context.add_param("x", ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(var::Level(0))));
+        assert_eq!(param2, RcValue::from(Value::var(var::Level(1))));
+        assert_eq!(param3, RcValue::from(Value::var(var::Level(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty3);
     }
@@ -861,9 +858,9 @@ mod test {
         let param2 = context.add_fresh_param(ty2.clone());
         let param3 = context.add_fresh_param(ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(VarLevel(0))));
-        assert_eq!(param2, RcValue::from(Value::var(VarLevel(1))));
-        assert_eq!(param3, RcValue::from(Value::var(VarLevel(2))));
+        assert_eq!(param1, RcValue::from(Value::var(var::Level(0))));
+        assert_eq!(param2, RcValue::from(Value::var(var::Level(1))));
+        assert_eq!(param3, RcValue::from(Value::var(var::Level(2))));
 
         assert_eq!(context.lookup_binder("x").unwrap().1, &ty1);
     }

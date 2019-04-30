@@ -3,7 +3,7 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
 use mltt_core::literal::LiteralIntro;
-use mltt_core::{domain, syntax, AppMode, DocString, Label, meta};
+use mltt_core::{domain, meta, syntax, AppMode, DocString, Label};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -114,7 +114,7 @@ pub fn check_case<'file>(
             let mut context = context.clone();
 
             let (checked_scrutinee, (param_level, param_ty)) = {
-                let scrutinee_level = context.values().size().next_var_level();
+                let scrutinee_level = context.values().size().next_level();
                 let (scrutinee_term, scrutinee_ty) = synth_term(&context, metas, scrutinee)?;
                 let scrutinee_value =
                     context.eval_term(metas, scrutinee.span(), &scrutinee_term)?;
@@ -168,7 +168,7 @@ pub fn check_case<'file>(
             };
 
             let body = syntax::RcTerm::from(syntax::Term::LiteralElim(
-                syntax::RcTerm::var(context.values().size().var_index(param_level)),
+                syntax::RcTerm::var(context.values().size().index(param_level)),
                 Rc::from(literal_branches),
                 default_body,
             ));

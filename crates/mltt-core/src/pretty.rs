@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use super::literal::{LiteralIntro, LiteralType};
 use super::syntax;
-use super::{AppMode, Label, meta, UniverseLevel, VarIndex};
+use super::{meta, var, AppMode, Label, UniverseLevel};
 
 /// An environment that can assist in pretty printing terms with pretty names.
 pub struct DisplayEnv {
@@ -46,7 +46,7 @@ impl DisplayEnv {
         }
     }
 
-    fn lookup_name(&self, index: VarIndex) -> Cow<'_, str> {
+    fn lookup_name(&self, index: var::Index) -> Cow<'_, str> {
         match self
             .names
             .len()
@@ -71,7 +71,7 @@ impl DisplayEnv {
     }
 }
 
-impl VarIndex {
+impl var::Index {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         Doc::as_string(format!("@{}", self.0))
     }
