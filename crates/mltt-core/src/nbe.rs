@@ -424,12 +424,8 @@ pub fn inst_closure(
     closure: &AppClosure,
     env_size: EnvSize,
 ) -> Result<RcValue, NbeError> {
-    app_closure(
-        prims,
-        metas,
-        closure,
-        RcValue::var(env_size.next_var_level()),
-    )
+    let arg = RcValue::var(env_size.next_var_level());
+    app_closure(prims, metas, closure, arg)
 }
 
 /// Evaluate a term in the environment that corresponds to the context in which
