@@ -127,14 +127,14 @@ pub fn eval_term(
             Some((_, meta::Solution::Unsolved)) => Ok(RcValue::meta(*meta_level)),
             None => Err("eval: metavariable not found".to_owned()),
         },
-        Term::Prim(name) => {
+        Term::Prim(prim_name) => {
             let prim = prims
-                .lookup_entry(name)
-                .ok_or_else(|| format!("eval: primitive not found: {:?}", name))?;
+                .lookup_entry(prim_name)
+                .ok_or_else(|| format!("eval: primitive not found: {:?}", prim_name.0))?;
 
             match prim.interpret(&[]) {
                 Some(result) => Ok(result?.0),
-                None => Ok(RcValue::prim(name.clone())),
+                None => Ok(RcValue::prim(prim_name.clone())),
             }
         },
 

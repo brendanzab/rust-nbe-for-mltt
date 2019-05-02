@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops;
 
 /// An environment of entries that can be looked up based on a debruijn index.
@@ -104,6 +105,12 @@ impl ops::Add<u32> for Level {
     }
 }
 
+impl std::fmt::Display for Level {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "%{}", self.0)
+    }
+}
+
 /// De Bruijn index.
 ///
 /// This counts the number of binders we encounter when running up the syntax
@@ -131,5 +138,11 @@ impl ops::Add<u32> for Index {
     fn add(mut self, other: u32) -> Index {
         self += other;
         self
+    }
+}
+
+impl std::fmt::Display for Index {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "@{}", self.0)
     }
 }

@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::syntax::RcTerm;
-use crate::{meta, var, AppMode, DocString, Label, UniverseLevel};
+use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 
 /// Reference counted value.
 #[derive(Debug, Clone, PartialEq)]
@@ -21,12 +21,12 @@ impl RcValue {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<meta::Index>) -> RcValue {
-        RcValue::from(Value::meta(level))
+    pub fn meta(index: impl Into<meta::Index>) -> RcValue {
+        RcValue::from(Value::meta(index))
     }
 
     /// Construct a primitive.
-    pub fn prim(name: String) -> RcValue {
+    pub fn prim(name: impl Into<prim::Name>) -> RcValue {
         RcValue::from(Value::prim(name))
     }
 
@@ -110,13 +110,13 @@ impl Value {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<meta::Index>) -> Value {
-        Value::Neutral(Head::Meta(level.into()), Vec::new())
+    pub fn meta(index: impl Into<meta::Index>) -> Value {
+        Value::Neutral(Head::Meta(index.into()), Vec::new())
     }
 
     /// Construct a primitive.
-    pub fn prim(name: String) -> Value {
-        Value::Neutral(Head::Prim(name), Vec::new())
+    pub fn prim(name: impl Into<prim::Name>) -> Value {
+        Value::Neutral(Head::Prim(name.into()), Vec::new())
     }
 
     /// Construct a literal type.
@@ -151,7 +151,7 @@ pub enum Head {
     /// Metavariables
     Meta(meta::Index),
     /// Primitives
-    Prim(String),
+    Prim(prim::Name),
 }
 
 /// A spine of eliminators.

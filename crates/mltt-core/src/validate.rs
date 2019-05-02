@@ -143,7 +143,7 @@ pub enum TypeError {
     UnboundVariable(var::Index),
     UnboundMeta(meta::Index),
     UnsolvedMeta(meta::Index),
-    UnknownPrim(String),
+    UnknownPrim(prim::Name),
     BadLiteralPatterns(Vec<LiteralIntro>),
     NoFieldInType(Label),
     UnexpectedField { found: Label, expected: Label },
@@ -165,10 +165,10 @@ impl fmt::Display for TypeError {
             TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
             TypeError::ExpectedSubtype(..) => write!(f, "not a subtype"),
             TypeError::AmbiguousTerm(..) => write!(f, "could not infer the type"),
-            TypeError::UnboundVariable(index) => write!(f, "unbound variable: @{}", index.0),
-            TypeError::UnboundMeta(level) => write!(f, "unbound metavariable: `?{}`", level.0),
-            TypeError::UnsolvedMeta(level) => write!(f, "unsolved metavariable `?{}`", level.0),
-            TypeError::UnknownPrim(name) => write!(f, "unbound primitive: {:?}", name),
+            TypeError::UnboundVariable(index) => write!(f, "unbound variable: {}", index),
+            TypeError::UnboundMeta(level) => write!(f, "unbound metavariable: `{}`", level),
+            TypeError::UnsolvedMeta(level) => write!(f, "unsolved metavariable `{}`", level),
+            TypeError::UnknownPrim(name) => write!(f, "unbound primitive: {}", name),
             TypeError::BadLiteralPatterns(literal_intros) => write!(
                 f,
                 "literal patterns are not sorted properly: {}",
@@ -331,8 +331,8 @@ pub fn check_term(
     log::trace!("checking term:\t\t{}", term);
 
     match term.as_ref() {
-        Term::Prim(name) => match context.prims().lookup_entry(name) {
-            None => Err(TypeError::UnknownPrim(name.clone())),
+        Term::Prim(prim_name) => match context.prims().lookup_entry(prim_name) {
+            None => Err(TypeError::UnknownPrim(prim_name.clone())),
             Some(_) => Ok(()),
         },
         Term::Let(items, body) => {
@@ -441,8 +441,8 @@ pub fn synth_term(
             Some((_, meta::Solution::Unsolved)) => Err(TypeError::UnsolvedMeta(*meta_index)),
             None => Err(TypeError::UnboundMeta(*meta_index)),
         },
-        Term::Prim(name) => match context.prims().lookup_entry(name) {
-            None => Err(TypeError::UnknownPrim(name.clone())),
+        Term::Prim(prim_name) => match context.prims().lookup_entry(prim_name) {
+            None => Err(TypeError::UnknownPrim(prim_name.clone())),
             Some(_) => Err(TypeError::AmbiguousTerm(term.clone())),
         },
 

@@ -1,4 +1,5 @@
 use mltt_span::FileSpan;
+use std::fmt;
 
 /// Metavariable index.
 ///
@@ -7,6 +8,12 @@ use mltt_span::FileSpan;
 /// 'holes' in the concrete syntax, to support type-directed editing.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Index(pub u32);
+
+impl std::fmt::Display for Index {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "?{}", self.0)
+    }
+}
 
 impl From<u32> for Index {
     fn from(src: u32) -> Index {

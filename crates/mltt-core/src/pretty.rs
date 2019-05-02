@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use super::literal::{LiteralIntro, LiteralType};
 use super::syntax;
-use super::{meta, var, AppMode, Label, UniverseLevel};
+use super::{meta, prim, var, AppMode, Label, UniverseLevel};
 
 /// An environment that can assist in pretty printing terms with pretty names.
 pub struct DisplayEnv {
@@ -73,13 +73,19 @@ impl DisplayEnv {
 
 impl var::Index {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(format!("@{}", self.0))
+        Doc::as_string(self)
     }
 }
 
 impl meta::Index {
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
-        Doc::as_string(format!("?{}", self.0))
+        Doc::as_string(self)
+    }
+}
+
+impl prim::Name {
+    pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+        Doc::as_string(self)
     }
 }
 
@@ -234,10 +240,10 @@ impl syntax::Term {
         match self {
             syntax::Term::Var(var_index) => var_index.to_doc(),
             syntax::Term::Meta(meta_index) => meta_index.to_doc(),
-            syntax::Term::Prim(name) => Doc::nil()
+            syntax::Term::Prim(prim_name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
-                .append(format!("{:?}", name)),
+                .append(prim_name.to_doc()),
 
             syntax::Term::Ann(term, term_ty) => Doc::nil()
                 .append(term.to_debug_doc())
@@ -496,10 +502,10 @@ impl syntax::Term {
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
             syntax::Term::Meta(meta_index) => meta_index.to_doc(),
-            syntax::Term::Prim(name) => Doc::nil()
+            syntax::Term::Prim(prim_name) => Doc::nil()
                 .append("primitive")
                 .append(Doc::space())
-                .append(format!("{:?}", name)),
+                .append(prim_name.to_doc()),
 
             syntax::Term::Ann(term, term_ty) => Doc::nil()
                 .append(term.to_display_doc(env))

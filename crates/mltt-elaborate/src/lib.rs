@@ -139,7 +139,7 @@ impl Context {
         let var_level = self.names.get(name)?;
         let var_index = self.values().size().index(*var_level);
         let ty = self.tys.lookup_entry(var_index)?;
-        log::trace!("lookup binder: {} -> @{}", name, var_index.0);
+        log::trace!("lookup binder: {} -> {}", name, var_index);
         Some((var_index, ty))
     }
 
@@ -446,11 +446,11 @@ pub fn check_term(
 
     match concrete_term {
         Term::Prim(_, name) => {
-            let parsed_name = literal::parse_string(name)?;
-            match context.prims().lookup_entry(&parsed_name) {
+            let prim_name = prim::Name(literal::parse_string(name)?);
+            match context.prims().lookup_entry(&prim_name) {
                 None => Err(Diagnostic::new_error("unknown primitive")
                     .with_label(DiagnosticLabel::new_primary(name.span()))),
-                Some(_) => Ok(syntax::RcTerm::prim(parsed_name)),
+                Some(_) => Ok(syntax::RcTerm::prim(prim_name)),
             }
         },
         Term::Hole(span) => Ok(context.new_meta(metas, *span)),
@@ -561,7 +561,9 @@ pub fn synth_term(
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
             Some((index, ann)) => Ok((syntax::RcTerm::var(index), ann.clone())),
         },
-        Term::Prim(span, name) => match context.prims().lookup_entry(&literal::parse_string(name)?)
+        Term::Prim(span, name) => match context
+            .prims()
+            .lookup_entry(&prim::Name(literal::parse_string(name)?))
         {
             None => Err(Diagnostic::new_error("unknown primitive")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),

@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::pretty::DisplayEnv;
-use crate::{meta, var, AppMode, DocString, Label, UniverseLevel};
+use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 
 /// Top-level module.
 #[derive(Clone, PartialEq)]
@@ -58,13 +58,13 @@ impl RcTerm {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<meta::Index>) -> RcTerm {
-        RcTerm::from(Term::meta(level))
+    pub fn meta(index: impl Into<meta::Index>) -> RcTerm {
+        RcTerm::from(Term::meta(index))
     }
 
     /// Construct a primitive.
-    pub fn prim(name: impl Into<String>) -> RcTerm {
-        RcTerm::from(Term::prim(name.into()))
+    pub fn prim(name: impl Into<prim::Name>) -> RcTerm {
+        RcTerm::from(Term::prim(name))
     }
 
     /// Construct a literal type.
@@ -126,7 +126,7 @@ pub enum Term {
     /// Metavariables
     Meta(meta::Index),
     /// Primitives
-    Prim(String),
+    Prim(prim::Name),
 
     /// A term that is explicitly annotated with a type
     Ann(RcTerm, RcTerm),
@@ -169,12 +169,12 @@ impl Term {
     }
 
     /// Construct a metavariable.
-    pub fn meta(level: impl Into<meta::Index>) -> Term {
-        Term::Meta(level.into())
+    pub fn meta(index: impl Into<meta::Index>) -> Term {
+        Term::Meta(index.into())
     }
 
     /// Construct a primitive.
-    pub fn prim(name: impl Into<String>) -> Term {
+    pub fn prim(name: impl Into<prim::Name>) -> Term {
         Term::Prim(name.into())
     }
 
