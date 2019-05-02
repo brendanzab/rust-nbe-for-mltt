@@ -13,7 +13,7 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
 use mltt_core::literal::{LiteralIntro, LiteralType};
-use mltt_core::{domain, meta, syntax, var, AppMode, DocString, Label, UniverseLevel};
+use mltt_core::{domain, meta, prim, syntax, var, AppMode, DocString, Label, UniverseLevel};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -28,7 +28,7 @@ mod nbe;
 #[derive(Debug, Clone)]
 pub struct Context {
     /// Primitive entries.
-    prims: nbe::PrimEnv,
+    prims: prim::Env,
     /// Values to be used during evaluation.
     values: var::Env<domain::RcValue>,
     /// Types of the entries in the context.
@@ -51,7 +51,7 @@ impl Context {
     /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
-            prims: nbe::PrimEnv::new(),
+            prims: prim::Env::new(),
             values: var::Env::new(),
             tys: var::Env::new(),
             names: im::HashMap::new(),
@@ -60,7 +60,7 @@ impl Context {
     }
 
     /// Primitive entries.
-    pub fn prims(&self) -> &nbe::PrimEnv {
+    pub fn prims(&self) -> &prim::Env {
         &self.prims
     }
 
@@ -220,7 +220,7 @@ impl Default for Context {
         context.add_defn("F32", RcValue::literal_ty(LitType::F32), u0.clone());
         context.add_defn("F64", RcValue::literal_ty(LitType::F64), u0.clone());
 
-        context.prims = nbe::PrimEnv::default();
+        context.prims = prim::Env::default();
 
         context
     }

@@ -1,13 +1,11 @@
 //! Wrappers around the core NBE functions that return diagnostics on errors.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_core::{domain, meta, nbe, syntax, var};
+use mltt_core::{domain, meta, nbe, prim, syntax, var};
 use mltt_span::FileSpan;
 
-pub use mltt_core::prim::PrimEnv;
-
 pub fn app_closure(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<domain::RcValue>,
     closure: &domain::AppClosure,
     arg: domain::RcValue,
@@ -17,7 +15,7 @@ pub fn app_closure(
 }
 
 pub fn eval_term(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<domain::RcValue>,
     values: &var::Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
@@ -31,7 +29,7 @@ pub fn eval_term(
 }
 
 pub fn read_back_value(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<domain::RcValue>,
     env_size: var::Size,
     span: impl Into<Option<FileSpan>>,
@@ -45,7 +43,7 @@ pub fn read_back_value(
 }
 
 pub fn normalize_term(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<domain::RcValue>,
     values: &var::Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
@@ -59,7 +57,7 @@ pub fn normalize_term(
 }
 
 pub fn check_subtype(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<domain::RcValue>,
     env_size: var::Size,
     span: FileSpan,

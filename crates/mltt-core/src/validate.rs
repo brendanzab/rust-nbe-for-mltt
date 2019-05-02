@@ -10,15 +10,14 @@ use std::fmt;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, RcType, RcValue, Value};
-use crate::prim::PrimEnv;
 use crate::syntax::{Item, Module, RcTerm, Term};
-use crate::{meta, nbe, var, AppMode, Label, UniverseLevel};
+use crate::{meta, nbe, prim, var, AppMode, Label, UniverseLevel};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]
 pub struct Context {
     /// Primitive entries.
-    prims: PrimEnv,
+    prims: prim::Env,
     /// Values to be used during evaluation.
     values: var::Env<RcValue>,
     /// Types of the entries in the context.
@@ -29,14 +28,14 @@ impl Context {
     /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
-            prims: PrimEnv::new(),
+            prims: prim::Env::new(),
             values: var::Env::new(),
             tys: var::Env::new(),
         }
     }
 
     /// Primitive entries.
-    pub fn prims(&self) -> &PrimEnv {
+    pub fn prims(&self) -> &prim::Env {
         &self.prims
     }
 
@@ -125,7 +124,7 @@ impl Default for Context {
         context.add_defn(RcValue::literal_ty(LiteralType::F32), u0.clone());
         context.add_defn(RcValue::literal_ty(LiteralType::F64), u0.clone());
 
-        context.prims = PrimEnv::default();
+        context.prims = prim::Env::default();
 
         context
     }

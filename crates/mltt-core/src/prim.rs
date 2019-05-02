@@ -6,7 +6,7 @@ use crate::domain::{Elim, RcValue, Value};
 
 /// An entry in the primitive environment.
 #[derive(Clone)]
-pub struct PrimEntry {
+pub struct Entry {
     /// The number of arguments that this primitive accepts before it reduces.
     // TODO: change to `Vec<Strictness>`?
     pub arity: u32,
@@ -20,7 +20,7 @@ pub struct PrimEntry {
     pub interpretation: fn(Vec<RcValue>) -> Option<Result<RcValue, String>>,
 }
 
-impl PrimEntry {
+impl Entry {
     /// Interpret a primitive if there are enough function eliminators provided
     /// in the spine. `None` is returned if evaluation is stuck.
     ///
@@ -52,9 +52,9 @@ impl PrimEntry {
     }
 }
 
-impl fmt::Debug for PrimEntry {
+impl fmt::Debug for Entry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PrimEntry")
+        f.debug_struct("Entry")
             .field("arity", &self.arity)
             .field("interpretation", &"|args| { .. }")
             .finish()
@@ -63,25 +63,25 @@ impl fmt::Debug for PrimEntry {
 
 /// An environment of primitives to use during normalization.
 #[derive(Debug, Clone)]
-pub struct PrimEnv {
-    entries: im::HashMap<String, PrimEntry>,
+pub struct Env {
+    entries: im::HashMap<String, Entry>,
 }
 
-impl PrimEnv {
+impl Env {
     /// Construct a new, empty environment.
-    pub fn new() -> PrimEnv {
-        PrimEnv {
+    pub fn new() -> Env {
+        Env {
             entries: im::HashMap::new(),
         }
     }
 
     /// Lookup an entry in the environment.
-    pub fn lookup_entry(&self, name: &str) -> Option<&PrimEntry> {
+    pub fn lookup_entry(&self, name: &str) -> Option<&Entry> {
         self.entries.get(name)
     }
 
     /// Add a new entry to the environment.
-    pub fn add_entry(&mut self, name: String, entry: PrimEntry) {
+    pub fn add_entry(&mut self, name: String, entry: Entry) {
         self.entries.insert(name, entry);
     }
 }
@@ -117,8 +117,8 @@ impl_try_from_value_literal!(i64, S64);
 impl_try_from_value_literal!(f32, F32);
 impl_try_from_value_literal!(f64, F64);
 
-impl Default for PrimEnv {
-    fn default() -> PrimEnv {
+impl Default for Env {
+    fn default() -> Env {
         macro_rules! count {
             () => (0);
             ($x:tt $($xs:tt)*) => (1 + count!($($xs)*));
@@ -126,7 +126,7 @@ impl Default for PrimEnv {
 
         macro_rules! prim {
             (|$($param_name:ident : $PType:ty),*| $body:expr) => {
-                PrimEntry {
+                Entry {
                     arity: count!($($param_name)*),
                     interpretation: {
                         fn interpretation(params: Vec<RcValue>) -> Option<Result<RcValue, String>> {
@@ -144,7 +144,7 @@ impl Default for PrimEnv {
             };
         }
 
-        PrimEnv {
+        Env {
             entries: im::hashmap! {
                 "abort".to_owned() => prim!(|message: Rc<str>| Err(message.to_string())),
 

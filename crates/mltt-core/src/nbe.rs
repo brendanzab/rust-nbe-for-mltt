@@ -7,13 +7,12 @@
 use std::rc::Rc;
 
 use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value};
-use crate::prim::PrimEnv;
 use crate::syntax::{Item, RcTerm, Term};
-use crate::{meta, var, AppMode, Label};
+use crate::{meta, prim, var, AppMode, Label};
 
 /// Case split on a literal.
 pub fn eval_literal_elim(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     scrutinee: RcValue,
     closure: LiteralClosure,
@@ -61,7 +60,7 @@ pub fn eval_record_elim(record: RcValue, label: &Label) -> Result<RcValue, Strin
 
 /// Apply a function to an argument.
 pub fn eval_fun_elim(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     fun: RcValue,
     app_mode: &AppMode,
@@ -90,7 +89,7 @@ pub fn eval_fun_elim(
 
 /// Apply a closure to an argument.
 pub fn app_closure(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     closure: &AppClosure,
     arg: RcValue,
@@ -102,7 +101,7 @@ pub fn app_closure(
 
 /// Instantiate a closure in an environment of the given size.
 pub fn inst_closure(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     env_size: var::Size,
     closure: &AppClosure,
@@ -113,7 +112,7 @@ pub fn inst_closure(
 /// Evaluate a term in the environment that corresponds to the context in which
 /// the term was typed.
 pub fn eval_term(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     env: &var::Env<RcValue>,
     term: &RcTerm,
@@ -214,7 +213,7 @@ pub fn eval_term(
 
 /// Read a value back into the core syntax, normalizing as required.
 pub fn read_back_value(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     env_size: var::Size,
     term: &RcValue,
@@ -285,7 +284,7 @@ pub fn read_back_value(
 
 /// Read a neutral value back into the core syntax, normalizing as required.
 pub fn read_back_neutral(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     env_size: var::Size,
     head: &Head,
@@ -338,7 +337,7 @@ pub fn read_back_neutral(
 
 /// Fully normalize a term by first evaluating it, then reading it back.
 pub fn normalize_term(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     env: &var::Env<RcValue>,
     term: &RcTerm,
@@ -349,7 +348,7 @@ pub fn normalize_term(
 
 /// Check whether a semantic type is a subtype of another.
 pub fn check_subtype(
-    prims: &PrimEnv,
+    prims: &prim::Env,
     metas: &meta::Env<RcValue>,
     env_size: var::Size,
     ty1: &RcType,
