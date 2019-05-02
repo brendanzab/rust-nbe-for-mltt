@@ -11,6 +11,7 @@ pub mod domain;
 pub mod env;
 pub mod literal;
 pub mod pretty;
+pub mod prim;
 pub mod syntax;
 
 pub mod nbe;

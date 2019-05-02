@@ -12,6 +12,7 @@ use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, RcType, RcValue, Value};
 use crate::env::Env;
 use crate::nbe;
+use crate::prim::PrimEnv;
 use crate::syntax::{Item, Module, RcTerm, Term};
 use crate::{AppMode, Label, MetaEnv, MetaLevel, MetaSolution, UniverseLevel, VarIndex};
 
@@ -19,7 +20,7 @@ use crate::{AppMode, Label, MetaEnv, MetaLevel, MetaSolution, UniverseLevel, Var
 #[derive(Debug, Clone)]
 pub struct Context {
     /// Primitive entries.
-    prims: nbe::PrimEnv,
+    prims: PrimEnv,
     /// Values to be used during evaluation.
     values: Env<RcValue>,
     /// Types of the entries in the context.
@@ -30,14 +31,14 @@ impl Context {
     /// Create a new, empty context.
     pub fn new() -> Context {
         Context {
-            prims: nbe::PrimEnv::new(),
+            prims: PrimEnv::new(),
             values: Env::new(),
             tys: Env::new(),
         }
     }
 
     /// Primitive entries.
-    pub fn prims(&self) -> &nbe::PrimEnv {
+    pub fn prims(&self) -> &PrimEnv {
         &self.prims
     }
 
@@ -122,7 +123,7 @@ impl Default for Context {
         context.add_defn(RcValue::literal_ty(LiteralType::F32), u0.clone());
         context.add_defn(RcValue::literal_ty(LiteralType::F64), u0.clone());
 
-        context.prims = nbe::PrimEnv::default();
+        context.prims = PrimEnv::default();
 
         context
     }

@@ -6,10 +6,10 @@ use mltt_core::nbe;
 use mltt_core::{domain, syntax, MetaEnv};
 use mltt_span::FileSpan;
 
-pub use mltt_core::nbe::PrimEnv;
+pub use mltt_core::prim::PrimEnv;
 
 pub fn app_closure(
-    prims: &nbe::PrimEnv,
+    prims: &PrimEnv,
     metas: &MetaEnv,
     closure: &domain::AppClosure,
     arg: domain::RcValue,
@@ -19,7 +19,7 @@ pub fn app_closure(
 }
 
 pub fn eval_term(
-    prims: &nbe::PrimEnv,
+    prims: &PrimEnv,
     metas: &MetaEnv,
     values: &Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
@@ -33,7 +33,7 @@ pub fn eval_term(
 }
 
 pub fn read_back_value(
-    prims: &nbe::PrimEnv,
+    prims: &PrimEnv,
     metas: &MetaEnv,
     env_size: EnvSize,
     span: impl Into<Option<FileSpan>>,
@@ -47,7 +47,7 @@ pub fn read_back_value(
 }
 
 pub fn normalize_term(
-    prims: &nbe::PrimEnv,
+    prims: &PrimEnv,
     metas: &MetaEnv,
     values: &Env<domain::RcValue>,
     span: impl Into<Option<FileSpan>>,
@@ -61,7 +61,7 @@ pub fn normalize_term(
 }
 
 pub fn check_subtype(
-    prims: &nbe::PrimEnv,
+    prims: &PrimEnv,
     metas: &MetaEnv,
     env_size: EnvSize,
     span: FileSpan,
