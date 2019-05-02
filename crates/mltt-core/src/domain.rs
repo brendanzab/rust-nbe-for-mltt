@@ -183,12 +183,12 @@ pub struct AppClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: var::Env<RcValue>,
+    pub values: var::Env<RcValue>,
 }
 
 impl AppClosure {
-    pub fn new(term: RcTerm, env: var::Env<RcValue>) -> AppClosure {
-        AppClosure { term, env }
+    pub fn new(term: RcTerm, values: var::Env<RcValue>) -> AppClosure {
+        AppClosure { term, values }
     }
 }
 
@@ -203,19 +203,19 @@ pub struct LiteralClosure {
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub env: var::Env<RcValue>,
+    pub values: var::Env<RcValue>,
 }
 
 impl LiteralClosure {
     pub fn new(
         clauses: Rc<[(LiteralIntro, RcTerm)]>,
         default: RcTerm,
-        env: var::Env<RcValue>,
+        values: var::Env<RcValue>,
     ) -> LiteralClosure {
         LiteralClosure {
             clauses,
             default,
-            env,
+            values,
         }
     }
 }
