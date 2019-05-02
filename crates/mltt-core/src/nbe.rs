@@ -13,7 +13,7 @@ use crate::syntax::{Item, RcTerm, Term};
 use crate::{AppMode, Label, MetaEnv, MetaSolution};
 
 /// Case split on a literal.
-pub fn do_literal_elim(
+pub fn eval_literal_elim(
     prims: &PrimEnv,
     metas: &MetaEnv,
     scrutinee: RcValue,
@@ -36,17 +36,17 @@ pub fn do_literal_elim(
             spine.push(Elim::Literal(closure));
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
-        _ => Err("do_literal_elim: not a literal".to_owned()),
+        _ => Err("eval_literal_elim: not a literal".to_owned()),
     }
 }
 
 /// Return the field in from a record.
-pub fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, String> {
+pub fn eval_record_elim(record: RcValue, label: &Label) -> Result<RcValue, String> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
             Some((_, term)) => Ok(term.clone()),
             None => Err(format!(
-                "do_record_elim: field `{}` not found in record",
+                "eval_record_elim: field `{}` not found in record",
                 label.0,
             )),
         },
@@ -56,12 +56,12 @@ pub fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, String>
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
-        _ => Err("do_record_elim: not a record".to_owned()),
+        _ => Err("eval_record_elim: not a record".to_owned()),
     }
 }
 
 /// Apply a function to an argument.
-pub fn do_fun_elim(
+pub fn eval_fun_elim(
     prims: &PrimEnv,
     metas: &MetaEnv,
     fun: RcValue,
@@ -74,7 +74,7 @@ pub fn do_fun_elim(
                 app_closure(prims, metas, body, arg)
             } else {
                 Err(format!(
-                    "do_ap: unexpected application mode - {:?} != {:?}",
+                    "eval_ap: unexpected application mode - {:?} != {:?}",
                     fun_app_mode, app_mode,
                 ))
             }
@@ -85,7 +85,7 @@ pub fn do_fun_elim(
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
-        _ => Err("do_ap: not a function".to_owned()),
+        _ => Err("eval_ap: not a function".to_owned()),
     }
 }
 
@@ -101,12 +101,12 @@ pub fn app_closure(
     eval_term(prims, metas, &env, &closure.term)
 }
 
-/// Instantiate a closure at the given level.
+/// Instantiate a closure in an environment of the given size.
 pub fn inst_closure(
     prims: &PrimEnv,
     metas: &MetaEnv,
-    closure: &AppClosure,
     env_size: EnvSize,
+    closure: &AppClosure,
 ) -> Result<RcValue, String> {
     let arg = RcValue::var(env_size.next_var_level());
     app_closure(prims, metas, closure, arg)
@@ -159,7 +159,7 @@ pub fn eval_term(
             let scrutinee = eval_term(prims, metas, env, scrutinee)?;
             let closure = LiteralClosure::new(clauses.clone(), default_body.clone(), env.clone());
 
-            do_literal_elim(prims, metas, scrutinee, closure)
+            eval_literal_elim(prims, metas, scrutinee, closure)
         },
 
         // Functions
@@ -180,7 +180,7 @@ pub fn eval_term(
             let fun = eval_term(prims, metas, env, fun)?;
             let arg = eval_term(prims, metas, env, arg)?;
 
-            do_fun_elim(prims, metas, fun, app_mode, arg)
+            eval_fun_elim(prims, metas, fun, app_mode, arg)
         },
 
         // Records
@@ -206,7 +206,7 @@ pub fn eval_term(
             Ok(RcValue::from(Value::RecordIntro(fields)))
         },
         Term::RecordElim(record, label) => {
-            do_record_elim(eval_term(prims, metas, env, record)?, label)
+            eval_record_elim(eval_term(prims, metas, env, record)?, label)
         },
 
         // Universes
@@ -231,7 +231,7 @@ pub fn read_back_value(
         // Functions
         Value::FunType(app_mode, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
-            let body_ty = inst_closure(prims, metas, body_ty, env_size)?;
+            let body_ty = inst_closure(prims, metas, env_size, body_ty)?;
             let param_ty = read_back_value(prims, metas, env_size, param_ty)?;
             let body_ty = read_back_value(prims, metas, env_size + 1, &body_ty)?;
 
@@ -239,7 +239,7 @@ pub fn read_back_value(
         },
         Value::FunIntro(app_mode, body) => {
             let app_mode = app_mode.clone();
-            let body = inst_closure(prims, metas, body, env_size)?;
+            let body = inst_closure(prims, metas, env_size, body)?;
             let body = read_back_value(prims, metas, env_size + 1, &body)?;
 
             Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
@@ -251,7 +251,7 @@ pub fn read_back_value(
 
             let term_ty = read_back_value(prims, metas, env_size, term_ty)?;
 
-            let mut rest_ty = inst_closure(prims, metas, rest_ty, env_size)?;
+            let mut rest_ty = inst_closure(prims, metas, env_size, rest_ty)?;
             let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
 
             while let Value::RecordTypeExtend(next_doc, next_label, next_term_ty, next_rest_ty) =
@@ -260,7 +260,7 @@ pub fn read_back_value(
                 env_size += 1;
                 let next_term_ty = read_back_value(prims, metas, env_size, next_term_ty)?;
                 field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
-                rest_ty = inst_closure(prims, metas, next_rest_ty, env_size)?;
+                rest_ty = inst_closure(prims, metas, env_size, next_rest_ty)?;
             }
 
             Ok(RcTerm::from(Term::RecordType(field_tys)))
@@ -373,8 +373,8 @@ pub fn check_subtype(
         ) if app_mode1 == app_mode2 => Ok(check_subtype(
             prims, metas, env_size, param_ty2, param_ty1,
         )? && {
-            let body_ty1 = inst_closure(prims, metas, body_ty1, env_size)?;
-            let body_ty2 = inst_closure(prims, metas, body_ty2, env_size)?;
+            let body_ty1 = inst_closure(prims, metas, env_size, body_ty1)?;
+            let body_ty2 = inst_closure(prims, metas, env_size, body_ty2)?;
             check_subtype(prims, metas, env_size + 1, &body_ty1, &body_ty2)?
         }),
         (
@@ -382,8 +382,8 @@ pub fn check_subtype(
             Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
         ) if label1 == label2 => Ok(check_subtype(prims, metas, env_size, term_ty1, term_ty2)?
             && {
-                let rest_ty1 = inst_closure(prims, metas, rest_ty1, env_size)?;
-                let rest_ty2 = inst_closure(prims, metas, rest_ty2, env_size)?;
+                let rest_ty1 = inst_closure(prims, metas, env_size, rest_ty1)?;
+                let rest_ty2 = inst_closure(prims, metas, env_size, rest_ty2)?;
                 check_subtype(prims, metas, env_size + 1, &rest_ty1, &rest_ty2)?
             }),
         (Value::RecordTypeEmpty, Value::RecordTypeEmpty) => Ok(true),
