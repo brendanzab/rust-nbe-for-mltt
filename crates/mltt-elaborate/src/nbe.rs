@@ -28,7 +28,7 @@ pub fn eval_term(
     nbe::eval_term(prims, metas, values, term).map_err(|error| match span.into() {
         None => Diagnostic::new_bug(format!("failed to evaluate term: {}", error)),
         Some(span) => Diagnostic::new_bug("failed to evaluate term")
-            .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
+            .with_label(DiagnosticLabel::new_primary(span).with_message(error)),
     })
 }
 
@@ -42,7 +42,7 @@ pub fn read_back_value(
     nbe::read_back_value(prims, metas, env_size, value).map_err(|error| match span.into() {
         None => Diagnostic::new_bug(format!("failed to read-back value: {}", error)),
         Some(span) => Diagnostic::new_bug("failed to read-back value")
-            .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
+            .with_label(DiagnosticLabel::new_primary(span).with_message(error)),
     })
 }
 
@@ -56,7 +56,7 @@ pub fn normalize_term(
     nbe::normalize_term(prims, metas, values, term).map_err(|error| match span.into() {
         None => Diagnostic::new_bug(format!("failed to normalize term: {}", error)),
         Some(span) => Diagnostic::new_bug("failed to normalize term")
-            .with_label(DiagnosticLabel::new_primary(span).with_message(error.message)),
+            .with_label(DiagnosticLabel::new_primary(span).with_message(error)),
     })
 }
 

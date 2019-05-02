@@ -11,7 +11,7 @@ use std::fmt;
 use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, RcType, RcValue, Value};
 use crate::env::Env;
-use crate::nbe::{self, NbeError};
+use crate::nbe;
 use crate::syntax::{Item, Module, RcTerm, Term};
 use crate::{AppMode, Label, MetaEnv, MetaLevel, MetaSolution, UniverseLevel, VarIndex};
 
@@ -74,13 +74,13 @@ impl Context {
         metas: &MetaEnv,
         closure: &AppClosure,
         arg: RcValue,
-    ) -> Result<RcValue, NbeError> {
-        nbe::app_closure(self.prims(), metas, closure, arg)
+    ) -> Result<RcValue, TypeError> {
+        nbe::app_closure(self.prims(), metas, closure, arg).map_err(TypeError::Nbe)
     }
 
     /// Evaluate a term using the evaluation environment.
-    pub fn eval_term(&self, metas: &MetaEnv, term: &RcTerm) -> Result<RcValue, NbeError> {
-        nbe::eval_term(self.prims(), metas, self.values(), term)
+    pub fn eval_term(&self, metas: &MetaEnv, term: &RcTerm) -> Result<RcValue, TypeError> {
+        nbe::eval_term(self.prims(), metas, self.values(), term).map_err(TypeError::Nbe)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
@@ -90,7 +90,9 @@ impl Context {
         ty1: &RcType,
         ty2: &RcType,
     ) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.prims(), metas, self.values().size(), ty1, ty2)? {
+        if nbe::check_subtype(self.prims(), metas, self.values().size(), ty1, ty2)
+            .map_err(TypeError::Nbe)?
+        {
             Ok(())
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))
@@ -146,23 +148,10 @@ pub enum TypeError {
     UnexpectedAppMode { found: AppMode, expected: AppMode },
     TooManyFieldsFound,
     NotEnoughFieldsProvided,
-    Nbe(NbeError),
+    Nbe(String),
 }
 
-impl From<NbeError> for TypeError {
-    fn from(src: NbeError) -> TypeError {
-        TypeError::Nbe(src)
-    }
-}
-
-impl Error for TypeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            TypeError::Nbe(error) => Some(error),
-            _ => None,
-        }
-    }
-}
+impl Error for TypeError {}
 
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

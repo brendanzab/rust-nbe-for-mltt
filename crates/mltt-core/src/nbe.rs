@@ -4,7 +4,6 @@
 //! evaluation to `Value`s in weak-head-normal-form, and then reading it back
 //! `Normal` terms.
 
-use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 
@@ -13,31 +12,6 @@ use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spi
 use crate::env::{Env, EnvSize};
 use crate::syntax::{Item, RcTerm, Term};
 use crate::{AppMode, Label, MetaEnv, MetaSolution};
-
-/// An error produced during normalization.
-///
-/// If a term has been successfully type checked prior to evaluation or
-/// normalization, then this error should never be produced.
-#[derive(Debug, Clone, PartialEq)]
-pub struct NbeError {
-    pub message: String,
-}
-
-impl NbeError {
-    pub fn new(message: impl Into<String>) -> NbeError {
-        NbeError {
-            message: message.into(),
-        }
-    }
-}
-
-impl Error for NbeError {}
-
-impl fmt::Display for NbeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "failed to normalize: {}", self.message)
-    }
-}
 
 /// An entry in the primitive environment.
 #[derive(Clone)]
@@ -52,7 +26,7 @@ pub struct PrimEntry {
     /// - `Some(Ok(_))`: if the primitive returned a value
     /// - `Some(Err(_))`: if the primitive resulted in an evaluation error
     /// - `None`: if the primitive is stuck on an argument
-    pub interpretation: fn(Vec<RcValue>) -> Option<Result<RcValue, NbeError>>,
+    pub interpretation: fn(Vec<RcValue>) -> Option<Result<RcValue, String>>,
 }
 
 impl PrimEntry {
@@ -65,7 +39,7 @@ impl PrimEntry {
     pub fn interpret<'spine>(
         &self,
         spine: &'spine [Elim],
-    ) -> Option<Result<(RcValue, &'spine [Elim]), NbeError>> {
+    ) -> Option<Result<(RcValue, &'spine [Elim]), String>> {
         // Prevent `split_at` from panicking if we don't have enough eliminators
         // in the spine.
         if spine.len() < self.arity as usize {
@@ -78,7 +52,7 @@ impl PrimEntry {
         for arg_elim in arg_spine {
             match arg_elim {
                 Elim::Fun(_, arg) => args.push(arg.clone()),
-                Elim::Literal(_) | Elim::Record(_) => return None, // Return NbeError?
+                Elim::Literal(_) | Elim::Record(_) => return None, // Return String?
             }
         }
 
@@ -164,7 +138,7 @@ impl Default for PrimEnv {
                 PrimEntry {
                     arity: count!($($param_name)*),
                     interpretation: {
-                        fn interpretation(params: Vec<RcValue>) -> Option<Result<RcValue, NbeError>> {
+                        fn interpretation(params: Vec<RcValue>) -> Option<Result<RcValue, String>> {
                             match params.as_slice() {
                                 [$(ref $param_name),*] => {
                                     $(let $param_name = <$PType>::try_from_value($param_name)?;)*
@@ -181,7 +155,7 @@ impl Default for PrimEnv {
 
         PrimEnv {
             entries: im::hashmap! {
-                "abort".to_owned() => prim!(|message: Rc<str>| Err(NbeError::new(message.to_string()))),
+                "abort".to_owned() => prim!(|message: Rc<str>| Err(message.to_string())),
 
                 "string-eq".to_owned() => prim!(|lhs: Rc<str>, rhs: Rc<str>| Ok(RcValue::literal_intro(lhs == rhs))),
                 "char-eq".to_owned() => prim!(|lhs: char, rhs: char| Ok(RcValue::literal_intro(lhs == rhs))),
@@ -334,7 +308,7 @@ pub fn do_literal_elim(
     metas: &MetaEnv,
     scrutinee: RcValue,
     closure: LiteralClosure,
-) -> Result<RcValue, NbeError> {
+) -> Result<RcValue, String> {
     match scrutinee.as_ref() {
         Value::LiteralIntro(literal_intro) => {
             let index = closure.clauses.binary_search_by(|(l, _)| {
@@ -352,19 +326,19 @@ pub fn do_literal_elim(
             spine.push(Elim::Literal(closure));
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
-        _ => Err(NbeError::new("do_literal_elim: not a literal")),
+        _ => Err("do_literal_elim: not a literal".to_owned()),
     }
 }
 
 /// Return the field in from a record.
-pub fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeError> {
+pub fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, String> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
             Some((_, term)) => Ok(term.clone()),
-            None => Err(NbeError::new(format!(
+            None => Err(format!(
                 "do_record_elim: field `{}` not found in record",
                 label.0,
-            ))),
+            )),
         },
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
@@ -372,7 +346,7 @@ pub fn do_record_elim(record: RcValue, label: &Label) -> Result<RcValue, NbeErro
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
-        _ => Err(NbeError::new("do_record_elim: not a record")),
+        _ => Err("do_record_elim: not a record".to_owned()),
     }
 }
 
@@ -383,16 +357,16 @@ pub fn do_fun_elim(
     fun: RcValue,
     app_mode: &AppMode,
     arg: RcValue,
-) -> Result<RcValue, NbeError> {
+) -> Result<RcValue, String> {
     match fun.as_ref() {
         Value::FunIntro(fun_app_mode, body) => {
             if fun_app_mode == app_mode {
                 app_closure(prims, metas, body, arg)
             } else {
-                Err(NbeError::new(format!(
+                Err(format!(
                     "do_ap: unexpected application mode - {:?} != {:?}",
                     fun_app_mode, app_mode,
-                )))
+                ))
             }
         },
         Value::Neutral(head, spine) => {
@@ -401,7 +375,7 @@ pub fn do_fun_elim(
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
             Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
         },
-        _ => Err(NbeError::new("do_ap: not a function")),
+        _ => Err("do_ap: not a function".to_owned()),
     }
 }
 
@@ -411,7 +385,7 @@ pub fn app_closure(
     metas: &MetaEnv,
     closure: &AppClosure,
     arg: RcValue,
-) -> Result<RcValue, NbeError> {
+) -> Result<RcValue, String> {
     let mut env = closure.env.clone();
     env.add_entry(arg);
     eval_term(prims, metas, &env, &closure.term)
@@ -423,7 +397,7 @@ pub fn inst_closure(
     metas: &MetaEnv,
     closure: &AppClosure,
     env_size: EnvSize,
-) -> Result<RcValue, NbeError> {
+) -> Result<RcValue, String> {
     let arg = RcValue::var(env_size.next_var_level());
     app_closure(prims, metas, closure, arg)
 }
@@ -435,21 +409,21 @@ pub fn eval_term(
     metas: &MetaEnv,
     env: &Env<RcValue>,
     term: &RcTerm,
-) -> Result<RcValue, NbeError> {
+) -> Result<RcValue, String> {
     match term.as_ref() {
         Term::Var(var_index) => match env.lookup_entry(*var_index) {
             Some(value) => Ok(value.clone()),
-            None => Err(NbeError::new("eval: variable not found")),
+            None => Err("eval: variable not found".to_owned()),
         },
         Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
             Some((_, MetaSolution::Solved(value))) => Ok(value.clone()),
             Some((_, MetaSolution::Unsolved)) => Ok(RcValue::meta(*meta_level)),
-            None => Err(NbeError::new("eval: metavariable not found")),
+            None => Err("eval: metavariable not found".to_owned()),
         },
         Term::Prim(name) => {
             let prim = prims
                 .lookup_entry(name)
-                .ok_or_else(|| NbeError::new(format!("eval: primitive not found: {:?}", name)))?;
+                .ok_or_else(|| format!("eval: primitive not found: {:?}", name))?;
 
             match prim.interpret(&[]) {
                 Some(result) => Ok(result?.0),
@@ -517,7 +491,7 @@ pub fn eval_term(
             let fields = fields
                 .iter()
                 .map(|(label, term)| Ok((label.clone(), eval_term(prims, metas, env, term)?)))
-                .collect::<Result<_, _>>()?;
+                .collect::<Result<_, String>>()?;
 
             Ok(RcValue::from(Value::RecordIntro(fields)))
         },
@@ -536,7 +510,7 @@ pub fn read_back_value(
     metas: &MetaEnv,
     env_size: EnvSize,
     term: &RcValue,
-) -> Result<RcTerm, NbeError> {
+) -> Result<RcTerm, String> {
     match term.as_ref() {
         Value::Neutral(head, spine) => read_back_neutral(prims, metas, env_size, head, spine),
 
@@ -591,7 +565,7 @@ pub fn read_back_value(
                         read_back_value(prims, metas, env_size, term)?,
                     ))
                 })
-                .collect::<Result<_, _>>()?;
+                .collect::<Result<_, String>>()?;
 
             Ok(RcTerm::from(Term::RecordIntro(fields)))
         },
@@ -608,14 +582,14 @@ pub fn read_back_neutral(
     env_size: EnvSize,
     head: &Head,
     spine: &Spine,
-) -> Result<RcTerm, NbeError> {
+) -> Result<RcTerm, String> {
     let (head, spine) = match head {
         Head::Var(level) => (RcTerm::var(env_size.var_index(*level)), spine.as_slice()),
         Head::Meta(meta_level) => (RcTerm::meta(*meta_level), spine.as_slice()),
         Head::Prim(name) => {
             let prim = prims
                 .lookup_entry(name)
-                .ok_or_else(|| NbeError::new(format!("eval: primitive not found: {:?}", name)))?;
+                .ok_or_else(|| format!("eval: primitive not found: {:?}", name))?;
 
             match prim.interpret(spine) {
                 Some(result) => {
@@ -638,7 +612,7 @@ pub fn read_back_neutral(
                         let body = read_back_value(prims, metas, env_size, &body)?;
                         Ok((literal_intro.clone(), body))
                     })
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect::<Result<Vec<_>, String>>()?,
             );
             let default_body = eval_term(prims, metas, &closure.env, &closure.default)?;
             let default_body = read_back_value(prims, metas, env_size, &default_body)?;
@@ -660,7 +634,7 @@ pub fn normalize_term(
     metas: &MetaEnv,
     env: &Env<RcValue>,
     term: &RcTerm,
-) -> Result<RcTerm, NbeError> {
+) -> Result<RcTerm, String> {
     let value = eval_term(prims, metas, env, term)?;
     read_back_value(prims, metas, env.size(), &value)
 }
@@ -672,7 +646,7 @@ pub fn check_subtype(
     env_size: EnvSize,
     ty1: &RcType,
     ty2: &RcType,
-) -> Result<bool, NbeError> {
+) -> Result<bool, String> {
     match (ty1.as_ref(), ty2.as_ref()) {
         (Value::Neutral(head1, spine1), Value::Neutral(head2, spine2)) => {
             let term1 = read_back_neutral(prims, metas, env_size, head1, spine1)?;
