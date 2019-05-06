@@ -48,6 +48,14 @@ impl<Source: Copy> Span<Source> {
         Span::new(self.source(), self.start(), end)
     }
 
+    pub fn start_span(&self) -> Span<Source> {
+        self.with_end(self.start())
+    }
+
+    pub fn end_span(&self) -> Span<Source> {
+        self.with_start(self.end())
+    }
+
     pub fn source(&self) -> Source {
         self.source
     }

@@ -43,7 +43,7 @@ impl<'file> Clause<'file> {
 /// Returns the elaborated term.
 pub fn check_clause(
     context: &Context,
-    metas: &mut meta::Env<domain::RcValue>,
+    metas: &mut meta::Env,
     mut clause: Clause<'_>,
     expected_ty: &domain::RcType,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -96,7 +96,7 @@ impl<'file> CaseClause<'file> {
 /// elaborate them into a case tree.
 pub fn check_case<'file>(
     context: &Context,
-    metas: &mut meta::Env<domain::RcValue>,
+    metas: &mut meta::Env,
     span: FileSpan,
     scrutinee: &Term<'file>,
     clauses: Vec<CaseClause<'file>>,
@@ -183,7 +183,7 @@ pub fn check_case<'file>(
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_clause(
     context: &Context,
-    metas: &mut meta::Env<domain::RcValue>,
+    metas: &mut meta::Env,
     clause: Clause<'_>,
 ) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     if let Some(param) = clause.params.first() {
@@ -259,7 +259,7 @@ fn check_param_app_mode<'param, 'file>(
 /// elaborate it.
 fn check_clause_body(
     context: &Context,
-    metas: &mut meta::Env<domain::RcValue>,
+    metas: &mut meta::Env,
     clause: &Clause<'_>,
     expected_body_ty: &domain::RcType,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
@@ -271,7 +271,7 @@ fn check_clause_body(
             let body_ty = context.eval_term(metas, body_ty_span, &body_ty)?;
             let body = check_term(&context, metas, clause.body, &body_ty)?;
             // TODO: Ensure that this is respecting variance correctly!
-            context.check_subtype(metas, clause.body.span(), &body_ty, &expected_body_ty)?;
+            context.unify_values(metas, clause.body.span(), &body_ty, &expected_body_ty)?;
             Ok(body)
         },
     }
@@ -280,7 +280,7 @@ fn check_clause_body(
 /// Synthesize the type of the body of a clause, and elaborate it.
 fn synth_clause_body(
     context: &Context,
-    metas: &mut meta::Env<domain::RcValue>,
+    metas: &mut meta::Env,
     clause: &Clause<'_>,
 ) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     match clause.body_ty {

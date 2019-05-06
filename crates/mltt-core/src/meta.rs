@@ -1,6 +1,8 @@
 use mltt_span::FileSpan;
 use std::fmt;
 
+use crate::domain;
+
 /// Metavariable index.
 ///
 /// These are used as placeholders for undetermined terms that we will need to
@@ -23,44 +25,44 @@ impl From<u32> for Index {
 
 /// An entry in the metavariable environment.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Solution<Solved> {
+pub enum Solution {
     Unsolved,
-    Solved(Solved),
+    Solved(domain::RcValue),
 }
 
 /// An environment of solved and unsolved metavariables.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Env<Solved> {
+pub struct Env {
     /// The solutions.
-    solutions: Vec<(FileSpan, Solution<Solved>)>,
+    solutions: Vec<(FileSpan, Solution, domain::RcType)>,
 }
 
-impl<Solved> Env<Solved> {
+impl Env {
     /// Create a new, empty environment.
-    pub fn new() -> Env<Solved> {
+    pub fn new() -> Env {
         Env {
             solutions: Vec::new(),
         }
     }
 
     /// Lookup a the solution for a metavariable in the environment.
-    pub fn lookup_solution(&self, index: Index) -> Option<&(FileSpan, Solution<Solved>)> {
+    pub fn lookup_solution(&self, index: Index) -> Option<&(FileSpan, Solution, domain::RcType)> {
         self.solutions.get(index.0 as usize)
     }
 
     /// Add a solution to the given metavariable index.
-    pub fn add_solved(&mut self, index: Index, solved: Solved) {
+    pub fn add_solved(&mut self, index: Index, solved: domain::RcValue) {
         match self.solutions.get_mut(index.0 as usize) {
-            Some((_, solution @ Solution::Unsolved)) => *solution = Solution::Solved(solved),
-            Some((_, Solution::Solved(_))) => unimplemented!("updating solved solution"),
+            Some((_, solution @ Solution::Unsolved, _)) => *solution = Solution::Solved(solved),
+            Some((_, Solution::Solved(_), _)) => unimplemented!("updating solved solution"),
             None => unimplemented!("no corresponding solution"),
         }
     }
 
     /// Create a fresh metavariable index.
-    pub fn add_unsolved(&mut self, span: FileSpan) -> Index {
+    pub fn add_unsolved(&mut self, span: FileSpan, ty: domain::RcType) -> Index {
         let index = Index(self.solutions.len() as u32);
-        self.solutions.push((span, Solution::Unsolved));
+        self.solutions.push((span, Solution::Unsolved, ty));
         index
     }
 }

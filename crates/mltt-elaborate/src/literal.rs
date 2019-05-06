@@ -21,7 +21,7 @@ use super::Context;
 /// Check the type of a literal in a context.
 pub fn check(
     context: &Context,
-    metas: &meta::Env<domain::RcValue>,
+    metas: &meta::Env,
     kind: LiteralKind,
     src: &SpannedString<'_>,
     expected_ty: &domain::RcType,

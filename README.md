@@ -37,8 +37,8 @@ DeBruijn levels in the syntax of the semantic domain.
 - [ ] Pattern matching elaboration
 - [x] Dependent record types
 - [x] Primitive operations
-- [ ] Add eta rules to normalizer
-- [ ] Metavariable solving
+- [x] Add eta rules to elaborator
+- [x] Metavariable solving
 - [ ] Integration tests
   - [ ] Parse (pass)
   - [ ] Parse (fail)

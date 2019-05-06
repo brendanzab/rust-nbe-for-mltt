@@ -247,6 +247,16 @@ impl<'file> Arg<'file> {
             Arg::Implicit(span, _, _) | Arg::Instance(span, _, _) => *span,
         }
     }
+
+    pub fn desugar_arg_term(&self) -> Cow<'_, Term<'file>> {
+        match self {
+            Arg::Explicit(term) => Cow::Borrowed(term),
+            Arg::Implicit(_, label, term) | Arg::Instance(_, label, term) => match term {
+                None => Cow::Owned(Term::Var(label.clone())),
+                Some(term) => Cow::Borrowed(term),
+            },
+        }
+    }
 }
 
 impl<'file> fmt::Display for Arg<'file> {

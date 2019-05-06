@@ -72,7 +72,7 @@ impl Context {
     /// Apply a closure to an argument.
     pub fn app_closure(
         &self,
-        metas: &meta::Env<RcValue>,
+        metas: &meta::Env,
         closure: &AppClosure,
         arg: RcValue,
     ) -> Result<RcValue, TypeError> {
@@ -80,18 +80,14 @@ impl Context {
     }
 
     /// Evaluate a term using the evaluation environment.
-    pub fn eval_term(
-        &self,
-        metas: &meta::Env<RcValue>,
-        term: &RcTerm,
-    ) -> Result<RcValue, TypeError> {
+    pub fn eval_term(&self, metas: &meta::Env, term: &RcTerm) -> Result<RcValue, TypeError> {
         nbe::eval_term(self.prims(), metas, self.values(), term).map_err(TypeError::Nbe)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
     pub fn check_subtype(
         &self,
-        metas: &meta::Env<RcValue>,
+        metas: &meta::Env,
         ty1: &RcType,
         ty2: &RcType,
     ) -> Result<(), TypeError> {
@@ -170,7 +166,7 @@ impl fmt::Display for TypeError {
 /// Check that this is a valid module.
 pub fn check_module(
     context: &Context,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     module: &Module,
 ) -> Result<(), TypeError> {
     let mut context = context.clone();
@@ -179,11 +175,7 @@ pub fn check_module(
 }
 
 /// Check the given items and add them to the context.
-fn check_items(
-    context: &mut Context,
-    metas: &meta::Env<RcValue>,
-    items: &[Item],
-) -> Result<(), TypeError> {
+fn check_items(context: &mut Context, metas: &meta::Env, items: &[Item]) -> Result<(), TypeError> {
     // Declarations that may be waiting to be defined
     let mut forward_declarations = im::HashMap::new();
 
@@ -192,7 +184,7 @@ fn check_items(
 
         match item {
             Item::Declaration(_, label, term_ty) => {
-                log::trace!("checking declaration:\t\t{}\t= {}", label, term_ty);
+                log::trace!("checking declaration:\t{}\t= {}", label, term_ty);
 
                 match forward_declarations.entry(&label.0) {
                     // No previous declaration for this name was seen, so we can
@@ -214,7 +206,7 @@ fn check_items(
                 log::trace!("validated declaration:\t{}", label);
             },
             Item::Definition(_, label, term) => {
-                log::trace!("checking definition:\t\t{}\t= {}", label, term);
+                log::trace!("checking definition:\t{}\t= {}", label, term);
 
                 let (term, ty) = match forward_declarations.entry(&label.0) {
                     // No prior declaration was found, so we'll try synthesizing
@@ -257,7 +249,7 @@ fn check_items(
 /// Check that a literal conforms to a given type.
 pub fn check_literal(
     context: &Context,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     literal_intro: &LiteralIntro,
     expected_ty: &RcType,
 ) -> Result<(), TypeError> {
@@ -286,7 +278,7 @@ pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
 /// Ensures that the given term is a universe, returning the level of that universe.
 pub fn synth_universe(
     context: &Context,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     term: &RcTerm,
 ) -> Result<UniverseLevel, TypeError> {
     let ty = synth_term(context, metas, term)?;
@@ -299,7 +291,7 @@ pub fn synth_universe(
 /// Check that a term conforms to a given type.
 pub fn check_term(
     context: &Context,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     term: &RcTerm,
     expected_ty: &RcType,
 ) -> Result<(), TypeError> {
@@ -399,7 +391,7 @@ pub fn check_term(
 /// Synthesize the type of the term.
 pub fn synth_term(
     context: &Context,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     term: &RcTerm,
 ) -> Result<RcType, TypeError> {
     use std::cmp;
@@ -411,10 +403,10 @@ pub fn synth_term(
             None => Err(TypeError::UnboundVariable(*var_index)),
             Some(ann) => Ok(ann.clone()),
         },
-        Term::Meta(meta_index) => match metas.lookup_solution(*meta_index) {
-            Some((_, meta::Solution::Solved(_value))) => unimplemented!("synth solved metas"), // FIXME: Type?
-            Some((_, meta::Solution::Unsolved)) => Err(TypeError::UnsolvedMeta(*meta_index)),
-            None => Err(TypeError::UnboundMeta(*meta_index)),
+        Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
+            Some((_, meta::Solution::Solved(_value), meta_ty)) => Ok(meta_ty.clone()),
+            Some((_, meta::Solution::Unsolved, _)) => Err(TypeError::UnsolvedMeta(*meta_level)),
+            None => Err(TypeError::UnboundMeta(*meta_level)),
         },
         Term::Prim(prim_name) => match context.prims().lookup_entry(prim_name) {
             None => Err(TypeError::UnknownPrim(prim_name.clone())),

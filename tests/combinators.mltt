@@ -16,6 +16,9 @@ id a = a;
 test-id : Unit;
 test-id = id {A = Unit} unit;
 
+test-id-holes : Unit;
+test-id-holes = id {A = ?} unit;
+
 
 ||| Creates a function that always returns the same value.
 |||
@@ -28,6 +31,9 @@ const a =
 
 test-const : Unit;
 test-const = const {A = Unit} {B = Unit -> Unit} unit (id {A = Unit});
+
+test-const-holes : Unit;
+test-const-holes = const {A = ?} {B = ?} unit (id {A = Unit}); -- FIXME: `id {A = ?}`?
 
 
 ||| Dependent substitution.
@@ -89,3 +95,6 @@ flip {A} {B} {C} f =
 
 test-flip : (Unit -> Unit) -> Unit -> Unit;
 test-flip = flip {A = Unit} {B = Unit -> Unit} {C = Unit} (const {A = Unit} {B = Unit -> Unit});
+
+test-flip-holes : (Unit -> Unit) -> Unit -> Unit;
+test-flip-holes = flip {A = ?} {B = ?} {C = ?} (const {A = ?} {B = ?});

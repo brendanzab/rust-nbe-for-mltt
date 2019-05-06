@@ -10,10 +10,24 @@ use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spi
 use crate::syntax::{Item, RcTerm, Term};
 use crate::{meta, prim, var, AppMode, Label};
 
+/// Evaluate an eliminator.
+pub fn eval_elim(
+    prims: &prim::Env,
+    metas: &meta::Env,
+    head: RcValue,
+    elim: &Elim,
+) -> Result<RcValue, String> {
+    match elim {
+        Elim::Literal(closure) => eval_literal_elim(prims, metas, head, closure.clone()),
+        Elim::Fun(app_mode, arg) => eval_fun_elim(prims, metas, head, app_mode, arg.clone()),
+        Elim::Record(label) => eval_record_elim(head, label),
+    }
+}
+
 /// Case split on a literal.
 pub fn eval_literal_elim(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     scrutinee: RcValue,
     closure: LiteralClosure,
 ) -> Result<RcValue, String> {
@@ -61,7 +75,7 @@ pub fn eval_record_elim(record: RcValue, label: &Label) -> Result<RcValue, Strin
 /// Apply a function to an argument.
 pub fn eval_fun_elim(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     fun: RcValue,
     app_mode: &AppMode,
     arg: RcValue,
@@ -90,7 +104,7 @@ pub fn eval_fun_elim(
 /// Apply a closure to an argument.
 pub fn app_closure(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     closure: &AppClosure,
     arg: RcValue,
 ) -> Result<RcValue, String> {
@@ -102,7 +116,7 @@ pub fn app_closure(
 /// Instantiate a closure in an environment of the given size.
 pub fn inst_closure(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     size: var::Size,
     closure: &AppClosure,
 ) -> Result<RcValue, String> {
@@ -113,7 +127,7 @@ pub fn inst_closure(
 /// the term was typed.
 pub fn eval_term(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     values: &var::Env<RcValue>,
     term: &RcTerm,
 ) -> Result<RcValue, String> {
@@ -123,8 +137,8 @@ pub fn eval_term(
             None => Err("eval: variable not found".to_owned()),
         },
         Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
-            Some((_, meta::Solution::Solved(value))) => Ok(value.clone()),
-            Some((_, meta::Solution::Unsolved)) => Ok(RcValue::meta(*meta_level)),
+            Some((_, meta::Solution::Solved(value), _)) => Ok(value.clone()),
+            Some((_, meta::Solution::Unsolved, _)) => Ok(RcValue::meta(*meta_level)),
             None => Err("eval: metavariable not found".to_owned()),
         },
         Term::Prim(prim_name) => {
@@ -215,7 +229,7 @@ pub fn eval_term(
 /// Read a value back into the core syntax, normalizing as required.
 pub fn read_back_value(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     size: var::Size,
     term: &RcValue,
 ) -> Result<RcTerm, String> {
@@ -283,7 +297,7 @@ pub fn read_back_value(
 /// Read a neutral value back into the core syntax, normalizing as required.
 pub fn read_back_neutral(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     size: var::Size,
     head: &Head,
     spine: &Spine,
@@ -336,7 +350,7 @@ pub fn read_back_neutral(
 /// Fully normalize a term by first evaluating it, then reading it back.
 pub fn normalize_term(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     values: &var::Env<RcValue>,
     term: &RcTerm,
 ) -> Result<RcTerm, String> {
@@ -344,15 +358,39 @@ pub fn normalize_term(
     read_back_value(prims, metas, values.size(), &value)
 }
 
+/// Evaluate a value further, if it's now possible due to updates made to the
+/// metavariable solutions.
+pub fn force_value(
+    prims: &prim::Env,
+    metas: &meta::Env,
+    value: &RcValue,
+) -> Result<RcValue, String> {
+    match value.as_ref() {
+        Value::Neutral(Head::Meta(meta_level), spine) => match metas.lookup_solution(*meta_level) {
+            Some((_, meta::Solution::Solved(value), _)) => {
+                let value = spine.iter().fold(Ok(value.clone()), |head, elim| {
+                    eval_elim(prims, metas, head?, elim)
+                })?;
+                force_value(prims, metas, &value)
+            },
+            Some((_, meta::Solution::Unsolved, _)) | None => Ok(value.clone()),
+        },
+        _ => Ok(value.clone()),
+    }
+}
+
 /// Check whether a semantic type is a subtype of another.
 pub fn check_subtype(
     prims: &prim::Env,
-    metas: &meta::Env<RcValue>,
+    metas: &meta::Env,
     size: var::Size,
     ty1: &RcType,
     ty2: &RcType,
 ) -> Result<bool, String> {
-    match (ty1.as_ref(), ty2.as_ref()) {
+    match (
+        force_value(prims, metas, ty1)?.as_ref(),
+        force_value(prims, metas, ty2)?.as_ref(),
+    ) {
         (Value::Neutral(head1, spine1), Value::Neutral(head2, spine2)) => {
             let term1 = read_back_neutral(prims, metas, size, head1, spine1)?;
             let term2 = read_back_neutral(prims, metas, size, head2, spine2)?;

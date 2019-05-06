@@ -71,7 +71,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 /// Read and evaluate the given file.
 fn read_eval(
     context: &mltt_elaborate::Context,
-    metas: &mut mltt_core::meta::Env<mltt_core::domain::RcValue>,
+    metas: &mut mltt_core::meta::Env,
     file: &File,
 ) -> Result<(mltt_core::syntax::RcTerm, mltt_core::syntax::RcTerm), Diagnostic<FileSpan>> {
     let lexer = Lexer::new(&file);
