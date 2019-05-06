@@ -1,10 +1,12 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
+use language_reporting::Diagnostic;
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
-use mltt_span::Files;
+use mltt_span::{File, FileSpan, Files};
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
 use std::error::Error;
+use std::io::Write;
 use std::path::PathBuf;
 
 /// The MLTT REPL/interactive mode.
@@ -18,8 +20,9 @@ pub struct Options {
     pub prompt: String,
 }
 
-/// Run the REPL with the given options/
+/// Run the REPL with the given options.
 pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
+    let mut writer = StandardStream::stdout(ColorChoice::Always);
     let mut editor = {
         let config = Config::builder()
             .history_ignore_space(true)
@@ -34,48 +37,23 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     }
 
     let mut files = Files::new();
-    let mut metas = mltt_core::meta::Env::new();
     let context = mltt_elaborate::Context::default();
-
-    let writer = StandardStream::stdout(ColorChoice::Always);
+    let mut metas = mltt_core::meta::Env::new();
 
     loop {
-        let line = editor.readline(&options.prompt);
-        match line {
+        match editor.readline(&options.prompt) {
             Ok(line) => {
                 let file_id = files.add("repl", line);
+                let file = &files[file_id];
+                editor.add_history_entry(file.contents());
 
-                editor.add_history_entry(files[file_id].contents());
-
-                let lexer = Lexer::new(&files[file_id]);
-                let concrete_term = match parser::parse_term(lexer) {
-                    Ok(concrete_term) => concrete_term,
+                match read_eval(&context, &mut metas, file) {
+                    Ok((term, ty)) => write!(writer, "{} : {}", term, ty)?,
                     Err(diagnostic) => {
                         let config = language_reporting::DefaultConfig;
-                        let writer = &mut writer.lock();
-                        language_reporting::emit(writer, &files, &diagnostic, &config)?;
-                        continue;
+                        language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
                     },
-                };
-
-                let (core_term, ty) =
-                    match mltt_elaborate::synth_term(&context, &mut metas, &concrete_term) {
-                        Ok((core_term, ty)) => (core_term, ty),
-                        Err(diagnostic) => {
-                            let config = language_reporting::DefaultConfig;
-                            let writer = &mut writer.lock();
-                            language_reporting::emit(writer, &files, &diagnostic, &config)?;
-                            continue;
-                        },
-                    };
-
-                let term_span = concrete_term.span();
-                let term = context
-                    .normalize_term(&metas, term_span, &core_term)
-                    .unwrap();
-                let ty = context.read_back_value(&metas, None, &ty).unwrap();
-
-                println!("{} : {}", term, ty);
+                }
             },
             Err(ReadlineError::Interrupted) => println!("Interrupted!"),
             Err(ReadlineError::Eof) => break,
@@ -88,4 +66,22 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     println!("Bye bye");
 
     Ok(())
+}
+
+/// Read and evaluate the given file.
+fn read_eval(
+    context: &mltt_elaborate::Context,
+    metas: &mut mltt_core::meta::Env<mltt_core::domain::RcValue>,
+    file: &File,
+) -> Result<(mltt_core::syntax::RcTerm, mltt_core::syntax::RcTerm), Diagnostic<FileSpan>> {
+    let lexer = Lexer::new(&file);
+    let concrete_term = parser::parse_term(lexer)?;;
+
+    let (core_term, ty) = mltt_elaborate::synth_term(&context, metas, &concrete_term)?;
+
+    let term_span = concrete_term.span();
+    let term = context.normalize_term(metas, term_span, &core_term)?;
+    let ty = context.read_back_value(metas, None, &ty)?;
+
+    Ok((term, ty))
 }
