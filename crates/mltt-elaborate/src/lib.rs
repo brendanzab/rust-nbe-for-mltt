@@ -69,6 +69,11 @@ impl Context {
         &self.values
     }
 
+    /// Add a name-to-level substitution to the context.
+    pub fn add_name(&mut self, name: impl Into<String>, var_level: var::Level) {
+        self.names.insert(name.into(), var_level);
+    }
+
     /// Add a fresh definition to the context.
     pub fn add_fresh_defn(&mut self, value: domain::RcValue, ty: domain::RcType) {
         log::trace!("add fresh definition");
@@ -88,7 +93,7 @@ impl Context {
         log::trace!("add definition: {}", name);
 
         let var_level = self.values.size().next_level();
-        self.names.insert(name, var_level);
+        self.add_name(name, var_level);
         self.values.add_entry(value);
         self.tys.add_entry(ty);
     }
@@ -112,7 +117,7 @@ impl Context {
         log::trace!("add parameter: {}", name);
 
         let var_level = self.values.size().next_level();
-        self.names.insert(name, var_level);
+        self.add_name(name, var_level);
         let value = domain::RcValue::var(var_level);
         self.values.add_entry(value.clone());
         self.tys.add_entry(ty);

@@ -154,7 +154,7 @@ pub fn check_case<'file>(
             let default_body = match default_clause.pattern {
                 Pattern::Var(name) => {
                     let mut context = context.clone();
-                    context.names.insert(name.to_string(), param_level);
+                    context.add_name(name, param_level);
                     check_term(&context, metas, &default_clause.body, expected_ty)?
                 },
                 _ => {
