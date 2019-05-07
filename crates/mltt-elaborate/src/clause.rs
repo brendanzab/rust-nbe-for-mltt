@@ -7,7 +7,7 @@ use mltt_core::{domain, meta, syntax, AppMode, DocString, Label};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
-use super::{check_term, literal, synth_term, synth_universe, Context};
+use super::{check_term, literal, synth_term, synth_universe, Context, MetaInsertion};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Top-level Implementation
@@ -115,7 +115,8 @@ pub fn check_case<'file>(
 
             let (checked_scrutinee, (param_level, param_ty)) = {
                 let scrutinee_level = context.values().size().next_level();
-                let (scrutinee_term, scrutinee_ty) = synth_term(&context, metas, scrutinee)?;
+                let (scrutinee_term, scrutinee_ty) =
+                    synth_term(MetaInsertion::Yes, &context, metas, scrutinee)?;
                 let scrutinee_value =
                     context.eval_term(metas, scrutinee.span(), &scrutinee_term)?;
                 context.add_fresh_defn(scrutinee_value, scrutinee_ty.clone());
@@ -284,7 +285,7 @@ fn synth_clause_body(
     clause: &Clause<'_>,
 ) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     match clause.body_ty {
-        None => synth_term(context, metas, clause.body),
+        None => synth_term(MetaInsertion::Yes, context, metas, clause.body),
         Some(body_ty) => {
             let body_ty_span = body_ty.span();
             let (body_ty, _) = synth_universe(context, metas, body_ty)?;

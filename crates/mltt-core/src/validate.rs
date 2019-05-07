@@ -401,7 +401,7 @@ pub fn synth_term(
     match term.as_ref() {
         Term::Var(var_index) => match context.lookup_ty(*var_index) {
             None => Err(TypeError::UnboundVariable(*var_index)),
-            Some(ann) => Ok(ann.clone()),
+            Some(var_ty) => Ok(var_ty.clone()),
         },
         Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
             Some((_, meta::Solution::Solved(_value), meta_ty)) => Ok(meta_ty.clone()),

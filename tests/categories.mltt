@@ -21,11 +21,11 @@ Category = Record {
 
 ||| The identity arrow
 id : Fun {{cat : Category}} {A : cat.Object} -> cat.Arrow A A;
-id {{cat}} = cat.id;
+id {{cat}} {A} = cat.id {A}; -- FIXME: Extra annotations?
 
 ||| The sequencing of two arrows
 seq : Fun {{cat : Category}} {A B C : cat.Object} -> cat.Arrow A B -> cat.Arrow B C -> cat.Arrow A C;
-seq {{cat}} = cat.seq;
+seq {{cat}} {A} {B} {C} = cat.seq {A} {B} {C}; -- FIXME: Extra annotations?
 
 ||| The composition of two arrows
 compose : Fun {{cat : Category}} {A B C : cat.Object} -> cat.Arrow B C -> cat.Arrow A B -> cat.Arrow A C;
@@ -57,4 +57,4 @@ map :
     Fun {{functor : Functor}} {A B : functor.Source.Object} ->
         functor.Source.Arrow A B ->
         functor.Target.Arrow (functor.Map A) (functor.Map B);
-map {{functor}} = functor.map;
+map {{functor}} {A} {B} = functor.map {A} {B}; -- FIXME: Extra annotations?

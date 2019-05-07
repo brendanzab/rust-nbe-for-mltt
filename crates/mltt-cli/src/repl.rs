@@ -1,5 +1,7 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use language_reporting::Diagnostic;
+use mltt_core::{meta, syntax};
+use mltt_elaborate::{Context, MetaInsertion};
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
 use mltt_span::{File, FileSpan, Files};
@@ -37,8 +39,8 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     }
 
     let mut files = Files::new();
-    let context = mltt_elaborate::Context::default();
-    let mut metas = mltt_core::meta::Env::new();
+    let context = Context::default();
+    let mut metas = meta::Env::new();
 
     loop {
         match editor.readline(&options.prompt) {
@@ -70,14 +72,15 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 
 /// Read and evaluate the given file.
 fn read_eval(
-    context: &mltt_elaborate::Context,
-    metas: &mut mltt_core::meta::Env,
+    context: &Context,
+    metas: &mut meta::Env,
     file: &File,
-) -> Result<(mltt_core::syntax::RcTerm, mltt_core::syntax::RcTerm), Diagnostic<FileSpan>> {
+) -> Result<(syntax::RcTerm, syntax::RcTerm), Diagnostic<FileSpan>> {
     let lexer = Lexer::new(&file);
     let concrete_term = parser::parse_term(lexer)?;;
 
-    let (core_term, ty) = mltt_elaborate::synth_term(&context, metas, &concrete_term)?;
+    let (core_term, ty) =
+        mltt_elaborate::synth_term(MetaInsertion::Yes, &context, metas, &concrete_term)?;
 
     let term_span = concrete_term.span();
     let term = context.normalize_term(metas, term_span, &core_term)?;

@@ -16,7 +16,6 @@ use mltt_core::literal::{LiteralIntro, LiteralType};
 use mltt_core::{domain, meta, prim, syntax, validate, var};
 use mltt_core::{AppMode, DocString, Label, UniverseLevel};
 use mltt_span::FileSpan;
-use std::borrow::Cow;
 use std::rc::Rc;
 
 use crate::clause::{CaseClause, Clause};
@@ -397,51 +396,6 @@ fn check_items(
     Ok(core_items)
 }
 
-/// Check that a given argument matches the expected application mode, and
-/// return the term inside it.
-fn check_arg_app_mode<'arg, 'file>(
-    concrete_arg: &'arg Arg<'file>,
-    expected_app_mode: &AppMode,
-) -> Result<Cow<'arg, Term<'file>>, Diagnostic<FileSpan>> {
-    match (concrete_arg, expected_app_mode) {
-        (Arg::Explicit(concrete_arg), AppMode::Explicit) => Ok(Cow::Borrowed(concrete_arg)),
-        (Arg::Implicit(_, intro_label, concrete_arg), AppMode::Implicit(ty_label))
-        | (Arg::Instance(_, intro_label, concrete_arg), AppMode::Instance(ty_label))
-            if intro_label.slice == ty_label.0 =>
-        {
-            match concrete_arg {
-                None => Ok(Cow::Owned(Term::Var(intro_label.clone()))),
-                Some(concrete_arg) => Ok(Cow::Borrowed(concrete_arg)),
-            }
-        },
-        (_, AppMode::Implicit(ty_label)) => {
-            let message = "inference of implicit arguments is not yet supported";
-            Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
-                    "add the explicit argument `{{{} = ..}}` here",
-                    ty_label,
-                )),
-            ))
-        },
-        (_, AppMode::Instance(ty_label)) => {
-            let message = "inference of instance arguments is not yet supported";
-            Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(concrete_arg.span()).with_message(format!(
-                    "add the explicit argument `{{{{{} = ..}}}}` here",
-                    ty_label,
-                )),
-            ))
-        },
-        (Arg::Implicit(span, _, _), AppMode::Explicit)
-        | (Arg::Instance(span, _, _), AppMode::Explicit) => {
-            let message = "unexpected argument";
-            Err(Diagnostic::new_error(message).with_label(
-                DiagnosticLabel::new_primary(*span).with_message("this argument is not needed"),
-            ))
-        },
-    }
-}
-
 /// Ensures that the given term is a universe, returning the level of that
 /// universe and its elaborated form.
 fn synth_universe(
@@ -449,7 +403,7 @@ fn synth_universe(
     metas: &mut meta::Env,
     concrete_term: &Term<'_>,
 ) -> Result<(syntax::RcTerm, UniverseLevel), Diagnostic<FileSpan>> {
-    let (term, ty) = synth_term(context, metas, concrete_term)?;
+    let (term, ty) = synth_term(MetaInsertion::Yes, context, metas, concrete_term)?;
     match ty.as_ref() {
         domain::Value::Universe(level) => Ok((term, *level)),
         _ => Err(Diagnostic::new_error("type expected").with_label(
@@ -564,17 +518,93 @@ pub fn check_term(
         },
 
         _ => {
-            let (synth, synth_ty) = synth_term(context, metas, concrete_term)?;
+            let (synth, synth_ty) = synth_term(MetaInsertion::Yes, context, metas, concrete_term)?;
             context.unify_values(metas, concrete_term.span(), &synth_ty, expected_ty)?;
             Ok(synth)
         },
     }
 }
 
+/// Controls the insertion of metavariables when performing type synthesis.
+#[derive(Debug, Copy, Clone)]
+pub enum MetaInsertion<'file> {
+    /// Stop inserting metavariables.
+    No,
+    /// Insert metavariables until we hit an explicit argument.
+    Yes,
+    /// Insert metavariables until a matching implicit argument is found.
+    UntilImplicit(&'file str),
+    /// Insert metavariables until a matching instance argument is found.
+    UntilInstance(&'file str),
+}
+
+fn arg_to_meta_insertion<'arg, 'file>(concrete_arg: &'arg Arg<'file>) -> MetaInsertion<'file> {
+    match concrete_arg {
+        Arg::Explicit(_) => MetaInsertion::Yes,
+        Arg::Implicit(_, label, _) => MetaInsertion::UntilImplicit(label.slice),
+        Arg::Instance(_, label, _) => MetaInsertion::UntilInstance(label.slice),
+    }
+}
+
+/// Insert metavariables based on the expected type.
+fn insert_metas(
+    meta_insertion: MetaInsertion<'_>,
+    context: &Context,
+    metas: &mut meta::Env,
+    span: FileSpan,
+    mut term: syntax::RcTerm,
+    term_ty: &domain::RcType,
+) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+    use mltt_core::domain::Value::FunType;
+
+    let mut term_ty = term_ty.clone();
+
+    while let FunType(app_mode, param_ty, body_ty) = term_ty.as_ref() {
+        match (meta_insertion, app_mode) {
+            // The user requested we stop inserting metavariables, or
+            // we have seen an explicit argument, so we stop inserting
+            // metavariables.
+            (MetaInsertion::No, _) | (_, AppMode::Explicit) => break,
+
+            // FIXME: mismatches?
+
+            // In these cases we see a matching implicit or instance argument
+            // being passed, corresponding to the expected parameter in the
+            // type. Therefore we stop inserting metavariables.
+            (MetaInsertion::UntilImplicit(l), AppMode::Implicit(label)) if l == label.0 => break,
+            (MetaInsertion::UntilInstance(l), AppMode::Instance(label)) if l == label.0 => break,
+
+            // Based on the given type, we expected an implicit argument to be
+            // applied. Instead, let's apply a metavariable argument in its
+            // place, to be solved later (during unification).
+            (_, AppMode::Implicit(_)) => {
+                let arg = context.new_meta(metas, span, param_ty.clone());
+                let arg_value = context.eval_term(metas, None, &arg)?;
+                term = syntax::RcTerm::from(syntax::Term::FunElim(term, app_mode.clone(), arg));
+                term_ty = context.app_closure(metas, body_ty, arg_value)?;
+            },
+
+            // TODO: Instance arguments
+            (_, AppMode::Instance(label)) => {
+                let message = "inference of instance arguments is not yet supported";
+                return Err(Diagnostic::new_error(message).with_label(
+                    DiagnosticLabel::new_primary(span)
+                        .with_message(format!("add the argument `{{{{{} = ..}}}}` here", label)),
+                ));
+            },
+        }
+    }
+
+    Ok((term, term_ty))
+}
+
 /// Synthesize the type of the given term.
+///
+/// Metavariables are inserted based on the given `meta_insertion`.
 ///
 /// Returns the elaborated term and its synthesized type.
 pub fn synth_term(
+    meta_insertion: MetaInsertion<'_>,
     context: &Context,
     metas: &mut meta::Env,
     concrete_term: &Term<'_>,
@@ -587,7 +617,11 @@ pub fn synth_term(
         Term::Var(name) => match context.lookup_binder(name.slice) {
             None => Err(Diagnostic::new_error("unbound variable")
                 .with_label(DiagnosticLabel::new_primary(name.span()))),
-            Some((index, ann)) => Ok((syntax::RcTerm::var(index), ann.clone())),
+            Some((index, var_ty)) => {
+                let span = concrete_term.span().end_span();
+                let var = syntax::RcTerm::var(index);
+                insert_metas(meta_insertion, context, metas, span, var, var_ty)
+            },
         },
         Term::Prim(span, name) => match context
             .prims()
@@ -603,7 +637,7 @@ pub fn synth_term(
             DiagnosticLabel::new_primary(*span).with_message("type annotations needed here"),
         )),
 
-        Term::Parens(_, concrete_term) => synth_term(context, metas, concrete_term),
+        Term::Parens(_, concrete_term) => synth_term(meta_insertion, context, metas, concrete_term),
         Term::Ann(concrete_term, concrete_term_ty) => {
             let (term_ty, _) = synth_universe(context, metas, concrete_term_ty)?;
             let term_ty_value = context.eval_term(metas, concrete_term_ty.span(), &term_ty)?;
@@ -617,7 +651,7 @@ pub fn synth_term(
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
             let items = check_items(&mut context, metas, concrete_items)?;
-            let (body, body_ty) = synth_term(&context, metas, concrete_body)?;
+            let (body, body_ty) = synth_term(meta_insertion, &context, metas, concrete_body)?;
 
             Ok((
                 syntax::RcTerm::from(syntax::Term::Let(items, body)),
@@ -725,29 +759,63 @@ pub fn synth_term(
             clause::synth_clause(context, metas, clause)
         },
         Term::FunElim(concrete_fun, concrete_args) => {
-            let (mut fun, mut fun_ty) = synth_term(context, metas, concrete_fun)?;
-            for concrete_arg in concrete_args {
-                let (ty_app_mode, param_ty, body_ty) = match fun_ty.as_ref() {
-                    domain::Value::FunType(ty_app_mode, param_ty, body_ty) => {
-                        Ok((ty_app_mode, param_ty, body_ty))
-                    },
-                    _ => Err(Diagnostic::new_error("expected a function").with_label(
-                        DiagnosticLabel::new_primary(concrete_fun.span()).with_message(format!(
-                            "found: {}",
-                            context.read_back_value(metas, None, &fun_ty)?
-                        )),
-                    )),
-                }?;
+            let (concrete_arg, concrete_args) = match concrete_args.split_first() {
+                None => return synth_term(meta_insertion, context, metas, concrete_term),
+                Some(concrete_args) => concrete_args,
+            };
 
-                let concrete_arg = check_arg_app_mode(concrete_arg, ty_app_mode)?;
-                let arg = check_term(context, metas, concrete_arg.as_ref(), param_ty)?;
-                let arg_value = context.eval_term(metas, concrete_arg.span(), &arg)?;
+            // FIXME: Clean up some duplication here?
 
-                fun = syntax::RcTerm::from(syntax::Term::FunElim(fun, ty_app_mode.clone(), arg));
-                fun_ty = context.app_closure(metas, body_ty, arg_value)?;
+            let arg_meta_ins = arg_to_meta_insertion(concrete_arg);
+            let (mut fun, mut fun_ty) = synth_term(arg_meta_ins, context, metas, concrete_fun)?;
+
+            match nbe::force_value(context.prims(), metas, None, &fun_ty)?.as_ref() {
+                domain::Value::FunType(app_mode, param_ty, body_ty) => {
+                    let concrete_arg_term = concrete_arg.desugar_arg_term();
+                    let app_mode = app_mode.clone(); // TODO: check app mode is compatible with insertion
+                    let arg = check_term(context, metas, concrete_arg_term.as_ref(), param_ty)?;
+                    let arg_value = context.eval_term(metas, None, &arg)?;
+
+                    fun = syntax::RcTerm::from(syntax::Term::FunElim(fun, app_mode, arg));
+                    fun_ty = context.app_closure(metas, body_ty, arg_value)?;
+                },
+                _ => {
+                    let fun_ty = context.read_back_value(metas, None, &fun_ty)?;
+                    return Err(Diagnostic::new_error("expected a function").with_label(
+                        DiagnosticLabel::new_primary(concrete_fun.span())
+                            .with_message(format!("found: {}", fun_ty)),
+                    ));
+                },
             }
 
-            Ok((fun, fun_ty))
+            for concrete_arg in concrete_args {
+                let arg_meta_ins = arg_to_meta_insertion(concrete_arg);
+                let span = concrete_arg.span().start_span();
+                let (new_fun, new_fun_ty) =
+                    insert_metas(arg_meta_ins, context, metas, span, fun, &fun_ty)?;
+
+                match nbe::force_value(context.prims(), metas, None, &new_fun_ty)?.as_ref() {
+                    domain::Value::FunType(app_mode, param_ty, body_ty) => {
+                        let concrete_arg_term = concrete_arg.desugar_arg_term();
+                        let app_mode = app_mode.clone(); // TODO: check app mode is compatible with insertion
+                        let arg = check_term(context, metas, concrete_arg_term.as_ref(), param_ty)?;
+                        let arg_value = context.eval_term(metas, None, &arg)?;
+
+                        fun = syntax::RcTerm::from(syntax::Term::FunElim(new_fun, app_mode, arg));
+                        fun_ty = context.app_closure(metas, body_ty, arg_value)?;
+                    },
+                    _ => {
+                        let fun_ty = context.read_back_value(metas, None, &new_fun_ty)?;
+                        return Err(Diagnostic::new_error("expected a function").with_label(
+                            DiagnosticLabel::new_primary(concrete_fun.span())
+                                .with_message(format!("found: {}", fun_ty)),
+                        ));
+                    },
+                }
+            }
+
+            let span = concrete_term.span().end_span();
+            insert_metas(meta_insertion, context, metas, span, fun, &fun_ty)
         },
 
         Term::RecordType(_, concrete_ty_fields) => {
@@ -787,7 +855,8 @@ pub fn synth_term(
             }
         },
         Term::RecordElim(concrete_record, label) => {
-            let (record, mut record_ty) = synth_term(context, metas, concrete_record)?;
+            let (record, mut record_ty) =
+                synth_term(MetaInsertion::Yes, context, metas, concrete_record)?;
 
             while let domain::Value::RecordTypeExtend(_, current_label, current_ty, rest) =
                 record_ty.as_ref()
@@ -798,7 +867,8 @@ pub fn synth_term(
                 ));
 
                 if current_label.0 == label.slice {
-                    return Ok((expr, current_ty.clone()));
+                    let span = concrete_term.span().end_span();
+                    return insert_metas(meta_insertion, context, metas, span, expr, &current_ty);
                 } else {
                     let expr = context.eval_term(metas, None, &expr)?;
                     record_ty = context.app_closure(metas, rest, expr)?;
