@@ -9,5 +9,5 @@ publish = false
 
 [dependencies]
 language-reporting = { git = "https://github.com/nikomatsakis/language-reporting", branch = "remove-codespan-dep" }
-unicode-segmentation = "1.1.0"
-pretty_assertions = "0.5.1"
+unicode-segmentation = "1.2"
+pretty_assertions = "0.6"
