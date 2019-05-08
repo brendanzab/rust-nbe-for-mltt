@@ -181,7 +181,23 @@ pub fn unify_values(
             if head1 == head2 && spine1.len() == spine2.len() =>
         {
             for (elim1, elim2) in Iterator::zip(spine1.iter(), spine2.iter()) {
-                unify_elims(prims, metas, values, span, elim1, elim2)?;
+                match (elim1, elim2) {
+                    (domain::Elim::Fun(app_mode1, arg1), domain::Elim::Fun(app_mode2, arg2))
+                        if app_mode1 == app_mode2 =>
+                    {
+                        unify_values(prims, metas, values, span, arg1, arg2)?;
+                    }
+                    (domain::Elim::Record(l1), domain::Elim::Record(l2)) if l1 == l2 => {},
+                    (domain::Elim::Literal(_), domain::Elim::Literal(_)) => {
+                        let message = "unification of literal eliminators is not yet supported";
+                        return Err(Diagnostic::new_error(message)
+                            .with_label(DiagnosticLabel::new_primary(span)));
+                    },
+                    (_, _) => {
+                        return Err(Diagnostic::new_error("can't unify")
+                            .with_label(DiagnosticLabel::new_primary(span)));
+                    },
+                }
             }
             Ok(())
         }
@@ -314,33 +330,6 @@ pub fn unify_values(
 
         (_, _) => {
             // FIXME: Better error message
-            Err(Diagnostic::new_error("can't unify").with_label(DiagnosticLabel::new_primary(span)))
-        },
-    }
-}
-
-/// Unify two eliminators. If unification succeeds, the `elim1` and `elim2`
-/// become definitionally equal in the newly updated metas.
-pub fn unify_elims(
-    prims: &prim::Env,
-    metas: &mut meta::Env,
-    values: &var::Env<domain::RcValue>,
-    span: FileSpan,
-    elim1: &domain::Elim,
-    elim2: &domain::Elim,
-) -> Result<(), Diagnostic<FileSpan>> {
-    match (elim1, elim2) {
-        (domain::Elim::Fun(app_mode1, arg1), domain::Elim::Fun(app_mode2, arg2))
-            if app_mode1 == app_mode2 =>
-        {
-            unify_values(prims, metas, values, span, arg1, arg2)
-        },
-        (domain::Elim::Record(label1), domain::Elim::Record(label2)) if label1 == label2 => Ok(()),
-        (domain::Elim::Literal(_literal_intro1), domain::Elim::Literal(_literal_intro2)) => {
-            let message = "unify literal eliminators is not yet supported";
-            Err(Diagnostic::new_error(message).with_label(DiagnosticLabel::new_primary(span)))
-        },
-        (_, _) => {
             Err(Diagnostic::new_error("can't unify").with_label(DiagnosticLabel::new_primary(span)))
         },
     }
