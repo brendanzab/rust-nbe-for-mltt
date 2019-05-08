@@ -3,6 +3,9 @@
 This originally started as a Rust port of Danny Gratzer's implementation of
 [Normalization by Evaluation for Martin-Löf Type Theory][nbe-for-mltt], but it
 has a slightly different architecture and some additional language features.
+The algorithm for the insertion and unification of metavariables was partly
+taken from Andras Korvacs' [Minimal TT Exampls][minimal-tt-examples] and
+[smalltt][smalltt] (although gluing is not yet implemented here).
 It will probably become the basis for a new front-end for
 [Pikelet](https://github.com/pikelet-lang/pikelet).
 
@@ -21,6 +24,8 @@ DeBruijn levels in the syntax of the semantic domain.
 | Domain        | Nameless (DeBruijn Levels)  | `λ . (λ . 1 (λ . 2)) (λ . 0 1)` |
 
 [nbe-for-mltt]: https://github.com/jozefg/nbe-for-mltt
+[minimal-tt-examples]: https://github.com/AndrasKovacs/minimal-tt-examples
+[smalltt]: https://github.com/AndrasKovacs/smalltt
 [de-bruijn-indices]: https://en.wikipedia.org/wiki/De_Bruijn_index
 [visitors]: https://github.com/pikelet-lang/pikelet/issues/75
 
