@@ -35,10 +35,17 @@ DeBruijn levels in the syntax of the semantic domain.
 - [x] Add a REPL
 - [x] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
+    - [x] Simple cases
+    - [ ] Nested cases
+    - [ ] Multiple scrutinees
+    - [ ] Lambda case
 - [x] Dependent record types
 - [x] Primitive operations
-- [x] Add eta rules to elaborator
+- [ ] Add eta rules to elaborator
+    - [x] Function eta rules
+    - [ ] Record eta rules
 - [x] Metavariable solving
+- [ ] Use skolemization to improve unification
 - [ ] Integration tests
   - [ ] Parse (pass)
   - [ ] Parse (fail)
