@@ -15,6 +15,16 @@ pub fn eval_fun_elim(
         .map_err(|error| Diagnostic::new_bug(format!("failed function elimination: {}", error)))
 }
 
+pub fn eval_literal_elim(
+    prims: &prim::Env,
+    metas: &meta::Env,
+    scrutinee: domain::RcValue,
+    closure: domain::LiteralClosure,
+) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
+    nbe::eval_literal_elim(prims, metas, scrutinee, closure)
+        .map_err(|error| Diagnostic::new_bug(format!("failed literal elimination: {}", error)))
+}
+
 pub fn app_closure(
     prims: &prim::Env,
     metas: &meta::Env,

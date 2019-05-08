@@ -188,10 +188,12 @@ pub fn unify_values(
                         unify_values(prims, metas, values, span, arg1, arg2)?;
                     }
                     (domain::Elim::Record(l1), domain::Elim::Record(l2)) if l1 == l2 => {},
-                    (domain::Elim::Literal(_), domain::Elim::Literal(_)) => {
-                        let message = "unification of literal eliminators is not yet supported";
-                        return Err(Diagnostic::new_error(message)
-                            .with_label(DiagnosticLabel::new_primary(span)));
+                    (domain::Elim::Literal(lc1), domain::Elim::Literal(lc2)) => {
+                        // Hum, guessing here??
+                        let (sc, values) = instantiate_value(values);
+                        let val1 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc1.clone())?;
+                        let val2 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc2.clone())?;
+                        unify_values(prims, metas, &values, span, &val1, &val2)?;
                     },
                     (_, _) => {
                         return Err(Diagnostic::new_error("can't unify")
