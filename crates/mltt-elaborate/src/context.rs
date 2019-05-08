@@ -1,6 +1,6 @@
 //! The elaboration context.
 
-use language_reporting::{Diagnostic};
+use language_reporting::Diagnostic;
 use mltt_core::{domain, meta, prim, syntax, validate, var, AppMode};
 use mltt_span::FileSpan;
 

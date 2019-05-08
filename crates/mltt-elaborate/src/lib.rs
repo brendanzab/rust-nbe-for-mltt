@@ -20,8 +20,8 @@ use std::rc::Rc;
 use crate::clause::{CaseClause, Clause};
 pub use crate::context::Context;
 
-mod context;
 mod clause;
+mod context;
 mod literal;
 mod nbe;
 mod unify;
