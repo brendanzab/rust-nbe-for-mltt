@@ -37,10 +37,11 @@ macro_rules! run_test {
                     panic!("error encountered");
                 });
 
-            let context = validate::Context::default();
-            validate::check_module(&context, &metas, &module).unwrap_or_else(|error| {
-                panic!("failed validation: {}\n\n{:#?}", error, error);
-            });
+            validate::check_module(&context.validation_context(), &metas, &module).unwrap_or_else(
+                |error| {
+                    panic!("failed validation: {}\n\n{:#?}", error, error);
+                },
+            );
         }
     };
 }

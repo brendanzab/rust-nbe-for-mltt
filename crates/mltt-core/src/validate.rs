@@ -25,13 +25,16 @@ pub struct Context {
 }
 
 impl Context {
+    /// Create a new context.
+    ///
+    /// We assume that the value and type environments are of the same length.
+    pub fn new(prims: prim::Env, values: var::Env<RcValue>, tys: var::Env<RcType>) -> Context {
+        Context { prims, values, tys }
+    }
+
     /// Create a new, empty context.
-    pub fn new() -> Context {
-        Context {
-            prims: prim::Env::new(),
-            values: var::Env::new(),
-            tys: var::Env::new(),
-        }
+    pub fn empty() -> Context {
+        Context::new(prim::Env::new(), var::Env::new(), var::Env::new())
     }
 
     /// Primitive entries.
@@ -99,34 +102,6 @@ impl Context {
         } else {
             Err(TypeError::ExpectedSubtype(ty1.clone(), ty2.clone()))
         }
-    }
-}
-
-impl Default for Context {
-    fn default() -> Context {
-        let mut context = Context::new();
-        let u0 = RcValue::universe(0);
-        let bool = RcValue::literal_ty(LiteralType::Bool);
-
-        context.add_defn(RcValue::literal_ty(LiteralType::String), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::Char), u0.clone());
-        context.add_defn(bool.clone(), u0.clone());
-        context.add_defn(RcValue::literal_intro(true), bool.clone());
-        context.add_defn(RcValue::literal_intro(false), bool.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::U8), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::U16), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::U32), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::U64), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::S8), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::S16), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::S32), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::S64), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::F32), u0.clone());
-        context.add_defn(RcValue::literal_ty(LiteralType::F64), u0.clone());
-
-        context.prims = prim::Env::default();
-
-        context
     }
 }
 
@@ -541,7 +516,7 @@ mod test {
 
     #[test]
     fn add_params() {
-        let mut context = Context::new();
+        let mut context = Context::empty();
 
         let ty1 = RcValue::universe(0);
         let ty2 = RcValue::universe(1);

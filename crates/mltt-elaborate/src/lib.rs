@@ -13,7 +13,8 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
 use mltt_core::literal::{LiteralIntro, LiteralType};
-use mltt_core::{domain, meta, prim, syntax, var, AppMode, DocString, Label, UniverseLevel};
+use mltt_core::{domain, meta, prim, syntax, validate, var};
+use mltt_core::{AppMode, DocString, Label, UniverseLevel};
 use mltt_span::FileSpan;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -49,7 +50,7 @@ pub struct Context {
 
 impl Context {
     /// Create a new, empty context.
-    pub fn new() -> Context {
+    pub fn empty() -> Context {
         Context {
             prims: prim::Env::new(),
             values: var::Env::new(),
@@ -67,6 +68,11 @@ impl Context {
     /// Values to be used during evaluation.
     pub fn values(&self) -> &var::Env<domain::RcValue> {
         &self.values
+    }
+
+    /// Convert the context into a validation context.
+    pub fn validation_context(&self) -> validate::Context {
+        validate::Context::new(self.prims.clone(), self.values.clone(), self.tys.clone())
     }
 
     /// Add a name-to-level substitution to the context.
@@ -205,7 +211,7 @@ impl Default for Context {
         use mltt_core::domain::RcValue;
         use mltt_core::literal::LiteralType as LitType;
 
-        let mut context = Context::new();
+        let mut context = Context::empty();
         let u0 = RcValue::universe(0);
         let bool = RcValue::literal_ty(LitType::Bool);
 
@@ -811,7 +817,7 @@ mod test {
     fn add_params() {
         use mltt_core::domain::{RcValue, Value};
 
-        let mut context = Context::new();
+        let mut context = Context::empty();
 
         let ty1 = RcValue::universe(0);
         let ty2 = RcValue::universe(1);
@@ -834,7 +840,7 @@ mod test {
     fn add_params_shadow() {
         use mltt_core::domain::{RcValue, Value};
 
-        let mut context = Context::new();
+        let mut context = Context::empty();
 
         let ty1 = RcValue::universe(0);
         let ty2 = RcValue::universe(1);
@@ -855,7 +861,7 @@ mod test {
     fn add_params_fresh() {
         use mltt_core::domain::{RcValue, Value};
 
-        let mut context = Context::new();
+        let mut context = Context::empty();
 
         let ty1 = RcValue::universe(0);
         let ty2 = RcValue::universe(1);
