@@ -173,6 +173,15 @@ pub fn unify_values(
         (value, values)
     }
 
+    fn unification_error(
+        span: FileSpan,
+        _value1: &domain::RcValue,
+        _value2: &domain::RcValue,
+    ) -> Result<(), Diagnostic<FileSpan>> {
+        // FIXME: Better error message
+        Err(Diagnostic::new_error("can't unify").with_label(DiagnosticLabel::new_primary(span)))
+    }
+
     match (
         nbe::force_value(prims, metas, span, value1)?.as_ref(),
         nbe::force_value(prims, metas, span, value2)?.as_ref(),
@@ -195,10 +204,7 @@ pub fn unify_values(
                         let val2 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc2.clone())?;
                         unify_values(prims, metas, &values, span, &val1, &val2)?;
                     },
-                    (_, _) => {
-                        return Err(Diagnostic::new_error("can't unify")
-                            .with_label(DiagnosticLabel::new_primary(span)));
-                    },
+                    (_, _) => unification_error(span, value1, value2)?,
                 }
             }
             Ok(())
@@ -299,8 +305,7 @@ pub fn unify_values(
                 if label1 == label2 {
                     unify_values(prims, metas, values, span, value1, value2)?;
                 } else {
-                    return Err(Diagnostic::new_error("can't unify")
-                        .with_label(DiagnosticLabel::new_primary(span)));
+                    unification_error(span, value1, value2)?;
                 }
             }
             Ok(())
@@ -330,9 +335,6 @@ pub fn unify_values(
             Ok(())
         },
 
-        (_, _) => {
-            // FIXME: Better error message
-            Err(Diagnostic::new_error("can't unify").with_label(DiagnosticLabel::new_primary(span)))
-        },
+        (_, _) => unification_error(span, value1, value2),
     }
 }
