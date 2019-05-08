@@ -34,14 +34,14 @@ pub struct Context {
     values: var::Env<domain::RcValue>,
     /// Types of the entries in the context.
     tys: var::Env<domain::RcType>,
-    /// A mapping from the user-defined names to the level in which they were
-    /// bound.
+    /// Substitutions from the user-defined names to the level in which they
+    /// were bound.
     ///
     /// We associate levels to the binder names so that we can recover the
     /// correct debruijn index once we reach a variable name in a nested scope.
     /// Not all entries in the context will have a corresponding name - for
     /// example we don't define a name for non-dependent function types.
-    names: im::HashMap<String, var::Level>,
+    names_to_levels: im::HashMap<String, var::Level>,
     /// Local bound levels.
     ///
     /// This is used for making spines for fresh metas.
@@ -55,7 +55,7 @@ impl Context {
             prims: prim::Env::new(),
             values: var::Env::new(),
             tys: var::Env::new(),
-            names: im::HashMap::new(),
+            names_to_levels: im::HashMap::new(),
             bound_levels: im::Vector::new(),
         }
     }
@@ -77,7 +77,7 @@ impl Context {
 
     /// Add a name-to-level substitution to the context.
     pub fn add_name(&mut self, name: impl Into<String>, var_level: var::Level) {
-        self.names.insert(name.into(), var_level);
+        self.names_to_levels.insert(name.into(), var_level);
     }
 
     /// Add a fresh definition to the context.
@@ -147,7 +147,7 @@ impl Context {
     /// Lookup the de-bruijn index and the type annotation of a binder in the
     /// context using a user-defined name.
     pub fn lookup_binder(&self, name: &str) -> Option<(var::Index, &domain::RcType)> {
-        let var_level = self.names.get(name)?;
+        let var_level = self.names_to_levels.get(name)?;
         let var_index = self.values().size().index(*var_level);
         let ty = self.tys.lookup_entry(var_index)?;
         log::trace!("lookup binder: {} -> {}", name, var_index);
