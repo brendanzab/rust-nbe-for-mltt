@@ -77,3 +77,9 @@ impl ops::Add<u32> for UniverseLevel {
         self
     }
 }
+
+impl fmt::Display for UniverseLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}

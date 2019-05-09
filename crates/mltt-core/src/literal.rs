@@ -29,7 +29,21 @@ impl LiteralType {
 
 impl fmt::Display for LiteralType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.to_doc().pretty(1_000_000_000), f)
+        match self {
+            LiteralType::String => write!(f, "String"),
+            LiteralType::Char => write!(f, "Char"),
+            LiteralType::Bool => write!(f, "Bool"),
+            LiteralType::U8 => write!(f, "U8"),
+            LiteralType::U16 => write!(f, "U16"),
+            LiteralType::U32 => write!(f, "U32"),
+            LiteralType::U64 => write!(f, "U64"),
+            LiteralType::S8 => write!(f, "S8"),
+            LiteralType::S16 => write!(f, "S16"),
+            LiteralType::S32 => write!(f, "S32"),
+            LiteralType::S64 => write!(f, "S64"),
+            LiteralType::F32 => write!(f, "F32"),
+            LiteralType::F64 => write!(f, "F64"),
+        }
     }
 }
 
@@ -93,7 +107,22 @@ impl LiteralIntro {
 
 impl fmt::Display for LiteralIntro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.to_doc().pretty(1_000_000_000), f)
+        match self {
+            LiteralIntro::String(value) => write!(f, "{:?}", value),
+            LiteralIntro::Char(value) => write!(f, "{:?}", value),
+            LiteralIntro::Bool(true) => write!(f, "true"),
+            LiteralIntro::Bool(false) => write!(f, "false"),
+            LiteralIntro::U8(value) => write!(f, "{}", value),
+            LiteralIntro::U16(value) => write!(f, "{}", value),
+            LiteralIntro::U32(value) => write!(f, "{}", value),
+            LiteralIntro::U64(value) => write!(f, "{}", value),
+            LiteralIntro::S8(value) => write!(f, "{}", value),
+            LiteralIntro::S16(value) => write!(f, "{}", value),
+            LiteralIntro::S32(value) => write!(f, "{}", value),
+            LiteralIntro::S64(value) => write!(f, "{}", value),
+            LiteralIntro::F32(value) => write!(f, "{}", value),
+            LiteralIntro::F64(value) => write!(f, "{}", value),
+        }
     }
 }
 
