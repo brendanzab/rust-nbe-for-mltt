@@ -47,6 +47,10 @@ impl Context {
         &self.values
     }
 
+    fn nbe_config<'a>(&'a self, metas: &'a meta::Env) -> nbe::Config<'a> {
+        nbe::Config::new(self.prims(), metas)
+    }
+
     /// Lookup the type of a variable in the context.
     pub fn lookup_ty(&self, var_index: var::Index) -> Option<&RcType> {
         self.tys.lookup_entry(var_index)
@@ -76,12 +80,12 @@ impl Context {
         closure: &AppClosure,
         arg: RcValue,
     ) -> Result<RcValue, TypeError> {
-        nbe::app_closure(self.prims(), metas, closure, arg).map_err(TypeError::Nbe)
+        nbe::app_closure(self.nbe_config(metas), closure, arg).map_err(TypeError::Nbe)
     }
 
     /// Evaluate a term using the evaluation environment.
     pub fn eval_term(&self, metas: &meta::Env, term: &RcTerm) -> Result<RcValue, TypeError> {
-        nbe::eval_term(self.prims(), metas, self.values(), term).map_err(TypeError::Nbe)
+        nbe::eval_term(self.nbe_config(metas), self.values(), term).map_err(TypeError::Nbe)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
@@ -91,7 +95,7 @@ impl Context {
         ty1: &RcType,
         ty2: &RcType,
     ) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.prims(), metas, self.values().size(), ty1, ty2)
+        if nbe::check_subtype(self.nbe_config(metas), self.values().size(), ty1, ty2)
             .map_err(TypeError::Nbe)?
         {
             Ok(())

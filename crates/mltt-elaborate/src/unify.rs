@@ -9,8 +9,7 @@ use crate::nbe;
 
 /// Check that all entries in a spine are bound variables.
 fn check_spine(
-    prims: &prim::Env,
-    metas: &meta::Env,
+    config: nbe::Config<'_>,
     span: FileSpan,
     spine: &domain::Spine,
 ) -> Result<im::Vector<var::Level>, Diagnostic<FileSpan>> {
@@ -19,7 +18,7 @@ fn check_spine(
         .map(|elim| {
             if let domain::Elim::Fun(_, arg) = elim {
                 if let domain::Value::Neutral(domain::Head::Var(var_level), spine) =
-                    nbe::force_value(prims, metas, span, arg)?.as_ref()
+                    nbe::force_value(config, span, arg)?.as_ref()
                 {
                     if spine.is_empty() {
                         return Ok(*var_level);
@@ -135,8 +134,9 @@ fn solve_neutral(
     spine: &domain::Spine,
     rhs: &domain::RcValue,
 ) -> Result<(), Diagnostic<FileSpan>> {
-    let bound_levels = check_spine(prims, metas, span, spine)?;
-    let rhs = nbe::read_back_value(prims, metas, values.size(), None, rhs)?;
+    let config = nbe::Config::new(prims, metas);
+    let bound_levels = check_spine(config, span, spine)?;
+    let rhs = nbe::read_back_value(config, values.size(), None, rhs)?;
 
     check_solution(values.size(), span, head, &bound_levels, &rhs)?;
 
@@ -144,7 +144,7 @@ fn solve_neutral(
         syntax::RcTerm::from(syntax::Term::FunIntro(AppMode::Explicit, acc))
     });
 
-    let rhs_value = nbe::eval_term(prims, metas, &var::Env::new(), None, &rhs)?;
+    let rhs_value = nbe::eval_term(config, &var::Env::new(), None, &rhs)?;
 
     metas.add_solved(head, rhs_value);
 
@@ -183,8 +183,8 @@ pub fn unify_values(
     }
 
     match (
-        nbe::force_value(prims, metas, span, value1)?.as_ref(),
-        nbe::force_value(prims, metas, span, value2)?.as_ref(),
+        nbe::force_value(nbe::Config::new(prims, metas), span, value1)?.as_ref(),
+        nbe::force_value(nbe::Config::new(prims, metas), span, value2)?.as_ref(),
     ) {
         (domain::Value::Neutral(head1, spine1), domain::Value::Neutral(head2, spine2))
             if head1 == head2 && spine1.len() == spine2.len() =>
@@ -199,9 +199,10 @@ pub fn unify_values(
                     (domain::Elim::Record(l1), domain::Elim::Record(l2)) if l1 == l2 => {},
                     (domain::Elim::Literal(lc1), domain::Elim::Literal(lc2)) => {
                         // Hum, guessing here??
-                        let (sc, values) = instantiate_value(values);
-                        let val1 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc1.clone())?;
-                        let val2 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc2.clone())?;
+                        let (scrutinee, values) = instantiate_value(values);
+                        let config = nbe::Config::new(prims, metas);
+                        let val1 = nbe::eval_literal_elim(config, scrutinee.clone(), lc1.clone())?;
+                        let val2 = nbe::eval_literal_elim(config, scrutinee.clone(), lc2.clone())?;
                         unify_values(prims, metas, &values, span, &val1, &val2)?;
                     },
                     (_, _) => unification_error(span, value1, value2)?,
@@ -233,8 +234,9 @@ pub fn unify_values(
             unify_values(prims, metas, values, span, param_ty1, param_ty2)?;
 
             let (param, values) = instantiate_value(values);
-            let body_ty1 = nbe::app_closure(prims, metas, body_ty1, param.clone())?;
-            let body_ty2 = nbe::app_closure(prims, metas, body_ty2, param.clone())?;
+            let config = nbe::Config::new(prims, metas);
+            let body_ty1 = nbe::app_closure(config, body_ty1, param.clone())?;
+            let body_ty2 = nbe::app_closure(config, body_ty2, param.clone())?;
 
             unify_values(prims, metas, &values, span, &body_ty1, &body_ty2)?;
 
@@ -244,8 +246,9 @@ pub fn unify_values(
             if app_mode1 == app_mode2 =>
         {
             let (param, values) = instantiate_value(values);
-            let body1 = nbe::app_closure(prims, metas, body1, param.clone())?;
-            let body2 = nbe::app_closure(prims, metas, body2, param.clone())?;
+            let config = nbe::Config::new(prims, metas);
+            let body1 = nbe::app_closure(config, body1, param.clone())?;
+            let body2 = nbe::app_closure(config, body2, param.clone())?;
 
             unify_values(prims, metas, &values, span, &body1, &body2)?;
 
@@ -264,8 +267,9 @@ pub fn unify_values(
         // - https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
         (domain::Value::FunIntro(app_mode1, body1), _) => {
             let (param, values) = instantiate_value(values);
-            let body1 = nbe::app_closure(prims, metas, body1, param.clone())?;
-            let body2 = nbe::eval_fun_elim(prims, metas, value2.clone(), app_mode1, param)?;
+            let config = nbe::Config::new(prims, metas);
+            let body1 = nbe::app_closure(config, body1, param.clone())?;
+            let body2 = nbe::eval_fun_elim(config, value2.clone(), app_mode1, param)?;
 
             unify_values(prims, metas, &values, span, &body1, &body2)?;
 
@@ -273,8 +277,9 @@ pub fn unify_values(
         },
         (_, domain::Value::FunIntro(app_mode2, body2)) => {
             let (param, values) = instantiate_value(values);
-            let body2 = nbe::app_closure(prims, metas, body2, param.clone())?;
-            let body1 = nbe::eval_fun_elim(prims, metas, value1.clone(), app_mode2, param)?;
+            let config = nbe::Config::new(prims, metas);
+            let body2 = nbe::app_closure(config, body2, param.clone())?;
+            let body1 = nbe::eval_fun_elim(config, value1.clone(), app_mode2, param)?;
 
             unify_values(prims, metas, &values, span, &body1, &body2)?;
 
@@ -288,8 +293,9 @@ pub fn unify_values(
             unify_values(prims, metas, values, span, value_ty1, value_ty2)?;
 
             let (value, values) = instantiate_value(values);
-            let rest_ty1 = nbe::app_closure(prims, metas, rest_ty1, value.clone())?;
-            let rest_ty2 = nbe::app_closure(prims, metas, rest_ty2, value.clone())?;
+            let config = nbe::Config::new(prims, metas);
+            let rest_ty1 = nbe::app_closure(config, rest_ty1, value.clone())?;
+            let rest_ty2 = nbe::app_closure(config, rest_ty2, value.clone())?;
 
             unify_values(prims, metas, &values, span, &rest_ty1, &rest_ty2)?;
 

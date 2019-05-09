@@ -58,6 +58,10 @@ impl Context {
         &self.values
     }
 
+    pub fn nbe_config<'a>(&'a self, metas: &'a meta::Env) -> nbe::Config<'a> {
+        nbe::Config::new(self.prims(), metas)
+    }
+
     /// Convert the context into a validation context.
     pub fn validation_context(&self) -> validate::Context {
         validate::Context::new(self.prims.clone(), self.values.clone(), self.tys.clone())
@@ -154,7 +158,7 @@ impl Context {
         closure: &domain::AppClosure,
         arg: domain::RcValue,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::app_closure(self.prims(), metas, closure, arg)
+        nbe::app_closure(self.nbe_config(metas), closure, arg)
     }
 
     /// Evaluate a term using the evaluation environment
@@ -164,7 +168,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &syntax::RcTerm,
     ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
-        nbe::eval_term(self.prims(), metas, self.values(), span, term)
+        nbe::eval_term(self.nbe_config(metas), self.values(), span, term)
     }
 
     /// Read a value back into the core syntax, normalizing as required.
@@ -174,7 +178,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &domain::RcValue,
     ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
-        nbe::read_back_value(self.prims(), metas, self.values().size(), span, value)
+        nbe::read_back_value(self.nbe_config(metas), self.values().size(), span, value)
     }
 
     /// Fully normalize a term by first evaluating it, then reading it back.
@@ -184,18 +188,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &syntax::RcTerm,
     ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
-        nbe::normalize_term(self.prims(), metas, self.values(), span, term)
-    }
-
-    /// Expect that `ty1` is a subtype of `ty2` in the current context.
-    pub fn check_subtype(
-        &self,
-        metas: &meta::Env,
-        span: FileSpan,
-        ty1: &domain::RcType,
-        ty2: &domain::RcType,
-    ) -> Result<(), Diagnostic<FileSpan>> {
-        nbe::check_subtype(self.prims(), metas, self.values().size(), span, ty1, ty2)
+        nbe::normalize_term(self.nbe_config(metas), self.values(), span, term)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
