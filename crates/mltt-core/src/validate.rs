@@ -47,8 +47,8 @@ impl Context {
         &self.values
     }
 
-    fn nbe_config<'a>(&'a self, metas: &'a meta::Env) -> nbe::Config<'a> {
-        nbe::Config::new(self.prims(), metas)
+    fn nbe_config<'a>(&'a self, metas: &'a meta::Env, unfold: nbe::Unfold) -> nbe::Config<'a> {
+        nbe::Config::new(self.prims(), metas, unfold)
     }
 
     /// Lookup the type of a variable in the context.

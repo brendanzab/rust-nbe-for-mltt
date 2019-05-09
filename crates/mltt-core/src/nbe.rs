@@ -12,19 +12,27 @@ use crate::{meta, prim, var, AppMode, Label};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config<'me> {
-    prims: &'me prim::Env,
-    metas: &'me meta::Env,
-    unfold_metas: bool,
-    unfold_vars: bool,
+    pub prims: &'me prim::Env,
+    pub metas: &'me meta::Env,
+    pub unfold: Unfold,
+}
+
+bitflags::bitflags! {
+    /// Flags that control the unfolding of variables and metavariables when evaluating.
+    pub struct Unfold: u8 {
+        const NONE = 0b00000000;
+        const META = 0b00000001;
+        const VAR = 0b00000010;
+        const ALL = Self::META.bits | Self::VAR.bits;
+    }
 }
 
 impl<'me> Config<'me> {
-    pub fn new(prims: &'me prim::Env, metas: &'me meta::Env) -> Config<'me> {
+    pub fn new(prims: &'me prim::Env, metas: &'me meta::Env, unfold: Unfold) -> Config<'me> {
         Config {
             prims,
             metas,
-            unfold_metas: true,
-            unfold_vars: true,
+            unfold,
         }
     }
 }
