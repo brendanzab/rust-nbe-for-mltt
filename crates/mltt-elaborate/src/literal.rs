@@ -48,7 +48,9 @@ pub fn check(
         (_, _) => Err(Diagnostic::new_error("mismatched literal").with_label(
             DiagnosticLabel::new_primary(src.span()).with_message(format!(
                 "expected: {}",
-                context.read_back_value(metas, None, expected_ty)?,
+                context
+                    .value_to_doc(metas, &expected_ty)
+                    .pretty(1000_000_000),
             )),
         )),
     }

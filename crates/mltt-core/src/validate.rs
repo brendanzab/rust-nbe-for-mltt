@@ -184,7 +184,7 @@ fn check_items(context: &mut Context, metas: &meta::Env, items: &[Item]) -> Resu
 
         match item {
             Item::Declaration(_, label, term_ty) => {
-                log::trace!("checking declaration:\t{}\t= {}", label, term_ty);
+                log::trace!("checking declaration:\t{}\t= {:?}", label, term_ty);
 
                 match forward_declarations.entry(&label.0) {
                     // No previous declaration for this name was seen, so we can
@@ -206,7 +206,7 @@ fn check_items(context: &mut Context, metas: &meta::Env, items: &[Item]) -> Resu
                 log::trace!("validated declaration:\t{}", label);
             },
             Item::Definition(_, label, term) => {
-                log::trace!("checking definition:\t{}\t= {}", label, term);
+                log::trace!("checking definition:\t{}\t= {:?}", label, term);
 
                 let (term, ty) = match forward_declarations.entry(&label.0) {
                     // No prior declaration was found, so we'll try synthesizing
@@ -295,7 +295,7 @@ pub fn check_term(
     term: &RcTerm,
     expected_ty: &RcType,
 ) -> Result<(), TypeError> {
-    log::trace!("checking term:\t\t{}", term);
+    log::trace!("checking term:\t\t{:?}", term);
 
     match term.as_ref() {
         Term::Prim(prim_name) => match context.prims().lookup_entry(prim_name) {
@@ -396,7 +396,7 @@ pub fn synth_term(
 ) -> Result<RcType, TypeError> {
     use std::cmp;
 
-    log::trace!("synthesizing term:\t{}", term);
+    log::trace!("synthesizing term:\t{:?}", term);
 
     match term.as_ref() {
         Term::Var(var_index) => match context.lookup_ty(*var_index) {

@@ -1,10 +1,11 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use language_reporting::Diagnostic;
-use mltt_core::{meta, syntax};
+use mltt_core::{domain, meta, syntax};
 use mltt_elaborate::{Context, MetaInsertion};
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
 use mltt_span::{File, FileSpan, Files};
+use pretty::Doc;
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
 use std::error::Error;
@@ -50,7 +51,22 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                 editor.add_history_entry(file.contents());
 
                 match read_eval(&context, &mut metas, file) {
-                    Ok((term, ty)) => write!(writer, "{} : {}", term, ty)?,
+                    Ok((term, ty)) => {
+                        let output = Doc::nil()
+                            .append(context.term_to_doc(&term))
+                            .append(Doc::space())
+                            .append(":")
+                            .group()
+                            .append(
+                                Doc::space()
+                                    .append(context.value_to_doc(&metas, &ty))
+                                    .group()
+                                    .nest(4),
+                            );
+
+                        let width = pretty_width(&mut editor);
+                        write!(writer, "{}", output.pretty(width))?;
+                    },
                     Err(diagnostic) => {
                         let config = language_reporting::DefaultConfig;
                         language_reporting::emit(&mut writer.lock(), &files, &diagnostic, &config)?;
@@ -70,12 +86,20 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Get the pretty width of the editor.
+fn pretty_width(editor: &mut Editor<()>) -> usize {
+    match editor.dimensions() {
+        Some((width, _)) => width,
+        None => 1000_000_000,
+    }
+}
+
 /// Read and evaluate the given file.
 fn read_eval(
     context: &Context,
     metas: &mut meta::Env,
     file: &File,
-) -> Result<(syntax::RcTerm, syntax::RcTerm), Diagnostic<FileSpan>> {
+) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
     let lexer = Lexer::new(&file);
     let concrete_term = parser::parse_term(lexer)?;;
 
@@ -84,7 +108,6 @@ fn read_eval(
 
     let term_span = concrete_term.span();
     let term = context.normalize_term(metas, term_span, &core_term)?;
-    let ty = context.read_back_value(metas, None, &ty)?;
 
     Ok((term, ty))
 }

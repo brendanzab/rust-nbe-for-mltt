@@ -89,27 +89,3 @@ pub fn force_value(
             .with_label(DiagnosticLabel::new_primary(span).with_message(error)),
     })
 }
-
-pub fn check_subtype(
-    prims: &prim::Env,
-    metas: &meta::Env,
-    env_size: var::Size,
-    span: FileSpan,
-    ty1: &domain::RcType,
-    ty2: &domain::RcType,
-) -> Result<(), Diagnostic<FileSpan>> {
-    match nbe::check_subtype(prims, metas, env_size, ty1, ty2) {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(Diagnostic::new_error("not a subtype").with_label(
-            DiagnosticLabel::new_primary(span).with_message(format!(
-                "`{}` is not a subtype of `{}`",
-                read_back_value(prims, metas, env_size, None, ty1).unwrap(),
-                read_back_value(prims, metas, env_size, None, ty2).unwrap(),
-            )),
-        )),
-        Err(error) => {
-            let message = format!("failed subtype check: {}", error);
-            Err(Diagnostic::new_bug(message))
-        },
-    }
-}

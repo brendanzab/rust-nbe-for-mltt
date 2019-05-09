@@ -97,7 +97,7 @@ fn check_items(
                         let body_ty_value =
                             context.eval_term(metas, concrete_body_ty.span(), &body_ty)?;
 
-                        log::trace!("elaborated declaration:\t{}\t: {}", label, body_ty);
+                        log::trace!("elaborated declaration:\t{}\t: {:?}", label, body_ty);
 
                         core_items.push(syntax::Item::Declaration(docs, label, body_ty));
                         entry.insert(Some(body_ty_value));
@@ -154,7 +154,7 @@ fn check_items(
                     },
                 };
 
-                log::trace!("elaborated definition:\t{}\t= {}", label, term);
+                log::trace!("elaborated definition:\t{}\t= {:?}", label, term);
 
                 let label = Label(label.to_owned());
                 let docs = concat_docs(&definition.docs);
@@ -182,7 +182,7 @@ fn synth_universe(
         _ => Err(Diagnostic::new_error("type expected").with_label(
             DiagnosticLabel::new_primary(concrete_term.span()).with_message(format!(
                 "found `{}`",
-                context.read_back_value(metas, None, &ty)?
+                context.value_to_doc(metas, &ty).pretty(1000_000_000),
             )),
         )),
     }
@@ -553,10 +553,10 @@ pub fn synth_term(
                     fun_ty = context.app_closure(metas, body_ty, arg_value)?;
                 },
                 _ => {
-                    let fun_ty = context.read_back_value(metas, None, &fun_ty)?;
+                    let fun_ty = context.value_to_doc(metas, &fun_ty);
                     return Err(Diagnostic::new_error("expected a function").with_label(
                         DiagnosticLabel::new_primary(concrete_fun.span())
-                            .with_message(format!("found: {}", fun_ty)),
+                            .with_message(format!("found: {}", fun_ty.pretty(1000_000_000))),
                     ));
                 },
             }
@@ -578,10 +578,10 @@ pub fn synth_term(
                         fun_ty = context.app_closure(metas, body_ty, arg_value)?;
                     },
                     _ => {
-                        let fun_ty = context.read_back_value(metas, None, &new_fun_ty)?;
+                        let fun_ty = context.value_to_doc(metas, &fun_ty);
                         return Err(Diagnostic::new_error("expected a function").with_label(
                             DiagnosticLabel::new_primary(concrete_fun.span())
-                                .with_message(format!("found: {}", fun_ty)),
+                                .with_message(format!("found: {}", fun_ty.pretty(1000_000_000))),
                         ));
                     },
                 }

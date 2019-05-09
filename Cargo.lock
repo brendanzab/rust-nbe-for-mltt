@@ -294,6 +294,7 @@ dependencies = [
  "mltt-elaborate 0.1.0",
  "mltt-parse 0.1.0",
  "mltt-span 0.1.0",
+ "pretty 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty_env_logger 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustyline 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",

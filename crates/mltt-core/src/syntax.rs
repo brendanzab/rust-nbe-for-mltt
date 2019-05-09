@@ -5,7 +5,6 @@ use std::ops;
 use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
-use crate::pretty::DisplayEnv;
 use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 
 /// Top-level module.
@@ -17,13 +16,6 @@ pub struct Module {
 impl fmt::Debug for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let doc = self.to_debug_doc().group();
-        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
-    }
-}
-
-impl fmt::Display for Module {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let doc = self.to_display_doc(&mut DisplayEnv::new()).group();
         fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
     }
 }
@@ -108,12 +100,6 @@ impl ops::Deref for RcTerm {
 impl fmt::Debug for RcTerm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, f)
-    }
-}
-
-impl fmt::Display for RcTerm {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
     }
 }
 
@@ -290,13 +276,6 @@ impl Term {
 impl fmt::Debug for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let doc = self.to_debug_doc().group();
-        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
-    }
-}
-
-impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let doc = self.to_display_doc(&mut DisplayEnv::new()).group();
         fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
     }
 }

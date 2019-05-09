@@ -6,51 +6,19 @@ use std::borrow::Cow;
 use super::{syntax, var, AppMode};
 
 /// An environment that can assist in pretty printing terms with pretty names.
-pub struct DisplayEnv {
+#[derive(Debug, Clone)]
+pub struct Env {
     counter: usize,
-    names: Vec<String>,
+    names: var::Env<String>,
 }
 
-impl Default for DisplayEnv {
-    fn default() -> DisplayEnv {
-        DisplayEnv {
-            counter: 0,
-            names: vec![
-                "String".to_owned(),
-                "Char".to_owned(),
-                "bool".to_owned(),
-                "true".to_owned(),
-                "false".to_owned(),
-                "U8".to_owned(),
-                "U16".to_owned(),
-                "U32".to_owned(),
-                "U64".to_owned(),
-                "S8".to_owned(),
-                "S16".to_owned(),
-                "S32".to_owned(),
-                "S64".to_owned(),
-                "F32".to_owned(),
-                "F64".to_owned(),
-            ],
-        }
-    }
-}
-
-impl DisplayEnv {
-    pub fn new() -> DisplayEnv {
-        DisplayEnv {
-            counter: 0,
-            names: Vec::new(),
-        }
+impl Env {
+    pub fn new(names: var::Env<String>) -> Env {
+        Env { counter: 0, names }
     }
 
     fn lookup_name(&self, var_index: var::Index) -> Cow<'_, str> {
-        match self
-            .names
-            .len()
-            .checked_sub(var_index.0 as usize + 1)
-            .and_then(|i| self.names.get(i))
-        {
+        match self.names.lookup_entry(var_index) {
             Some(name) => Cow::from(name),
             None => Cow::from(format!("free{}", var_index)),
         }
@@ -60,17 +28,13 @@ impl DisplayEnv {
         // TODO: use name hint to improve variable names
         let name = format!("x{}", self.counter);
         self.counter += 1;
-        self.names.push(name.clone());
+        self.names.add_entry(name.clone());
         name
-    }
-
-    fn pop_name(&mut self) {
-        self.names.pop();
     }
 }
 
 impl syntax::Module {
-    pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+    pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         Doc::concat(self.items.iter().map(|item| {
             Doc::group(item.to_debug_doc().append(";"))
                 .append(Doc::newline())
@@ -78,18 +42,14 @@ impl syntax::Module {
         }))
     }
 
-    pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
-        let (num_defs, items_doc) = items_to_display_doc(&self.items, env);
-        for _ in 0..num_defs {
-            env.pop_name();
-        }
-
-        items_doc
+    pub fn to_display_doc(&self, env: &Env) -> Doc<'static, BoxDoc<'static, ()>> {
+        let mut env = env.clone();
+        items_to_display_doc(&self.items, &mut env)
     }
 }
 
 impl syntax::Item {
-    pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+    pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         match self {
             syntax::Item::Declaration(_, label, term_ty) => Doc::nil()
                 .append(Doc::as_string(label))
@@ -113,14 +73,12 @@ impl syntax::Item {
     }
 }
 
-pub fn items_to_display_doc<'doc>(
-    items: &'doc [syntax::Item],
-    env: &mut DisplayEnv,
-) -> (usize, Doc<'doc, BoxDoc<'doc, ()>>) {
-    let mut num_defs = 0;
-    let item_docs = items
-        .iter()
-        .map(|item| match item {
+pub fn items_to_display_doc(
+    items: &[syntax::Item],
+    env: &mut Env,
+) -> Doc<'static, BoxDoc<'static, ()>> {
+    Doc::concat(items.iter().map(|item| {
+        match item {
             syntax::Item::Declaration(_, label, term_ty) => Doc::nil()
                 .append(Doc::as_string(label))
                 .append(Doc::space())
@@ -152,17 +110,14 @@ pub fn items_to_display_doc<'doc>(
                     .append(Doc::newline())
                     .append(Doc::newline());
                 env.fresh_name(Some(&label.0));
-                num_defs += 1;
                 doc
             },
-        })
-        .collect::<Vec<_>>();
-
-    (num_defs, Doc::concat(item_docs))
+        }
+    }))
 }
 
 impl syntax::Term {
-    pub fn to_debug_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+    pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(var_index),
@@ -410,7 +365,7 @@ impl syntax::Term {
         }
     }
 
-    pub fn to_debug_arg_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
+    pub fn to_debug_arg_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         match self {
             syntax::Term::Var(_)
             | syntax::Term::Meta(_)
@@ -425,7 +380,7 @@ impl syntax::Term {
         }
     }
 
-    pub fn to_display_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
+    pub fn to_display_doc(&self, env: &Env) -> Doc<'static, BoxDoc<'static, ()>> {
         // FIXME: use proper precedences to mirror the Pratt parser?
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
@@ -447,11 +402,8 @@ impl syntax::Term {
                         .nest(4),
                 ),
             syntax::Term::Let(items, body) => {
-                let (num_defs, items_doc) = items_to_display_doc(items, env);
-                let body_doc = body.to_display_doc(env);
-                for _ in 0..num_defs {
-                    env.pop_name();
-                }
+                let mut env = env.clone();
+                let items_doc = items_to_display_doc(items, &mut env);
 
                 // TODO: flatten definitions
                 Doc::nil()
@@ -459,7 +411,12 @@ impl syntax::Term {
                     .append(Doc::space())
                     .append(items_doc)
                     .append("in")
-                    .append(Doc::space().append(body_doc).group().nest(4))
+                    .append(
+                        Doc::space()
+                            .append(body.to_display_doc(&env))
+                            .group()
+                            .nest(4),
+                    )
             },
 
             syntax::Term::LiteralType(literal_ty) => Doc::as_string(literal_ty),
@@ -511,6 +468,7 @@ impl syntax::Term {
             },
 
             syntax::Term::FunType(app_mode, param_ty, body_ty) => {
+                let mut env = env.clone();
                 let mut body_ty = body_ty;
                 let mut params = vec![(app_mode, param_ty)];
                 while let syntax::Term::FunType(app_mode, param_ty, next_body_ty) = body_ty.as_ref()
@@ -521,7 +479,7 @@ impl syntax::Term {
 
                 let params_doc = Doc::intersperse(
                     params.iter().map(|(app_mode, param_ty)| {
-                        let param_ty_doc = param_ty.to_display_doc(env);
+                        let param_ty_doc = param_ty.to_display_doc(&env);
                         match app_mode {
                             AppMode::Explicit => {
                                 let param_name = env.fresh_name(None);
@@ -585,12 +543,6 @@ impl syntax::Term {
                     Doc::space(),
                 );
 
-                let body_ty_doc = body_ty.to_display_doc(env);
-
-                for _ in params {
-                    env.pop_name();
-                }
-
                 // TODO: use non-dependent function if possible
                 // TODO: flatten params
                 Doc::nil()
@@ -602,12 +554,13 @@ impl syntax::Term {
                     .append(
                         Doc::space()
                             .append("(")
-                            .append(body_ty_doc.group())
+                            .append(body_ty.to_display_doc(&env).group())
                             .append(")")
                             .nest(4),
                     )
             },
             syntax::Term::FunIntro(app_mode, body) => {
+                let mut env = env.clone();
                 let mut body = body;
                 let mut app_modes = vec![app_mode];
                 while let syntax::Term::FunIntro(app_mode, next_body) = body.as_ref() {
@@ -658,12 +611,6 @@ impl syntax::Term {
                     Doc::space(),
                 );
 
-                let body_doc = body.to_display_doc(env);
-
-                for _ in app_modes {
-                    env.pop_name();
-                }
-
                 Doc::nil()
                     .append("fun")
                     .append(Doc::space())
@@ -671,7 +618,12 @@ impl syntax::Term {
                     .append(Doc::space())
                     .append("=>")
                     .group()
-                    .append(Doc::space().append(body_doc).group().nest(4))
+                    .append(
+                        Doc::space()
+                            .append(body.to_display_doc(&env))
+                            .group()
+                            .nest(4),
+                    )
             },
             syntax::Term::FunElim(fun, app_mode, arg) => {
                 let mut fun = fun;
@@ -713,14 +665,13 @@ impl syntax::Term {
 
             syntax::Term::RecordType(ty_fields) if ty_fields.is_empty() => Doc::text("Record {}"),
             syntax::Term::RecordType(ty_fields) => {
-                let mut field_count = 0;
+                let mut env = env.clone();
 
                 let fields_doc = {
                     Doc::intersperse(
                         ty_fields.iter().map(|(_, label, ty)| {
-                            let ty_doc = ty.to_display_doc(env);
+                            let ty_doc = ty.to_display_doc(&env);
                             let field_name = env.fresh_name(Some(&label.0));
-                            field_count += 1;
 
                             Doc::nil()
                                 .append(if label.0 == field_name {
@@ -743,10 +694,6 @@ impl syntax::Term {
                         Doc::space(),
                     )
                 };
-
-                for _ in 0..field_count {
-                    env.pop_name();
-                }
 
                 Doc::nil()
                     .append("Record")
@@ -800,7 +747,7 @@ impl syntax::Term {
         }
     }
 
-    pub fn to_display_arg_doc(&self, env: &mut DisplayEnv) -> Doc<'_, BoxDoc<'_, ()>> {
+    pub fn to_display_arg_doc(&self, env: &Env) -> Doc<'static, BoxDoc<'static, ()>> {
         match self {
             syntax::Term::Var(_)
             | syntax::Term::Meta(_)

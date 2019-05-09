@@ -3,6 +3,7 @@
 use language_reporting::Diagnostic;
 use mltt_core::{domain, meta, prim, syntax, validate, var, AppMode};
 use mltt_span::FileSpan;
+use pretty::{BoxDoc, Doc};
 
 use crate::{nbe, unify};
 
@@ -22,6 +23,8 @@ pub struct Context {
     values: var::Env<domain::RcValue>,
     /// Types of the entries in the context.
     tys: var::Env<domain::RcType>,
+    /// Names of the entries in the context (used for pretty printing).
+    names: var::Env<String>,
     /// Substitutions from the user-defined names to the level in which they
     /// were bound.
     ///
@@ -43,6 +46,7 @@ impl Context {
             prims: prim::Env::new(),
             values: var::Env::new(),
             tys: var::Env::new(),
+            names: var::Env::new(),
             names_to_levels: im::HashMap::new(),
             bound_levels: im::Vector::new(),
         }
@@ -63,9 +67,16 @@ impl Context {
         validate::Context::new(self.prims.clone(), self.values.clone(), self.tys.clone())
     }
 
+    /// Convert the context into a pretty printing environment.
+    pub fn pretty_env(&self) -> mltt_core::pretty::Env {
+        mltt_core::pretty::Env::new(self.names.clone())
+    }
+
     /// Add a name-to-level substitution to the context.
     pub fn add_name(&mut self, name: impl Into<String>, var_level: var::Level) {
-        self.names_to_levels.insert(name.into(), var_level);
+        let name = name.into();
+        self.names.add_entry(name.clone());
+        self.names_to_levels.insert(name, var_level);
     }
 
     /// Add a fresh definition to the context.
@@ -187,17 +198,6 @@ impl Context {
         nbe::normalize_term(self.prims(), metas, self.values(), span, term)
     }
 
-    /// Expect that `ty1` is a subtype of `ty2` in the current context.
-    pub fn check_subtype(
-        &self,
-        metas: &meta::Env,
-        span: FileSpan,
-        ty1: &domain::RcType,
-        ty2: &domain::RcType,
-    ) -> Result<(), Diagnostic<FileSpan>> {
-        nbe::check_subtype(self.prims(), metas, self.values().size(), span, ty1, ty2)
-    }
-
     /// Expect that `ty1` is a subtype of `ty2` in the current context
     pub fn unify_values(
         &self,
@@ -207,6 +207,23 @@ impl Context {
         value2: &domain::RcValue,
     ) -> Result<(), Diagnostic<FileSpan>> {
         unify::unify_values(self.prims(), metas, self.values(), span, value1, value2)
+    }
+
+    /// Convert a term to a pretty printable document.
+    pub fn term_to_doc(&self, term: &syntax::RcTerm) -> Doc<'_, BoxDoc<'_, ()>> {
+        term.to_display_doc(&self.pretty_env())
+    }
+
+    /// Convert a value to a pretty printable document.
+    pub fn value_to_doc(
+        &self,
+        metas: &meta::Env,
+        value: &domain::RcValue,
+    ) -> Doc<'_, BoxDoc<'_, ()>> {
+        match self.read_back_value(metas, None, value) {
+            Ok(term) => term.to_display_doc(&self.pretty_env()),
+            Err(_) => Doc::text("<error pretty printing>"),
+        }
     }
 }
 
