@@ -198,6 +198,17 @@ impl Context {
         nbe::normalize_term(self.prims(), metas, self.values(), span, term)
     }
 
+    /// Evaluate a value further, if it's now possible due to updates made to the
+    /// metavariable solutions.
+    pub fn force_value(
+        &self,
+        metas: &meta::Env,
+        span: impl Into<Option<FileSpan>>,
+        value: &domain::RcValue,
+    ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
+        nbe::force_value(self.prims(), metas, span, value)
+    }
+
     /// Expect that `ty1` is a subtype of `ty2` in the current context
     pub fn unify_values(
         &self,

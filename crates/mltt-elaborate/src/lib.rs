@@ -542,7 +542,7 @@ pub fn synth_term(
             let arg_meta_ins = arg_to_meta_insertion(concrete_arg);
             let (mut fun, mut fun_ty) = synth_term(arg_meta_ins, context, metas, concrete_fun)?;
 
-            match nbe::force_value(context.prims(), metas, None, &fun_ty)?.as_ref() {
+            match context.force_value(metas, None, &fun_ty)?.as_ref() {
                 domain::Value::FunType(app_mode, param_ty, body_ty) => {
                     let concrete_arg_term = concrete_arg.desugar_arg_term();
                     let app_mode = app_mode.clone(); // TODO: check app mode is compatible with insertion
@@ -567,7 +567,7 @@ pub fn synth_term(
                 let (new_fun, new_fun_ty) =
                     insert_metas(arg_meta_ins, context, metas, span, fun, &fun_ty)?;
 
-                match nbe::force_value(context.prims(), metas, None, &new_fun_ty)?.as_ref() {
+                match context.force_value(metas, None, &new_fun_ty)?.as_ref() {
                     domain::Value::FunType(app_mode, param_ty, body_ty) => {
                         let concrete_arg_term = concrete_arg.desugar_arg_term();
                         let app_mode = app_mode.clone(); // TODO: check app mode is compatible with insertion
