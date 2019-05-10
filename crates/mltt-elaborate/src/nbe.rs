@@ -1,7 +1,7 @@
 //! Wrappers around the core NBE functions that return diagnostics on errors.
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
-use mltt_core::{domain, meta, nbe, prim, syntax, var, AppMode};
+use mltt_core::{domain, meta, nbe, prim, syntax, var, AppMode, Label};
 use mltt_span::FileSpan;
 
 pub fn eval_fun_elim(
@@ -23,6 +23,14 @@ pub fn eval_literal_elim(
 ) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
     nbe::eval_literal_elim(prims, metas, scrutinee, closure)
         .map_err(|error| Diagnostic::new_bug(format!("failed literal elimination: {}", error)))
+}
+
+pub fn eval_record_elim(
+    term: domain::RcValue,
+    label: &Label,
+) -> Result<domain::RcValue, Diagnostic<FileSpan>> {
+    nbe::eval_record_elim(term, label)
+        .map_err(|error| Diagnostic::new_bug(format!("failed record elimination: {}", error)))
 }
 
 pub fn app_closure(

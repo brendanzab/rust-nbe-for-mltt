@@ -299,11 +299,13 @@ pub fn unify_values(
         (domain::Value::RecordIntro(fields1), domain::Value::RecordIntro(fields2))
             if fields1.len() == fields2.len() =>
         {
+            let mut values = values.clone();
             for ((label1, value1), (label2, value2)) in
                 Iterator::zip(fields1.iter(), fields2.iter())
             {
                 if label1 == label2 {
-                    unify_values(prims, metas, values, span, value1, value2)?;
+                    unify_values(prims, metas, &values, span, value1, value2)?;
+                    values.add_entry(domain::RcValue::var(values.size().next_level()));
                 } else {
                     unification_error(span, value1, value2)?;
                 }
@@ -322,13 +324,23 @@ pub fn unify_values(
         // - https://ncatlab.org/nlab/show/eta-conversion
         // - https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
         // - https://agda.readthedocs.io/en/latest/language/record-types.html#eta-expansion
-        (domain::Value::RecordIntro(_fields1), _) => {
-            let message = "left eta conversion for records is not yet supported";
-            Err(Diagnostic::new_error(message).with_label(DiagnosticLabel::new_primary(span)))
+        (domain::Value::RecordIntro(fields1), _) => {
+            let mut values = values.clone();
+            for (label1, value1) in fields1 {
+                let value2 = nbe::eval_record_elim(value2.clone(), label1)?;
+                unify_values(prims, metas, &values, span, value1, &value2)?;
+                values.add_entry(domain::RcValue::var(values.size().next_level()));
+            }
+            Ok(())
         },
-        (_, domain::Value::RecordIntro(_fields2)) => {
-            let message = "right eta conversion for records is not yet supported";
-            Err(Diagnostic::new_error(message).with_label(DiagnosticLabel::new_primary(span)))
+        (_, domain::Value::RecordIntro(fields2)) => {
+            let mut values = values.clone();
+            for (label2, value2) in fields2 {
+                let value1 = nbe::eval_record_elim(value1.clone(), label2)?;
+                unify_values(prims, metas, &values, span, &value1, value2)?;
+                values.add_entry(domain::RcValue::var(values.size().next_level()));
+            }
+            Ok(())
         },
 
         (domain::Value::Universe(level1), domain::Value::Universe(level2)) if level1 <= level2 => {

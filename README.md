@@ -46,9 +46,9 @@ DeBruijn levels in the syntax of the semantic domain.
     - [ ] Lambda case
 - [x] Dependent record types
 - [x] Primitive operations
-- [ ] Add eta rules to elaborator
+- [x] Add eta rules to elaborator
     - [x] Function eta rules
-    - [ ] Record eta rules
+    - [x] Record eta rules
 - [x] Metavariable solving
 - [ ] Use skolemization to improve unification
 - [ ] Integration tests
