@@ -5,6 +5,100 @@ use std::borrow::Cow;
 
 use super::{syntax, var, AppMode};
 
+pub fn parens<'doc, A>(
+    inner: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil().append("(").append(inner.into()).append(")")
+}
+
+pub fn declaration<'doc, A>(
+    label: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+    term_ty: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil()
+        .append(label.into())
+        .append(Doc::space())
+        .append(":")
+        .group()
+        .append(
+            Doc::nil()
+                .append(Doc::space())
+                .append(term_ty.into())
+                .group()
+                .append(";")
+                .nest(4),
+        )
+}
+
+pub fn definition<'doc, A>(
+    label: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+    term: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil()
+        .append(label.into())
+        .append(Doc::space())
+        .append("=")
+        .group()
+        .append(
+            Doc::nil()
+                .append(Doc::space())
+                .append(term.into())
+                .group()
+                .append(";")
+                .nest(4),
+        )
+}
+
+pub fn clause<'doc, A>(
+    patterns: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+    body: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil()
+        .append(patterns.into())
+        .append(Doc::space())
+        .append("=>")
+        .append(Doc::space())
+        .append(body.into())
+        .append(";")
+}
+
+pub fn prim<'doc, A>(
+    prim_name: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil()
+        .append("primitive")
+        .append(Doc::space())
+        .append(prim_name.into())
+}
+
+pub fn ann<'doc, A>(
+    term: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+    term_ty: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil()
+        .append(term.into())
+        .append(Doc::space())
+        .append(":")
+        .group()
+        .append(Doc::space().append(term_ty.into()).group().nest(4))
+}
+
+pub fn record_elim<'doc, A>(
+    term: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+    label: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil()
+        .append(term.into())
+        .append(".")
+        .append(label.into())
+}
+
+pub fn universe<'doc, A>(
+    level: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
+) -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::nil().append("Type^").append(level.into())
+}
+
 /// An environment that can assist in pretty printing terms with pretty names.
 #[derive(Debug, Clone)]
 pub struct Env {
@@ -36,7 +130,7 @@ impl Env {
 impl syntax::Module {
     pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         Doc::concat(self.items.iter().map(|item| {
-            Doc::group(item.to_debug_doc().append(";"))
+            item.to_debug_doc()
                 .append(Doc::newline())
                 .append(Doc::newline())
         }))
@@ -51,24 +145,12 @@ impl syntax::Module {
 impl syntax::Item {
     pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         match self {
-            syntax::Item::Declaration(_, label, term_ty) => Doc::nil()
-                .append(Doc::as_string(label))
-                .append(Doc::space())
-                .append(":")
-                .group()
-                .append(
-                    Doc::nil()
-                        .append(Doc::space())
-                        .append(term_ty.to_debug_doc())
-                        .group()
-                        .nest(4),
-                ),
-            syntax::Item::Definition(_, label, term) => Doc::nil()
-                .append(Doc::as_string(label))
-                .append(Doc::space())
-                .append("=")
-                .group()
-                .append(Doc::newline().append(term.to_debug_doc()).group().nest(4)),
+            syntax::Item::Declaration(_, label, term_ty) => {
+                declaration(Doc::as_string(label), term_ty.to_debug_doc())
+            },
+            syntax::Item::Definition(_, label, term) => {
+                definition(Doc::as_string(label), term.to_debug_doc())
+            },
         }
     }
 }
@@ -79,34 +161,13 @@ pub fn items_to_display_doc(
 ) -> Doc<'static, BoxDoc<'static, ()>> {
     Doc::concat(items.iter().map(|item| {
         match item {
-            syntax::Item::Declaration(_, label, term_ty) => Doc::nil()
-                .append(Doc::as_string(label))
-                .append(Doc::space())
-                .append(":")
-                .group()
-                .append(
-                    Doc::nil()
-                        .append(Doc::space())
-                        .append(term_ty.to_display_doc(env))
-                        .group()
-                        .append(";")
-                        .nest(4),
-                )
-                .append(Doc::newline())
-                .append(Doc::newline()),
+            syntax::Item::Declaration(_, label, term_ty) => {
+                declaration(Doc::as_string(label), term_ty.to_display_doc(env))
+                    .append(Doc::newline())
+                    .append(Doc::newline())
+            },
             syntax::Item::Definition(_, label, term) => {
-                let doc = Doc::nil()
-                    .append(Doc::as_string(label))
-                    .append(Doc::space())
-                    .append("=")
-                    .group()
-                    .append(
-                        Doc::newline()
-                            .append(term.to_display_doc(env))
-                            .group()
-                            .append(";")
-                            .nest(4),
-                    )
+                let doc = definition(Doc::as_string(label), term.to_display_doc(env))
                     .append(Doc::newline())
                     .append(Doc::newline());
                 env.fresh_name(Some(&label.0));
@@ -122,24 +183,14 @@ impl syntax::Term {
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(var_index),
             syntax::Term::Meta(meta_index) => Doc::as_string(meta_index),
-            syntax::Term::Prim(prim_name) => Doc::nil()
-                .append("primitive")
-                .append(Doc::space())
-                .append(Doc::as_string(prim_name)),
+            syntax::Term::Prim(prim_name) => prim(Doc::as_string(prim_name)),
 
-            syntax::Term::Ann(term, term_ty) => Doc::nil()
-                .append(term.to_debug_doc())
-                .append(Doc::space())
-                .append(":")
-                .group()
-                .append(Doc::space().append(term_ty.to_debug_doc()).group().nest(4)),
+            syntax::Term::Ann(term, term_ty) => ann(term.to_debug_doc(), term_ty.to_debug_doc()),
             syntax::Term::Let(items, body) => Doc::nil()
                 .append("let")
                 .append(Doc::space())
                 .append(Doc::concat(items.iter().map(|item| {
-                    Doc::nil()
-                        .append(item.to_debug_doc())
-                        .append(";")
+                    item.to_debug_doc()
                         .append(Doc::newline())
                         .append(Doc::newline())
                 })))
@@ -153,13 +204,7 @@ impl syntax::Term {
                     Doc::nil()
                 } else {
                     Doc::concat(clauses.iter().map(|(literal_intro, body)| {
-                        Doc::nil()
-                            .append(Doc::as_string(literal_intro))
-                            .append(Doc::space())
-                            .append("=>")
-                            .append(Doc::space())
-                            .append(body.to_debug_doc())
-                            .append(";")
+                        clause(Doc::as_string(literal_intro), body.to_debug_doc())
                             .group()
                             .append(Doc::space())
                     }))
@@ -176,16 +221,7 @@ impl syntax::Term {
                         Doc::nil()
                             .append(Doc::space())
                             .append(clauses)
-                            .append(
-                                Doc::nil()
-                                    .append("_")
-                                    .append(Doc::space())
-                                    .append("=>")
-                                    .append(Doc::space())
-                                    .append(default_body.to_debug_doc())
-                                    .append(";")
-                                    .group(),
-                            )
+                            .append(clause("_", default_body.to_debug_doc()).group())
                             .group()
                             .nest(4),
                     )
@@ -230,9 +266,8 @@ impl syntax::Term {
                     .group()
                     .append(
                         Doc::space()
-                            .append("(")
-                            .append(body_ty.to_debug_doc().group())
-                            .append(")")
+                            .append(body_ty.to_debug_arg_doc())
+                            .group()
                             .nest(4),
                     )
             },
@@ -356,12 +391,11 @@ impl syntax::Term {
                 )
                 .append(Doc::newline())
                 .append("}"),
-            syntax::Term::RecordElim(record, label) => record
-                .to_debug_arg_doc()
-                .append(".")
-                .append(Doc::as_string(label)),
+            syntax::Term::RecordElim(record, label) => {
+                record_elim(record.to_debug_doc(), Doc::as_string(label))
+            },
 
-            syntax::Term::Universe(level) => Doc::text("Type^").append(Doc::as_string(level)),
+            syntax::Term::Universe(level) => universe(Doc::as_string(level)),
         }
     }
 
@@ -373,10 +407,7 @@ impl syntax::Term {
             | syntax::Term::LiteralType(_)
             | syntax::Term::RecordElim(_, _)
             | syntax::Term::Universe(_) => self.to_debug_doc(),
-            _ => Doc::nil()
-                .append("(")
-                .append(self.to_debug_doc())
-                .append(")"),
+            _ => parens(self.to_debug_doc()),
         }
     }
 
@@ -385,22 +416,11 @@ impl syntax::Term {
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
             syntax::Term::Meta(meta_index) => Doc::as_string(meta_index),
-            syntax::Term::Prim(prim_name) => Doc::nil()
-                .append("primitive")
-                .append(Doc::space())
-                .append(Doc::as_string(prim_name)),
+            syntax::Term::Prim(prim_name) => prim(Doc::as_string(prim_name)),
 
-            syntax::Term::Ann(term, term_ty) => Doc::nil()
-                .append(term.to_display_doc(env))
-                .append(Doc::space())
-                .append(":")
-                .group()
-                .append(
-                    Doc::space()
-                        .append(term_ty.to_display_doc(env))
-                        .group()
-                        .nest(4),
-                ),
+            syntax::Term::Ann(term, term_ty) => {
+                ann(term.to_display_doc(env), term_ty.to_display_doc(env))
+            },
             syntax::Term::Let(items, body) => {
                 let mut env = env.clone();
                 let items_doc = items_to_display_doc(items, &mut env);
@@ -427,13 +447,7 @@ impl syntax::Term {
                     Doc::nil()
                 } else {
                     Doc::concat(clauses.iter().map(|(literal_intro, body)| {
-                        Doc::nil()
-                            .append(Doc::as_string(literal_intro))
-                            .append(Doc::space())
-                            .append("=>")
-                            .append(Doc::space())
-                            .append(body.to_display_doc(env))
-                            .append(";")
+                        clause(Doc::as_string(literal_intro), body.to_display_doc(env))
                             .group()
                             .append(Doc::space())
                     }))
@@ -450,16 +464,7 @@ impl syntax::Term {
                         Doc::nil()
                             .append(Doc::space())
                             .append(clauses)
-                            .append(
-                                Doc::nil()
-                                    .append("_")
-                                    .append(Doc::space())
-                                    .append("=>")
-                                    .append(Doc::space())
-                                    .append(default_body.to_display_doc(env))
-                                    .append(";")
-                                    .group(),
-                            )
+                            .append(clause("_", default_body.to_display_doc(env)).group())
                             .group()
                             .nest(4),
                     )
@@ -553,9 +558,8 @@ impl syntax::Term {
                     .group()
                     .append(
                         Doc::space()
-                            .append("(")
-                            .append(body_ty.to_display_doc(&env).group())
-                            .append(")")
+                            .append(body_ty.to_display_arg_doc(&env))
+                            .group()
                             .nest(4),
                     )
             },
@@ -738,12 +742,11 @@ impl syntax::Term {
                 )
                 .append(Doc::space())
                 .append("}"),
-            syntax::Term::RecordElim(record, label) => record
-                .to_display_arg_doc(env)
-                .append(".")
-                .append(Doc::as_string(label)),
+            syntax::Term::RecordElim(record, label) => {
+                record_elim(record.to_display_doc(env), Doc::as_string(label))
+            },
 
-            syntax::Term::Universe(level) => Doc::text("Type^").append(Doc::as_string(level)),
+            syntax::Term::Universe(level) => universe(Doc::as_string(level)),
         }
     }
 
@@ -755,10 +758,7 @@ impl syntax::Term {
             | syntax::Term::LiteralType(_)
             | syntax::Term::RecordElim(_, _)
             | syntax::Term::Universe(_) => self.to_display_doc(env),
-            _ => Doc::nil()
-                .append("(")
-                .append(self.to_display_doc(env))
-                .append(")"),
+            _ => parens(self.to_display_doc(env)),
         }
     }
 }

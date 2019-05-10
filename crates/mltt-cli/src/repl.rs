@@ -1,11 +1,10 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use language_reporting::Diagnostic;
-use mltt_core::{domain, meta, syntax};
+use mltt_core::{domain, meta, pretty, syntax};
 use mltt_elaborate::{Context, MetaInsertion};
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
 use mltt_span::{File, FileSpan, Files};
-use pretty::Doc;
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
 use std::error::Error;
@@ -52,17 +51,10 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
 
                 match read_eval(&context, &mut metas, file) {
                     Ok((term, ty)) => {
-                        let output = Doc::nil()
-                            .append(context.term_to_doc(&term))
-                            .append(Doc::space())
-                            .append(":")
-                            .group()
-                            .append(
-                                Doc::space()
-                                    .append(context.value_to_doc(&metas, &ty))
-                                    .group()
-                                    .nest(4),
-                            );
+                        let output = pretty::ann(
+                            context.term_to_doc(&term),
+                            context.value_to_doc(&metas, &ty),
+                        );
 
                         let width = pretty_width(&mut editor);
                         write!(writer, "{}", output.pretty(width))?;
