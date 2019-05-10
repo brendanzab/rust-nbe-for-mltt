@@ -1,0 +1,77 @@
+[
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[0, 4) "Unit",
+            body_ty: Universe(
+                FileId(0):[7, 11),
+                None,
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[13, 17) "Unit",
+            params: [],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[20, 29),
+                [],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[32, 35) "foo",
+            body_ty: FunArrowType(
+                Universe(
+                    FileId(0):[38, 42),
+                    None,
+                ),
+                Var(
+                    FileId(0):[46, 50) "Unit",
+                ),
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[53, 57) "unit",
+            body_ty: Var(
+                FileId(0):[60, 64) "Unit",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[66, 70) "unit",
+            params: [],
+            body_ty: None,
+            body: RecordIntro(
+                FileId(0):[73, 82),
+                [],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[85, 88) "foo",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[89, 90) "A",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Var(
+                FileId(0):[93, 97) "unit",
+            ),
+        },
+    ),
+]

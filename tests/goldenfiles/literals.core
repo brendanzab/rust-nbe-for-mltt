@@ -1,0 +1,210 @@
+test-synth-string = "Hello world!";
+
+test-check-string = "Hello world!" : String;
+
+test-string-escapes = "\u{7f}\u{7f}翿翿\'\"\\\n\r\t\u{0}" : String;
+
+test-string-escape-ascii-lower = "\u{7f}" : String;
+
+test-string-escape-ascii-upper = "\u{7f}" : String;
+
+test-string-escape-unicode-lower = "翿" : String;
+
+test-string-escape-unicode-upper = "翿" : String;
+
+test-string-escape-single-quote = "\'" : String;
+
+test-string-escape-double-quote = "\"" : String;
+
+test-string-escape-back-slash = "\\" : String;
+
+test-string-escape-new-line = "\n" : String;
+
+test-string-escape-carriage-return = "\r" : String;
+
+test-string-escape-tab = "\t" : String;
+
+test-string-escape-null = "\u{0}" : String;
+
+test-synth-char = 'a';
+
+test-check-char = 'a' : Char;
+
+test-char-escape-upper = '\u{7f}' : Char;
+
+test-char-escape-ascii = '\u{7f}' : Char;
+
+test-char-escape-unicode-lower = '翿' : Char;
+
+test-char-escape-unicode-upper = '翿' : Char;
+
+test-char-escape-single-quote = '\'' : Char;
+
+test-char-escape-double-quote = '\"' : Char;
+
+test-char-escape-back-slash = '\\' : Char;
+
+test-char-escape-new-line = '\n' : Char;
+
+test-char-escape-carriage-return = '\r' : Char;
+
+test-char-escape-tab = '\t' : Char;
+
+test-char-escape-null = '\u{0}' : Char;
+
+test-bool-true = true : Bool;
+
+test-bool-false = false : Bool;
+
+test-u8-bin-0 = 0 : U8;
+
+test-u8-bin-1 = 1 : U8;
+
+test-u8-bin-11 = 3 : U8;
+
+test-u8-bin-11-11 = 15 : U8;
+
+test-u8-oct-172 = 122 : U8;
+
+test-u8-dec-0 = 0 : U8;
+
+test-u8-dec-0000 = 0 : U8;
+
+test-u8-dec-0--12 = 12 : U8;
+
+test-u8-hex-a = 10 : U8;
+
+test-s8-bin-neg-11 = -3 : S8;
+
+test-s8-oct-neg-11 = -9 : S8;
+
+test-s8-hex-neg-11 = -17 : S8;
+
+test-u8-bin-min = 0 : U8;
+
+test-u16-bin-min = 0 : U16;
+
+test-u32-bin-min = 0 : U32;
+
+test-u64-bin-min = 0 : U64;
+
+test-s8-bin-min = -128 : S8;
+
+test-s16-bin-min = -32768 : S16;
+
+test-s32-bin-min = -2147483648 : S32;
+
+test-s64-bin-min = -9223372036854775808 : S64;
+
+test-u8-oct-min = 0 : U8;
+
+test-u16-oct-min = 0 : U16;
+
+test-u32-oct-min = 0 : U32;
+
+test-u64-oct-min = 0 : U64;
+
+test-s8-oct-min = -128 : S8;
+
+test-s16-oct-min = -32768 : S16;
+
+test-s32-oct-min = -2147483648 : S32;
+
+test-s64-oct-min = -9223372036854775808 : S64;
+
+test-u8-dec-min = 0 : U8;
+
+test-u16-dec-min = 0 : U16;
+
+test-u32-dec-min = 0 : U32;
+
+test-u64-dec-min = 0 : U64;
+
+test-s8-dec-min = -128 : S8;
+
+test-s16-dec-min = -32768 : S16;
+
+test-s32-dec-min = -2147483648 : S32;
+
+test-s64-dec-min = -9223372036854775808 : S64;
+
+test-u8-hex-min = 0 : U8;
+
+test-u16-hex-min = 0 : U16;
+
+test-u32-hex-min = 0 : U32;
+
+test-u64-hex-min = 0 : U64;
+
+test-s8-hex-min = -128 : S8;
+
+test-s16-hex-min = -32768 : S16;
+
+test-s32-hex-min = -2147483648 : S32;
+
+test-s64-hex-min = -9223372036854775808 : S64;
+
+test-u8-bin-max = 255 : U8;
+
+test-u16-bin-max = 65535 : U16;
+
+test-u32-bin-max = 4294967295 : U32;
+
+test-u64-bin-max = 18446744073709551615 : U64;
+
+test-s8-bin-max = 127 : S8;
+
+test-s16-bin-max = 32767 : S16;
+
+test-s32-bin-max = 2147483647 : S32;
+
+test-s64-bin-max = 9223372036854775807 : S64;
+
+test-u8-oct-max = 255 : U8;
+
+test-u16-oct-max = 65535 : U16;
+
+test-u32-oct-max = 4294967295 : U32;
+
+test-u64-oct-max = 18446744073709551615 : U64;
+
+test-s8-oct-max = 127 : S8;
+
+test-s16-oct-max = 32767 : S16;
+
+test-s32-oct-max = 2147483647 : S32;
+
+test-s64-oct-max = 9223372036854775807 : S64;
+
+test-u8-dec-max = 255 : U8;
+
+test-u16-dec-max = 65535 : U16;
+
+test-u32-dec-max = 4294967295 : U32;
+
+test-u64-dec-max = 18446744073709551615 : U64;
+
+test-s8-dec-max = 127 : S8;
+
+test-s16-dec-max = 32767 : S16;
+
+test-s32-dec-max = 2147483647 : S32;
+
+test-s64-dec-max = 9223372036854775807 : S64;
+
+test-u8-hex-max = 255 : U8;
+
+test-u16-hex-max = 65535 : U16;
+
+test-u32-hex-max = 4294967295 : U32;
+
+test-u64-hex-max = 18446744073709551615 : U64;
+
+test-s8-hex-max = 127 : S8;
+
+test-s16-hex-max = 32767 : S16;
+
+test-s32-hex-max = 2147483647 : S32;
+
+test-s64-hex-max = 9223372036854775807 : S64;
+

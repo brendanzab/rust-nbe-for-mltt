@@ -1,0 +1,3453 @@
+[
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[0, 5) "abort",
+            body_ty: FunType(
+                FileId(0):[8, 37),
+                [
+                    Implicit(
+                        FileId(0):[12, 22),
+                        [
+                            FileId(0):[13, 14) "A",
+                        ],
+                        Some(
+                            Universe(
+                                FileId(0):[17, 21),
+                                None,
+                            ),
+                        ),
+                    ),
+                ],
+                FunArrowType(
+                    Var(
+                        FileId(0):[26, 32) "String",
+                    ),
+                    Var(
+                        FileId(0):[36, 37) "A",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[39, 44) "abort",
+            params: [
+                Implicit(
+                    FileId(0):[45, 52),
+                    FileId(0):[46, 47) "A",
+                    Some(
+                        Var(
+                            FileId(0):[50, 51) "_",
+                        ),
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Prim(
+                FileId(0):[55, 72),
+                FileId(0):[65, 72) "\"abort\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[75, 84) "string-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[87, 108),
+                    FileId(0):[97, 108) "\"string-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[111, 117) "String",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[121, 127) "String",
+                        ),
+                        Var(
+                            FileId(0):[131, 135) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[137, 144) "char-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[147, 166),
+                    FileId(0):[157, 166) "\"char-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[169, 173) "Char",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[177, 181) "Char",
+                        ),
+                        Var(
+                            FileId(0):[185, 189) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[191, 196) "u8-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[199, 216),
+                    FileId(0):[209, 216) "\"u8-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[219, 221) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[225, 227) "U8",
+                        ),
+                        Var(
+                            FileId(0):[231, 235) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[237, 243) "u16-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[246, 264),
+                    FileId(0):[256, 264) "\"u16-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[267, 270) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[274, 277) "U16",
+                        ),
+                        Var(
+                            FileId(0):[281, 285) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[287, 293) "u32-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[296, 314),
+                    FileId(0):[306, 314) "\"u32-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[317, 320) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[324, 327) "U32",
+                        ),
+                        Var(
+                            FileId(0):[331, 335) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[337, 343) "u64-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[346, 364),
+                    FileId(0):[356, 364) "\"u64-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[367, 370) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[374, 377) "U64",
+                        ),
+                        Var(
+                            FileId(0):[381, 385) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[387, 392) "s8-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[395, 412),
+                    FileId(0):[405, 412) "\"s8-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[415, 417) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[421, 423) "S8",
+                        ),
+                        Var(
+                            FileId(0):[427, 431) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[433, 439) "s16-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[442, 460),
+                    FileId(0):[452, 460) "\"s16-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[463, 466) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[470, 473) "S16",
+                        ),
+                        Var(
+                            FileId(0):[477, 481) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[483, 489) "s32-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[492, 510),
+                    FileId(0):[502, 510) "\"s32-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[513, 516) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[520, 523) "S32",
+                        ),
+                        Var(
+                            FileId(0):[527, 531) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[533, 539) "s64-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[542, 560),
+                    FileId(0):[552, 560) "\"s64-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[563, 566) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[570, 573) "S64",
+                        ),
+                        Var(
+                            FileId(0):[577, 581) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[583, 589) "f32-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[592, 610),
+                    FileId(0):[602, 610) "\"f32-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[613, 616) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[620, 623) "F32",
+                        ),
+                        Var(
+                            FileId(0):[627, 631) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[633, 639) "f64-eq",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[642, 660),
+                    FileId(0):[652, 660) "\"f64-eq\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[663, 666) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[670, 673) "F64",
+                        ),
+                        Var(
+                            FileId(0):[677, 681) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[684, 693) "string-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[696, 717),
+                    FileId(0):[706, 717) "\"string-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[720, 726) "String",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[730, 736) "String",
+                        ),
+                        Var(
+                            FileId(0):[740, 744) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[746, 753) "char-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[756, 775),
+                    FileId(0):[766, 775) "\"char-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[778, 782) "Char",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[786, 790) "Char",
+                        ),
+                        Var(
+                            FileId(0):[794, 798) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[800, 805) "u8-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[808, 825),
+                    FileId(0):[818, 825) "\"u8-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[828, 830) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[834, 836) "U8",
+                        ),
+                        Var(
+                            FileId(0):[840, 844) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[846, 852) "u16-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[855, 873),
+                    FileId(0):[865, 873) "\"u16-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[876, 879) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[883, 886) "U16",
+                        ),
+                        Var(
+                            FileId(0):[890, 894) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[896, 902) "u32-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[905, 923),
+                    FileId(0):[915, 923) "\"u32-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[926, 929) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[933, 936) "U32",
+                        ),
+                        Var(
+                            FileId(0):[940, 944) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[946, 952) "u64-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[955, 973),
+                    FileId(0):[965, 973) "\"u64-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[976, 979) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[983, 986) "U64",
+                        ),
+                        Var(
+                            FileId(0):[990, 994) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[996, 1001) "s8-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1004, 1021),
+                    FileId(0):[1014, 1021) "\"s8-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1024, 1026) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1030, 1032) "S8",
+                        ),
+                        Var(
+                            FileId(0):[1036, 1040) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1042, 1048) "s16-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1051, 1069),
+                    FileId(0):[1061, 1069) "\"s16-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1072, 1075) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1079, 1082) "S16",
+                        ),
+                        Var(
+                            FileId(0):[1086, 1090) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1092, 1098) "s32-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1101, 1119),
+                    FileId(0):[1111, 1119) "\"s32-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1122, 1125) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1129, 1132) "S32",
+                        ),
+                        Var(
+                            FileId(0):[1136, 1140) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1142, 1148) "s64-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1151, 1169),
+                    FileId(0):[1161, 1169) "\"s64-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1172, 1175) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1179, 1182) "S64",
+                        ),
+                        Var(
+                            FileId(0):[1186, 1190) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1192, 1198) "f32-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1201, 1219),
+                    FileId(0):[1211, 1219) "\"f32-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1222, 1225) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1229, 1232) "F32",
+                        ),
+                        Var(
+                            FileId(0):[1236, 1240) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1242, 1248) "f64-ne",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1251, 1269),
+                    FileId(0):[1261, 1269) "\"f64-ne\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1272, 1275) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1279, 1282) "F64",
+                        ),
+                        Var(
+                            FileId(0):[1286, 1290) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1293, 1302) "string-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1305, 1326),
+                    FileId(0):[1315, 1326) "\"string-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1329, 1335) "String",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1339, 1345) "String",
+                        ),
+                        Var(
+                            FileId(0):[1349, 1353) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1355, 1362) "char-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1365, 1384),
+                    FileId(0):[1375, 1384) "\"char-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1387, 1391) "Char",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1395, 1399) "Char",
+                        ),
+                        Var(
+                            FileId(0):[1403, 1407) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1409, 1414) "u8-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1417, 1434),
+                    FileId(0):[1427, 1434) "\"u8-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1437, 1439) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1443, 1445) "U8",
+                        ),
+                        Var(
+                            FileId(0):[1449, 1453) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1455, 1461) "u16-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1464, 1482),
+                    FileId(0):[1474, 1482) "\"u16-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1485, 1488) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1492, 1495) "U16",
+                        ),
+                        Var(
+                            FileId(0):[1499, 1503) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1505, 1511) "u32-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1514, 1532),
+                    FileId(0):[1524, 1532) "\"u32-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1535, 1538) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1542, 1545) "U32",
+                        ),
+                        Var(
+                            FileId(0):[1549, 1553) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1555, 1561) "u64-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1564, 1582),
+                    FileId(0):[1574, 1582) "\"u64-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1585, 1588) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1592, 1595) "U64",
+                        ),
+                        Var(
+                            FileId(0):[1599, 1603) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1605, 1610) "s8-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1613, 1630),
+                    FileId(0):[1623, 1630) "\"s8-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1633, 1635) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1639, 1641) "S8",
+                        ),
+                        Var(
+                            FileId(0):[1645, 1649) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1651, 1657) "s16-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1660, 1678),
+                    FileId(0):[1670, 1678) "\"s16-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1681, 1684) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1688, 1691) "S16",
+                        ),
+                        Var(
+                            FileId(0):[1695, 1699) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1701, 1707) "s32-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1710, 1728),
+                    FileId(0):[1720, 1728) "\"s32-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1731, 1734) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1738, 1741) "S32",
+                        ),
+                        Var(
+                            FileId(0):[1745, 1749) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1751, 1757) "s64-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1760, 1778),
+                    FileId(0):[1770, 1778) "\"s64-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1781, 1784) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1788, 1791) "S64",
+                        ),
+                        Var(
+                            FileId(0):[1795, 1799) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1801, 1807) "f32-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1810, 1828),
+                    FileId(0):[1820, 1828) "\"f32-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1831, 1834) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1838, 1841) "F32",
+                        ),
+                        Var(
+                            FileId(0):[1845, 1849) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1851, 1857) "f64-lt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1860, 1878),
+                    FileId(0):[1870, 1878) "\"f64-lt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1881, 1884) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1888, 1891) "F64",
+                        ),
+                        Var(
+                            FileId(0):[1895, 1899) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1902, 1911) "string-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1914, 1935),
+                    FileId(0):[1924, 1935) "\"string-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1938, 1944) "String",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[1948, 1954) "String",
+                        ),
+                        Var(
+                            FileId(0):[1958, 1962) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1964, 1971) "char-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[1974, 1993),
+                    FileId(0):[1984, 1993) "\"char-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[1996, 2000) "Char",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2004, 2008) "Char",
+                        ),
+                        Var(
+                            FileId(0):[2012, 2016) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2018, 2023) "u8-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2026, 2043),
+                    FileId(0):[2036, 2043) "\"u8-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2046, 2048) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2052, 2054) "U8",
+                        ),
+                        Var(
+                            FileId(0):[2058, 2062) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2064, 2070) "u16-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2073, 2091),
+                    FileId(0):[2083, 2091) "\"u16-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2094, 2097) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2101, 2104) "U16",
+                        ),
+                        Var(
+                            FileId(0):[2108, 2112) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2114, 2120) "u32-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2123, 2141),
+                    FileId(0):[2133, 2141) "\"u32-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2144, 2147) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2151, 2154) "U32",
+                        ),
+                        Var(
+                            FileId(0):[2158, 2162) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2164, 2170) "u64-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2173, 2191),
+                    FileId(0):[2183, 2191) "\"u64-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2194, 2197) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2201, 2204) "U64",
+                        ),
+                        Var(
+                            FileId(0):[2208, 2212) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2214, 2219) "s8-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2222, 2239),
+                    FileId(0):[2232, 2239) "\"s8-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2242, 2244) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2248, 2250) "S8",
+                        ),
+                        Var(
+                            FileId(0):[2254, 2258) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2260, 2266) "s16-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2269, 2287),
+                    FileId(0):[2279, 2287) "\"s16-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2290, 2293) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2297, 2300) "S16",
+                        ),
+                        Var(
+                            FileId(0):[2304, 2308) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2310, 2316) "s32-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2319, 2337),
+                    FileId(0):[2329, 2337) "\"s32-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2340, 2343) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2347, 2350) "S32",
+                        ),
+                        Var(
+                            FileId(0):[2354, 2358) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2360, 2366) "s64-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2369, 2387),
+                    FileId(0):[2379, 2387) "\"s64-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2390, 2393) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2397, 2400) "S64",
+                        ),
+                        Var(
+                            FileId(0):[2404, 2408) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2410, 2416) "f32-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2419, 2437),
+                    FileId(0):[2429, 2437) "\"f32-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2440, 2443) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2447, 2450) "F32",
+                        ),
+                        Var(
+                            FileId(0):[2454, 2458) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2460, 2466) "f64-le",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2469, 2487),
+                    FileId(0):[2479, 2487) "\"f64-le\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2490, 2493) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2497, 2500) "F64",
+                        ),
+                        Var(
+                            FileId(0):[2504, 2508) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2511, 2520) "string-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2523, 2544),
+                    FileId(0):[2533, 2544) "\"string-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2547, 2553) "String",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2557, 2563) "String",
+                        ),
+                        Var(
+                            FileId(0):[2567, 2571) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2573, 2580) "char-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2583, 2602),
+                    FileId(0):[2593, 2602) "\"char-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2605, 2609) "Char",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2613, 2617) "Char",
+                        ),
+                        Var(
+                            FileId(0):[2621, 2625) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2627, 2632) "u8-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2635, 2652),
+                    FileId(0):[2645, 2652) "\"u8-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2655, 2657) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2661, 2663) "U8",
+                        ),
+                        Var(
+                            FileId(0):[2667, 2671) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2673, 2679) "u16-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2682, 2700),
+                    FileId(0):[2692, 2700) "\"u16-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2703, 2706) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2710, 2713) "U16",
+                        ),
+                        Var(
+                            FileId(0):[2717, 2721) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2723, 2729) "u32-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2732, 2750),
+                    FileId(0):[2742, 2750) "\"u32-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2753, 2756) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2760, 2763) "U32",
+                        ),
+                        Var(
+                            FileId(0):[2767, 2771) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2773, 2779) "u64-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2782, 2800),
+                    FileId(0):[2792, 2800) "\"u64-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2803, 2806) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2810, 2813) "U64",
+                        ),
+                        Var(
+                            FileId(0):[2817, 2821) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2823, 2828) "s8-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2831, 2848),
+                    FileId(0):[2841, 2848) "\"s8-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2851, 2853) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2857, 2859) "S8",
+                        ),
+                        Var(
+                            FileId(0):[2863, 2867) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2869, 2875) "s16-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2878, 2896),
+                    FileId(0):[2888, 2896) "\"s16-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2899, 2902) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2906, 2909) "S16",
+                        ),
+                        Var(
+                            FileId(0):[2913, 2917) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2919, 2925) "s32-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2928, 2946),
+                    FileId(0):[2938, 2946) "\"s32-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2949, 2952) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[2956, 2959) "S32",
+                        ),
+                        Var(
+                            FileId(0):[2963, 2967) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2969, 2975) "s64-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[2978, 2996),
+                    FileId(0):[2988, 2996) "\"s64-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[2999, 3002) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3006, 3009) "S64",
+                        ),
+                        Var(
+                            FileId(0):[3013, 3017) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3019, 3025) "f32-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3028, 3046),
+                    FileId(0):[3038, 3046) "\"f32-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3049, 3052) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3056, 3059) "F32",
+                        ),
+                        Var(
+                            FileId(0):[3063, 3067) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3069, 3075) "f64-ge",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3078, 3096),
+                    FileId(0):[3088, 3096) "\"f64-ge\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3099, 3102) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3106, 3109) "F64",
+                        ),
+                        Var(
+                            FileId(0):[3113, 3117) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3120, 3129) "string-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3132, 3153),
+                    FileId(0):[3142, 3153) "\"string-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3156, 3162) "String",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3166, 3172) "String",
+                        ),
+                        Var(
+                            FileId(0):[3176, 3180) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3182, 3189) "char-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3192, 3211),
+                    FileId(0):[3202, 3211) "\"char-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3214, 3218) "Char",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3222, 3226) "Char",
+                        ),
+                        Var(
+                            FileId(0):[3230, 3234) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3236, 3241) "u8-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3244, 3261),
+                    FileId(0):[3254, 3261) "\"u8-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3264, 3266) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3270, 3272) "U8",
+                        ),
+                        Var(
+                            FileId(0):[3276, 3280) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3282, 3288) "u16-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3291, 3309),
+                    FileId(0):[3301, 3309) "\"u16-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3312, 3315) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3319, 3322) "U16",
+                        ),
+                        Var(
+                            FileId(0):[3326, 3330) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3332, 3338) "u32-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3341, 3359),
+                    FileId(0):[3351, 3359) "\"u32-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3362, 3365) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3369, 3372) "U32",
+                        ),
+                        Var(
+                            FileId(0):[3376, 3380) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3382, 3388) "u64-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3391, 3409),
+                    FileId(0):[3401, 3409) "\"u64-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3412, 3415) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3419, 3422) "U64",
+                        ),
+                        Var(
+                            FileId(0):[3426, 3430) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3432, 3437) "s8-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3440, 3457),
+                    FileId(0):[3450, 3457) "\"s8-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3460, 3462) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3466, 3468) "S8",
+                        ),
+                        Var(
+                            FileId(0):[3472, 3476) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3478, 3484) "s16-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3487, 3505),
+                    FileId(0):[3497, 3505) "\"s16-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3508, 3511) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3515, 3518) "S16",
+                        ),
+                        Var(
+                            FileId(0):[3522, 3526) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3528, 3534) "s32-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3537, 3555),
+                    FileId(0):[3547, 3555) "\"s32-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3558, 3561) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3565, 3568) "S32",
+                        ),
+                        Var(
+                            FileId(0):[3572, 3576) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3578, 3584) "s64-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3587, 3605),
+                    FileId(0):[3597, 3605) "\"s64-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3608, 3611) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3615, 3618) "S64",
+                        ),
+                        Var(
+                            FileId(0):[3622, 3626) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3628, 3634) "f32-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3637, 3655),
+                    FileId(0):[3647, 3655) "\"f32-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3658, 3661) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3665, 3668) "F32",
+                        ),
+                        Var(
+                            FileId(0):[3672, 3676) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3678, 3684) "f64-gt",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3687, 3705),
+                    FileId(0):[3697, 3705) "\"f64-gt\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3708, 3711) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3715, 3718) "F64",
+                        ),
+                        Var(
+                            FileId(0):[3722, 3726) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3729, 3735) "u8-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3738, 3756),
+                    FileId(0):[3748, 3756) "\"u8-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3759, 3761) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3765, 3767) "U8",
+                        ),
+                        Var(
+                            FileId(0):[3771, 3773) "U8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3775, 3782) "u16-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3785, 3804),
+                    FileId(0):[3795, 3804) "\"u16-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3807, 3810) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3814, 3817) "U16",
+                        ),
+                        Var(
+                            FileId(0):[3821, 3824) "U16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3826, 3833) "u32-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3836, 3855),
+                    FileId(0):[3846, 3855) "\"u32-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3858, 3861) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3865, 3868) "U32",
+                        ),
+                        Var(
+                            FileId(0):[3872, 3875) "U32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3877, 3884) "u64-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3887, 3906),
+                    FileId(0):[3897, 3906) "\"u64-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3909, 3912) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3916, 3919) "U64",
+                        ),
+                        Var(
+                            FileId(0):[3923, 3926) "U64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3928, 3934) "s8-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3937, 3955),
+                    FileId(0):[3947, 3955) "\"s8-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[3958, 3960) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[3964, 3966) "S8",
+                        ),
+                        Var(
+                            FileId(0):[3970, 3972) "S8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3974, 3981) "s16-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[3984, 4003),
+                    FileId(0):[3994, 4003) "\"s16-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4006, 4009) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4013, 4016) "S16",
+                        ),
+                        Var(
+                            FileId(0):[4020, 4023) "S16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4025, 4032) "s32-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4035, 4054),
+                    FileId(0):[4045, 4054) "\"s32-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4057, 4060) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4064, 4067) "S32",
+                        ),
+                        Var(
+                            FileId(0):[4071, 4074) "S32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4076, 4083) "s64-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4086, 4105),
+                    FileId(0):[4096, 4105) "\"s64-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4108, 4111) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4115, 4118) "S64",
+                        ),
+                        Var(
+                            FileId(0):[4122, 4125) "S64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4127, 4134) "f32-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4137, 4156),
+                    FileId(0):[4147, 4156) "\"f32-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4159, 4162) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4166, 4169) "F32",
+                        ),
+                        Var(
+                            FileId(0):[4173, 4176) "F32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4178, 4185) "f64-add",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4188, 4207),
+                    FileId(0):[4198, 4207) "\"f64-add\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4210, 4213) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4217, 4220) "F64",
+                        ),
+                        Var(
+                            FileId(0):[4224, 4227) "F64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4230, 4236) "u8-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4239, 4257),
+                    FileId(0):[4249, 4257) "\"u8-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4260, 4262) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4266, 4268) "U8",
+                        ),
+                        Var(
+                            FileId(0):[4272, 4274) "U8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4276, 4283) "u16-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4286, 4305),
+                    FileId(0):[4296, 4305) "\"u16-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4308, 4311) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4315, 4318) "U16",
+                        ),
+                        Var(
+                            FileId(0):[4322, 4325) "U16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4327, 4334) "u32-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4337, 4356),
+                    FileId(0):[4347, 4356) "\"u32-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4359, 4362) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4366, 4369) "U32",
+                        ),
+                        Var(
+                            FileId(0):[4373, 4376) "U32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4378, 4385) "u64-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4388, 4407),
+                    FileId(0):[4398, 4407) "\"u64-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4410, 4413) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4417, 4420) "U64",
+                        ),
+                        Var(
+                            FileId(0):[4424, 4427) "U64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4429, 4435) "s8-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4438, 4456),
+                    FileId(0):[4448, 4456) "\"s8-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4459, 4461) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4465, 4467) "S8",
+                        ),
+                        Var(
+                            FileId(0):[4471, 4473) "S8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4475, 4482) "s16-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4485, 4504),
+                    FileId(0):[4495, 4504) "\"s16-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4507, 4510) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4514, 4517) "S16",
+                        ),
+                        Var(
+                            FileId(0):[4521, 4524) "S16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4526, 4533) "s32-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4536, 4555),
+                    FileId(0):[4546, 4555) "\"s32-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4558, 4561) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4565, 4568) "S32",
+                        ),
+                        Var(
+                            FileId(0):[4572, 4575) "S32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4577, 4584) "s64-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4587, 4606),
+                    FileId(0):[4597, 4606) "\"s64-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4609, 4612) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4616, 4619) "S64",
+                        ),
+                        Var(
+                            FileId(0):[4623, 4626) "S64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4628, 4635) "f32-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4638, 4657),
+                    FileId(0):[4648, 4657) "\"f32-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4660, 4663) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4667, 4670) "F32",
+                        ),
+                        Var(
+                            FileId(0):[4674, 4677) "F32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4679, 4686) "f64-sub",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4689, 4708),
+                    FileId(0):[4699, 4708) "\"f64-sub\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4711, 4714) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[4718, 4721) "F64",
+                        ),
+                        Var(
+                            FileId(0):[4725, 4728) "F64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4731, 4737) "s8-neg",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4740, 4758),
+                    FileId(0):[4750, 4758) "\"s8-neg\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4761, 4763) "S8",
+                    ),
+                    Var(
+                        FileId(0):[4767, 4769) "S8",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4771, 4778) "s16-neg",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4781, 4800),
+                    FileId(0):[4791, 4800) "\"s16-neg\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4803, 4806) "S16",
+                    ),
+                    Var(
+                        FileId(0):[4810, 4813) "S16",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4815, 4822) "s32-neg",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4825, 4844),
+                    FileId(0):[4835, 4844) "\"s32-neg\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4847, 4850) "S32",
+                    ),
+                    Var(
+                        FileId(0):[4854, 4857) "S32",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4859, 4866) "s64-neg",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4869, 4888),
+                    FileId(0):[4879, 4888) "\"s64-neg\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4891, 4894) "S64",
+                    ),
+                    Var(
+                        FileId(0):[4898, 4901) "S64",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4903, 4910) "f32-neg",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4913, 4932),
+                    FileId(0):[4923, 4932) "\"f32-neg\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4935, 4938) "F32",
+                    ),
+                    Var(
+                        FileId(0):[4942, 4945) "F32",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4947, 4954) "f64-neg",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[4957, 4976),
+                    FileId(0):[4967, 4976) "\"f64-neg\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[4979, 4982) "F64",
+                    ),
+                    Var(
+                        FileId(0):[4986, 4989) "F64",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4992, 4998) "u8-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5001, 5019),
+                    FileId(0):[5011, 5019) "\"u8-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5022, 5024) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5028, 5030) "U8",
+                        ),
+                        Var(
+                            FileId(0):[5034, 5036) "U8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5038, 5045) "u16-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5048, 5067),
+                    FileId(0):[5058, 5067) "\"u16-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5070, 5073) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5077, 5080) "U16",
+                        ),
+                        Var(
+                            FileId(0):[5084, 5087) "U16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5089, 5096) "u32-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5099, 5118),
+                    FileId(0):[5109, 5118) "\"u32-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5121, 5124) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5128, 5131) "U32",
+                        ),
+                        Var(
+                            FileId(0):[5135, 5138) "U32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5140, 5147) "u64-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5150, 5169),
+                    FileId(0):[5160, 5169) "\"u64-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5172, 5175) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5179, 5182) "U64",
+                        ),
+                        Var(
+                            FileId(0):[5186, 5189) "U64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5191, 5197) "s8-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5200, 5218),
+                    FileId(0):[5210, 5218) "\"s8-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5221, 5223) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5227, 5229) "S8",
+                        ),
+                        Var(
+                            FileId(0):[5233, 5235) "S8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5237, 5244) "s16-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5247, 5266),
+                    FileId(0):[5257, 5266) "\"s16-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5269, 5272) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5276, 5279) "S16",
+                        ),
+                        Var(
+                            FileId(0):[5283, 5286) "S16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5288, 5295) "s32-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5298, 5317),
+                    FileId(0):[5308, 5317) "\"s32-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5320, 5323) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5327, 5330) "S32",
+                        ),
+                        Var(
+                            FileId(0):[5334, 5337) "S32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5339, 5346) "s64-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5349, 5368),
+                    FileId(0):[5359, 5368) "\"s64-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5371, 5374) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5378, 5381) "S64",
+                        ),
+                        Var(
+                            FileId(0):[5385, 5388) "S64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5390, 5397) "f32-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5400, 5419),
+                    FileId(0):[5410, 5419) "\"f32-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5422, 5425) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5429, 5432) "F32",
+                        ),
+                        Var(
+                            FileId(0):[5436, 5439) "F32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5441, 5448) "f64-mul",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5451, 5470),
+                    FileId(0):[5461, 5470) "\"f64-mul\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5473, 5476) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5480, 5483) "F64",
+                        ),
+                        Var(
+                            FileId(0):[5487, 5490) "F64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5493, 5499) "u8-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5502, 5520),
+                    FileId(0):[5512, 5520) "\"u8-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5523, 5525) "U8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5529, 5531) "U8",
+                        ),
+                        Var(
+                            FileId(0):[5535, 5537) "U8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5539, 5546) "u16-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5549, 5568),
+                    FileId(0):[5559, 5568) "\"u16-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5571, 5574) "U16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5578, 5581) "U16",
+                        ),
+                        Var(
+                            FileId(0):[5585, 5588) "U16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5590, 5597) "u32-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5600, 5619),
+                    FileId(0):[5610, 5619) "\"u32-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5622, 5625) "U32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5629, 5632) "U32",
+                        ),
+                        Var(
+                            FileId(0):[5636, 5639) "U32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5641, 5648) "u64-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5651, 5670),
+                    FileId(0):[5661, 5670) "\"u64-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5673, 5676) "U64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5680, 5683) "U64",
+                        ),
+                        Var(
+                            FileId(0):[5687, 5690) "U64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5692, 5698) "s8-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5701, 5719),
+                    FileId(0):[5711, 5719) "\"s8-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5722, 5724) "S8",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5728, 5730) "S8",
+                        ),
+                        Var(
+                            FileId(0):[5734, 5736) "S8",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5738, 5745) "s16-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5748, 5767),
+                    FileId(0):[5758, 5767) "\"s16-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5770, 5773) "S16",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5777, 5780) "S16",
+                        ),
+                        Var(
+                            FileId(0):[5784, 5787) "S16",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5789, 5796) "s32-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5799, 5818),
+                    FileId(0):[5809, 5818) "\"s32-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5821, 5824) "S32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5828, 5831) "S32",
+                        ),
+                        Var(
+                            FileId(0):[5835, 5838) "S32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5840, 5847) "s64-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5850, 5869),
+                    FileId(0):[5860, 5869) "\"s64-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5872, 5875) "S64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5879, 5882) "S64",
+                        ),
+                        Var(
+                            FileId(0):[5886, 5889) "S64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5891, 5898) "f32-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5901, 5920),
+                    FileId(0):[5911, 5920) "\"f32-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5923, 5926) "F32",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5930, 5933) "F32",
+                        ),
+                        Var(
+                            FileId(0):[5937, 5940) "F32",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5942, 5949) "f64-div",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[5952, 5971),
+                    FileId(0):[5962, 5971) "\"f64-div\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[5974, 5977) "F64",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[5981, 5984) "F64",
+                        ),
+                        Var(
+                            FileId(0):[5988, 5991) "F64",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[5994, 6008) "char-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6011, 6037),
+                    FileId(0):[6021, 6037) "\"char-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6040, 6044) "Char",
+                    ),
+                    Var(
+                        FileId(0):[6048, 6054) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6056, 6068) "u8-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6071, 6095),
+                    FileId(0):[6081, 6095) "\"u8-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6098, 6100) "U8",
+                    ),
+                    Var(
+                        FileId(0):[6104, 6110) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6112, 6125) "u16-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6128, 6153),
+                    FileId(0):[6138, 6153) "\"u16-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6156, 6159) "U16",
+                    ),
+                    Var(
+                        FileId(0):[6163, 6169) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6171, 6184) "u32-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6187, 6212),
+                    FileId(0):[6197, 6212) "\"u32-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6215, 6218) "U32",
+                    ),
+                    Var(
+                        FileId(0):[6222, 6228) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6230, 6243) "u64-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6246, 6271),
+                    FileId(0):[6256, 6271) "\"u64-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6274, 6277) "U64",
+                    ),
+                    Var(
+                        FileId(0):[6281, 6287) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6289, 6301) "s8-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6304, 6328),
+                    FileId(0):[6314, 6328) "\"s8-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6331, 6333) "S8",
+                    ),
+                    Var(
+                        FileId(0):[6337, 6343) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6345, 6358) "s16-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6361, 6386),
+                    FileId(0):[6371, 6386) "\"s16-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6389, 6392) "S16",
+                    ),
+                    Var(
+                        FileId(0):[6396, 6402) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6404, 6417) "s32-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6420, 6445),
+                    FileId(0):[6430, 6445) "\"s32-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6448, 6451) "S32",
+                    ),
+                    Var(
+                        FileId(0):[6455, 6461) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6463, 6476) "s64-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6479, 6504),
+                    FileId(0):[6489, 6504) "\"s64-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6507, 6510) "S64",
+                    ),
+                    Var(
+                        FileId(0):[6514, 6520) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6522, 6535) "f32-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6538, 6563),
+                    FileId(0):[6548, 6563) "\"f32-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6566, 6569) "F32",
+                    ),
+                    Var(
+                        FileId(0):[6573, 6579) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[6581, 6594) "f64-to-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                Prim(
+                    FileId(0):[6597, 6622),
+                    FileId(0):[6607, 6622) "\"f64-to-string\"",
+                ),
+                FunArrowType(
+                    Var(
+                        FileId(0):[6625, 6628) "F64",
+                    ),
+                    Var(
+                        FileId(0):[6632, 6638) "String",
+                    ),
+                ),
+            ),
+        },
+    ),
+]

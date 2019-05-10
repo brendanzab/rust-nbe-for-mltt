@@ -1,0 +1,544 @@
+[
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[0, 5) "Silly",
+            params: [],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[8, 54),
+                [
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[21, 22) "A",
+                        ann: Universe(
+                            FileId(0):[25, 29),
+                            None,
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[35, 36) "x",
+                        ann: Var(
+                            FileId(0):[39, 40) "A",
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[46, 47) "y",
+                        ann: Var(
+                            FileId(0):[50, 51) "A",
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[57, 65) "my-silly",
+            body_ty: Var(
+                FileId(0):[68, 73) "Silly",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[75, 83) "my-silly",
+            params: [],
+            body_ty: None,
+            body: RecordIntro(
+                FileId(0):[86, 153),
+                [
+                    Explicit {
+                        label: FileId(0):[99, 100) "A",
+                        params: [],
+                        body_ty: None,
+                        body: RecordType(
+                            FileId(0):[103, 112),
+                            [],
+                        ),
+                    },
+                    Explicit {
+                        label: FileId(0):[118, 119) "x",
+                        params: [],
+                        body_ty: None,
+                        body: RecordIntro(
+                            FileId(0):[122, 131),
+                            [],
+                        ),
+                    },
+                    Explicit {
+                        label: FileId(0):[137, 138) "y",
+                        params: [],
+                        body_ty: None,
+                        body: RecordIntro(
+                            FileId(0):[141, 150),
+                            [],
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[217, 246) "test-synth-empty-record-intro",
+            params: [],
+            body_ty: None,
+            body: RecordIntro(
+                FileId(0):[249, 258),
+                [],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[260, 292) "test-synth-empty-record-intro-ty",
+            params: [],
+            body_ty: Some(
+                RecordType(
+                    FileId(0):[295, 304),
+                    [],
+                ),
+            ),
+            body: Var(
+                FileId(0):[307, 336) "test-synth-empty-record-intro",
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[340, 390) "||| Module for defining equality between two terms",
+            ],
+            label: FileId(0):[391, 393) "Eq",
+            body_ty: FunArrowType(
+                Universe(
+                    FileId(0):[396, 400),
+                    None,
+                ),
+                Universe(
+                    FileId(0):[404, 408),
+                    None,
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[410, 412) "Eq",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[413, 414) "A",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[417, 491),
+                [
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[430, 464) "||| Compare two terms for equality",
+                        ],
+                        label: FileId(0):[469, 471) "eq",
+                        ann: FunArrowType(
+                            Var(
+                                FileId(0):[474, 475) "A",
+                            ),
+                            FunArrowType(
+                                Var(
+                                    FileId(0):[479, 480) "A",
+                                ),
+                                Var(
+                                    FileId(0):[484, 488) "Bool",
+                                ),
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[494, 528) "||| Compare two terms for equality",
+            ],
+            label: FileId(0):[529, 531) "eq",
+            body_ty: FunType(
+                FileId(0):[534, 582),
+                [
+                    Implicit(
+                        FileId(0):[538, 548),
+                        [
+                            FileId(0):[539, 540) "A",
+                        ],
+                        Some(
+                            Universe(
+                                FileId(0):[543, 547),
+                                None,
+                            ),
+                        ),
+                    ),
+                    Instance(
+                        FileId(0):[549, 564),
+                        FileId(0):[551, 555) "eq-A",
+                        FunElim(
+                            Var(
+                                FileId(0):[558, 560) "Eq",
+                            ),
+                            [
+                                Explicit(
+                                    Var(
+                                        FileId(0):[561, 562) "A",
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ],
+                FunArrowType(
+                    Var(
+                        FileId(0):[568, 569) "A",
+                    ),
+                    FunArrowType(
+                        Var(
+                            FileId(0):[573, 574) "A",
+                        ),
+                        Var(
+                            FileId(0):[578, 582) "Bool",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[584, 586) "eq",
+            params: [
+                Instance(
+                    FileId(0):[587, 595),
+                    FileId(0):[589, 593) "eq-A",
+                    None,
+                ),
+                Explicit(
+                    Var(
+                        FileId(0):[596, 598) "a1",
+                    ),
+                ),
+                Explicit(
+                    Var(
+                        FileId(0):[599, 601) "a2",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: FunElim(
+                RecordElim(
+                    Var(
+                        FileId(0):[604, 608) "eq-A",
+                    ),
+                    FileId(0):[609, 611) "eq",
+                ),
+                [
+                    Explicit(
+                        Var(
+                            FileId(0):[612, 614) "a1",
+                        ),
+                    ),
+                    Explicit(
+                        Var(
+                            FileId(0):[615, 617) "a2",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[620, 627) "bool-eq",
+            body_ty: FunElim(
+                Var(
+                    FileId(0):[630, 632) "Eq",
+                ),
+                [
+                    Explicit(
+                        Var(
+                            FileId(0):[633, 637) "Bool",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[639, 646) "bool-eq",
+            params: [],
+            body_ty: None,
+            body: RecordIntro(
+                FileId(0):[649, 766),
+                [
+                    Explicit {
+                        label: FileId(0):[662, 664) "eq",
+                        params: [
+                            Explicit(
+                                Var(
+                                    FileId(0):[665, 668) "lhs",
+                                ),
+                            ),
+                            Explicit(
+                                Var(
+                                    FileId(0):[669, 672) "rhs",
+                                ),
+                            ),
+                        ],
+                        body_ty: None,
+                        body: If(
+                            FileId(0):[683, 763),
+                            Var(
+                                FileId(0):[686, 689) "lhs",
+                            ),
+                            Var(
+                                FileId(0):[707, 710) "rhs",
+                            ),
+                            If(
+                                FileId(0):[736, 763),
+                                Var(
+                                    FileId(0):[739, 742) "rhs",
+                                ),
+                                Var(
+                                    FileId(0):[748, 753) "false",
+                                ),
+                                Var(
+                                    FileId(0):[759, 763) "true",
+                                ),
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[770, 773) "Map",
+            params: [],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[776, 995),
+                [
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[789, 792) "Key",
+                        ann: Universe(
+                            FileId(0):[795, 799),
+                            None,
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[805, 808) "Map",
+                        ann: FunArrowType(
+                            Universe(
+                                FileId(0):[811, 815),
+                                None,
+                            ),
+                            Universe(
+                                FileId(0):[819, 823),
+                                None,
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[830, 835) "empty",
+                        ann: FunType(
+                            FileId(0):[838, 861),
+                            [
+                                Implicit(
+                                    FileId(0):[842, 852),
+                                    [
+                                        FileId(0):[843, 844) "A",
+                                    ],
+                                    Some(
+                                        Universe(
+                                            FileId(0):[847, 851),
+                                            None,
+                                        ),
+                                    ),
+                                ),
+                            ],
+                            FunElim(
+                                Var(
+                                    FileId(0):[856, 859) "Map",
+                                ),
+                                [
+                                    Explicit(
+                                        Var(
+                                            FileId(0):[860, 861) "A",
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[867, 870) "add",
+                        ann: FunType(
+                            FileId(0):[873, 910),
+                            [
+                                Implicit(
+                                    FileId(0):[877, 887),
+                                    [
+                                        FileId(0):[878, 879) "A",
+                                    ],
+                                    Some(
+                                        Universe(
+                                            FileId(0):[882, 886),
+                                            None,
+                                        ),
+                                    ),
+                                ),
+                            ],
+                            FunArrowType(
+                                Var(
+                                    FileId(0):[891, 892) "A",
+                                ),
+                                FunArrowType(
+                                    FunElim(
+                                        Var(
+                                            FileId(0):[896, 899) "Map",
+                                        ),
+                                        [
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[900, 901) "A",
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                    FunElim(
+                                        Var(
+                                            FileId(0):[905, 908) "Map",
+                                        ),
+                                        [
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[909, 910) "A",
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                ),
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[916, 922) "lookup",
+                        ann: FunType(
+                            FileId(0):[925, 965),
+                            [
+                                Implicit(
+                                    FileId(0):[929, 939),
+                                    [
+                                        FileId(0):[930, 931) "A",
+                                    ],
+                                    Some(
+                                        Universe(
+                                            FileId(0):[934, 938),
+                                            None,
+                                        ),
+                                    ),
+                                ),
+                            ],
+                            FunArrowType(
+                                Var(
+                                    FileId(0):[943, 946) "Key",
+                                ),
+                                FunArrowType(
+                                    Var(
+                                        FileId(0):[950, 951) "A",
+                                    ),
+                                    FunArrowType(
+                                        FunElim(
+                                            Var(
+                                                FileId(0):[955, 958) "Map",
+                                            ),
+                                            [
+                                                Explicit(
+                                                    Var(
+                                                        FileId(0):[959, 960) "A",
+                                                    ),
+                                                ),
+                                            ],
+                                        ),
+                                        Var(
+                                            FileId(0):[964, 965) "A",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[999, 1004) "Shape",
+            params: [],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[1007, 1067),
+                [
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[1020, 1021) "T",
+                        ann: Universe(
+                            FileId(0):[1024, 1028),
+                            None,
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[1034, 1038) "area",
+                        ann: FunArrowType(
+                            Var(
+                                FileId(0):[1041, 1042) "T",
+                            ),
+                            Var(
+                                FileId(0):[1046, 1049) "F32",
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[1055, 1060) "value",
+                        ann: Var(
+                            FileId(0):[1063, 1064) "T",
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+]

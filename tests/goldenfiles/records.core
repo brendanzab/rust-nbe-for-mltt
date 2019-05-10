@@ -1,0 +1,36 @@
+Silly = Record { A : Type^0; x : A; y : A; };
+
+my-silly : Silly;
+
+my-silly = record { A = Record {}; x = record {}; y = record {}; };
+
+test-synth-empty-record-intro = record {};
+
+test-synth-empty-record-intro-ty = test-synth-empty-record-intro : Record {};
+
+Eq : Fun (x : Type^0) -> Type^0;
+
+Eq = fun A => Record { eq : Fun (x : A) (x1 : A) -> Bool; };
+
+eq : Fun {A : Type^0} {{eq-A : Eq A}} (x : A) (x1 : A) -> Bool;
+
+eq = fun {A} {{eq-A}} a1 a2 => eq-A.eq a1 a2;
+
+bool-eq : Eq Bool;
+
+bool-eq =
+    record {
+        eq = fun lhs rhs => case lhs { true => rhs; _ => case rhs { true => false; _ => true; }; };
+    };
+
+Map =
+    Record {
+        Key : Type^0;
+        Map : Fun (x : Type^0) -> Type^0;
+        empty : Fun {A : Type^0} -> (Map A);
+        add : Fun {A : Type^0} (x : A) (x1 : Map A) -> (Map A);
+        lookup : Fun {A : Type^0} (x : Key) (x1 : A) (x2 : Map A) -> A;
+    };
+
+Shape = Record { T : Type^0; area : Fun (x : T) -> F32; value : T; };
+

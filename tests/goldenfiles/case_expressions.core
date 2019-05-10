@@ -1,0 +1,30 @@
+default-pattern : Fun (x : U32) -> String;
+
+default-pattern = fun ignored => let _ = ignored;
+        
+        in case _ { _ => "default"; };
+
+duplicate-patterns : Fun (x : U32) -> String;
+
+duplicate-patterns = fun number => let _ = number;
+        
+        in case _ { 42 => "forty-two"; _ => "default"; };
+
+meaning : Fun (x : U32) -> String;
+
+meaning = fun magic => let _ = magic;
+        
+        in
+            case _ {
+                7 => "the common choice";
+                13 => "unlucky";
+                42 => "life, the universe, and everything";
+                _ => "nonsense";
+            };
+
+hi-to-bye : Fun (x : String) -> String;
+
+hi-to-bye = fun value => let _ = value;
+        
+        in case _ { "hi" => "bye"; _ => _; };
+

@@ -1,0 +1,32 @@
+test : Type^1;
+
+test = Type^0;
+
+test0 : Type^1;
+
+test0 = Type^0;
+
+test-levels : Type^1 : Type^2 : Type^3 : Type^23;
+
+test-levels = Type^0;
+
+test-fun-type : Type^2;
+
+test-fun-type = Fun (x : Type^1) -> Type^0;
+
+test-fun-intro-a : Fun (x : Type^0) -> Type^1;
+
+test-fun-intro-a = fun x => x;
+
+test-fun-intro : Fun (x : Type^0) -> Type^2;
+
+test-fun-intro = test-fun-intro-a;
+
+test-record-intro-a : Record { x : Type^1; y : Type^1; };
+
+test-record-intro-a = record { x = Type^0; y = Type^0; };
+
+test-record-intro : Record { x : Type^2; y : Type^2; };
+
+test-record-intro = test-record-intro-a;
+

@@ -1,0 +1,312 @@
+[
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[0, 4) "test",
+            body_ty: Universe(
+                FileId(0):[7, 13),
+                Some(
+                    FileId(0):[12, 13) "1",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[15, 19) "test",
+            params: [],
+            body_ty: None,
+            body: Universe(
+                FileId(0):[22, 26),
+                None,
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[29, 34) "test0",
+            body_ty: Universe(
+                FileId(0):[37, 43),
+                Some(
+                    FileId(0):[42, 43) "1",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[45, 50) "test0",
+            params: [],
+            body_ty: None,
+            body: Universe(
+                FileId(0):[53, 59),
+                Some(
+                    FileId(0):[58, 59) "0",
+                ),
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[62, 73) "test-levels",
+            body_ty: Ann(
+                Universe(
+                    FileId(0):[76, 82),
+                    Some(
+                        FileId(0):[81, 82) "1",
+                    ),
+                ),
+                Ann(
+                    Universe(
+                        FileId(0):[85, 91),
+                        Some(
+                            FileId(0):[90, 91) "2",
+                        ),
+                    ),
+                    Ann(
+                        Universe(
+                            FileId(0):[94, 100),
+                            Some(
+                                FileId(0):[99, 100) "3",
+                            ),
+                        ),
+                        Universe(
+                            FileId(0):[103, 110),
+                            Some(
+                                FileId(0):[108, 110) "23",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[112, 123) "test-levels",
+            params: [],
+            body_ty: None,
+            body: Universe(
+                FileId(0):[126, 132),
+                Some(
+                    FileId(0):[131, 132) "0",
+                ),
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[135, 148) "test-fun-type",
+            body_ty: Universe(
+                FileId(0):[151, 157),
+                Some(
+                    FileId(0):[156, 157) "2",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[159, 172) "test-fun-type",
+            params: [],
+            body_ty: None,
+            body: FunArrowType(
+                Universe(
+                    FileId(0):[175, 181),
+                    Some(
+                        FileId(0):[180, 181) "1",
+                    ),
+                ),
+                Universe(
+                    FileId(0):[185, 191),
+                    Some(
+                        FileId(0):[190, 191) "0",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[194, 210) "test-fun-intro-a",
+            body_ty: FunArrowType(
+                Universe(
+                    FileId(0):[213, 219),
+                    Some(
+                        FileId(0):[218, 219) "0",
+                    ),
+                ),
+                Universe(
+                    FileId(0):[223, 229),
+                    Some(
+                        FileId(0):[228, 229) "1",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[231, 247) "test-fun-intro-a",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[248, 249) "x",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Var(
+                FileId(0):[252, 253) "x",
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[256, 270) "test-fun-intro",
+            body_ty: FunArrowType(
+                Universe(
+                    FileId(0):[273, 279),
+                    Some(
+                        FileId(0):[278, 279) "0",
+                    ),
+                ),
+                Universe(
+                    FileId(0):[283, 289),
+                    Some(
+                        FileId(0):[288, 289) "2",
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[291, 305) "test-fun-intro",
+            params: [],
+            body_ty: None,
+            body: Var(
+                FileId(0):[308, 324) "test-fun-intro-a",
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[327, 346) "test-record-intro-a",
+            body_ty: RecordType(
+                FileId(0):[349, 382),
+                [
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[358, 359) "x",
+                        ann: Universe(
+                            FileId(0):[362, 368),
+                            Some(
+                                FileId(0):[367, 368) "1",
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[370, 371) "y",
+                        ann: Universe(
+                            FileId(0):[374, 380),
+                            Some(
+                                FileId(0):[379, 380) "1",
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[384, 403) "test-record-intro-a",
+            params: [],
+            body_ty: None,
+            body: RecordIntro(
+                FileId(0):[406, 439),
+                [
+                    Explicit {
+                        label: FileId(0):[415, 416) "x",
+                        params: [],
+                        body_ty: None,
+                        body: Universe(
+                            FileId(0):[419, 425),
+                            Some(
+                                FileId(0):[424, 425) "0",
+                            ),
+                        ),
+                    },
+                    Explicit {
+                        label: FileId(0):[427, 428) "y",
+                        params: [],
+                        body_ty: None,
+                        body: Universe(
+                            FileId(0):[431, 437),
+                            Some(
+                                FileId(0):[436, 437) "0",
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[442, 459) "test-record-intro",
+            body_ty: RecordType(
+                FileId(0):[462, 495),
+                [
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[471, 472) "x",
+                        ann: Universe(
+                            FileId(0):[475, 481),
+                            Some(
+                                FileId(0):[480, 481) "2",
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[483, 484) "y",
+                        ann: Universe(
+                            FileId(0):[487, 493),
+                            Some(
+                                FileId(0):[492, 493) "2",
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[497, 514) "test-record-intro",
+            params: [],
+            body_ty: None,
+            body: Var(
+                FileId(0):[517, 536) "test-record-intro-a",
+            ),
+        },
+    ),
+]

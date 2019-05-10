@@ -1,0 +1,8 @@
+Prod : Fun (x : Type^0) (x1 : Fun (x1 : x) -> Type^0) -> Type^0;
+
+Prod = fun A B => Fun (x : A) -> (B x);
+
+Sum : Fun (x : Type^0) (x1 : Fun (x1 : x) -> Type^0) -> Type^0;
+
+Sum = fun A B => Record { val : A; proof : B val; };
+

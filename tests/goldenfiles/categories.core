@@ -1,0 +1,59 @@
+Category =
+    Record {
+        Object : Type^0;
+        Arrow : Fun (x : Object) (x1 : Object) -> Type^0;
+        id : Fun {A : Object} -> (Arrow A A);
+        seq :
+            Fun {A : Object} {B : Object} {C : Object} (x : Arrow A B) (x1 : Arrow B C) -> (Arrow A C);
+    };
+
+id : Fun {{cat : Category}} {A : cat.Object} -> (cat.Arrow A A);
+
+id = fun {{cat}} {A} => cat.id {A = A};
+
+seq :
+    Fun
+        {{cat : Category}}
+        {A : cat.Object}
+        {B : cat.Object}
+        {C : cat.Object}
+        (x : cat.Arrow A B)
+        (x1 : cat.Arrow B C)
+    -> (cat.Arrow A C);
+
+seq = fun {{cat}} {A} {B} {C} => cat.seq {A = A} {B = B} {C = C};
+
+compose :
+    Fun
+        {{cat : Category}}
+        {A : cat.Object}
+        {B : cat.Object}
+        {C : cat.Object}
+        (x : cat.Arrow B C)
+        (x1 : cat.Arrow A B)
+    -> (cat.Arrow A C);
+
+compose = fun {{cat}} {A} {B} {C} f g => seq {{cat = cat}} {A = A} {B = B} {C = C} g f;
+
+Functor =
+    Record {
+        Source : Category;
+        Target : Category;
+        Map : Fun (x : Source.Object) -> Target.Object;
+        map :
+            Fun {A : Source.Object} {B : Source.Object} (x : Source.Arrow A B) ->
+                (Target.Arrow
+                    (Map A)
+                    (Map B));
+    };
+
+map :
+    Fun
+        {{functor : Functor}}
+        {A : functor.Source.Object}
+        {B : functor.Source.Object}
+        (x : functor.Source.Arrow A B)
+    -> (functor.Target.Arrow (functor.Map A) (functor.Map B));
+
+map = fun {{functor}} {A} {B} => functor.map {A = A} {B = B};
+

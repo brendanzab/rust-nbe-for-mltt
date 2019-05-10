@@ -1,0 +1,14 @@
+test-let : Record {};
+
+test-let = let Unit = Record {};
+    
+    unit : Unit;
+    
+    unit = record {};
+    
+    id : Fun {A : Type^0} (x : A) -> A;
+    
+    id = fun {A} a => a;
+    
+    in id {A = Unit} unit;
+

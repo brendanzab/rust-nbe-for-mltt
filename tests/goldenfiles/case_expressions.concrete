@@ -1,0 +1,241 @@
+[
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[0, 15) "default-pattern",
+            body_ty: FunArrowType(
+                Var(
+                    FileId(0):[18, 21) "U32",
+                ),
+                Var(
+                    FileId(0):[25, 31) "String",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[33, 48) "default-pattern",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[49, 56) "ignored",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Case(
+                FileId(0):[59, 95),
+                Var(
+                    FileId(0):[64, 71) "ignored",
+                ),
+                [
+                    (
+                        Var(
+                            FileId(0):[78, 79) "_",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[83, 92) "\"default\"",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[98, 116) "duplicate-patterns",
+            body_ty: FunArrowType(
+                Var(
+                    FileId(0):[119, 122) "U32",
+                ),
+                Var(
+                    FileId(0):[126, 132) "String",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[134, 152) "duplicate-patterns",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[153, 159) "number",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Case(
+                FileId(0):[162, 236),
+                Var(
+                    FileId(0):[167, 173) "number",
+                ),
+                [
+                    (
+                        LiteralIntro(
+                            Int,
+                            FileId(0):[180, 182) "42",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[186, 197) "\"forty-two\"",
+                        ),
+                    ),
+                    (
+                        LiteralIntro(
+                            Int,
+                            FileId(0):[203, 205) "42",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[209, 213) "\"42\"",
+                        ),
+                    ),
+                    (
+                        Var(
+                            FileId(0):[219, 220) "_",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[224, 233) "\"default\"",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[239, 246) "meaning",
+            body_ty: FunArrowType(
+                Var(
+                    FileId(0):[249, 252) "U32",
+                ),
+                Var(
+                    FileId(0):[256, 262) "String",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[264, 271) "meaning",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[272, 277) "magic",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Case(
+                FileId(0):[280, 414),
+                Var(
+                    FileId(0):[285, 290) "magic",
+                ),
+                [
+                    (
+                        LiteralIntro(
+                            Int,
+                            FileId(0):[297, 298) "7",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[302, 321) "\"the common choice\"",
+                        ),
+                    ),
+                    (
+                        LiteralIntro(
+                            Int,
+                            FileId(0):[327, 329) "42",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[333, 369) "\"life, the universe, and everything\"",
+                        ),
+                    ),
+                    (
+                        LiteralIntro(
+                            Int,
+                            FileId(0):[375, 377) "13",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[381, 390) "\"unlucky\"",
+                        ),
+                    ),
+                    (
+                        Var(
+                            FileId(0):[396, 397) "_",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[401, 411) "\"nonsense\"",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[417, 426) "hi-to-bye",
+            body_ty: FunArrowType(
+                Var(
+                    FileId(0):[429, 435) "String",
+                ),
+                Var(
+                    FileId(0):[439, 445) "String",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[447, 456) "hi-to-bye",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[457, 462) "value",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: Case(
+                FileId(0):[465, 518),
+                Var(
+                    FileId(0):[470, 475) "value",
+                ),
+                [
+                    (
+                        LiteralIntro(
+                            String,
+                            FileId(0):[482, 486) "\"hi\"",
+                        ),
+                        LiteralIntro(
+                            String,
+                            FileId(0):[490, 495) "\"bye\"",
+                        ),
+                    ),
+                    (
+                        Var(
+                            FileId(0):[501, 506) "other",
+                        ),
+                        Var(
+                            FileId(0):[510, 515) "other",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+]

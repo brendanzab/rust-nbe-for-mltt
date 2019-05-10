@@ -1,0 +1,1674 @@
+[
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[0, 17) "test-synth-string",
+            params: [],
+            body_ty: None,
+            body: LiteralIntro(
+                String,
+                FileId(0):[20, 34) "\"Hello world!\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[36, 53) "test-check-string",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                LiteralIntro(
+                    String,
+                    FileId(0):[56, 70) "\"Hello world!\"",
+                ),
+                Var(
+                    FileId(0):[73, 79) "String",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[82, 101) "test-string-escapes",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[104, 110) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[113, 153) "\"\\x7f\\x7F\\u{7fff}\\u{7FFF}\\\'\\\"\\\\\\n\\r\\t\\0\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[156, 186) "test-string-escape-ascii-lower",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[189, 195) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[198, 204) "\"\\x7f\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[206, 236) "test-string-escape-ascii-upper",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[239, 245) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[248, 254) "\"\\x7F\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[256, 288) "test-string-escape-unicode-lower",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[291, 297) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[300, 310) "\"\\u{7fff}\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[312, 344) "test-string-escape-unicode-upper",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[347, 353) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[356, 366) "\"\\u{7FFF}\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[368, 399) "test-string-escape-single-quote",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[402, 408) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[411, 415) "\"\\\'\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[417, 448) "test-string-escape-double-quote",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[451, 457) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[460, 464) "\"\\\"\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[466, 495) "test-string-escape-back-slash",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[498, 504) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[507, 511) "\"\\\\\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[513, 540) "test-string-escape-new-line",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[543, 549) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[552, 556) "\"\\n\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[558, 592) "test-string-escape-carriage-return",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[595, 601) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[604, 608) "\"\\r\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[610, 632) "test-string-escape-tab",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[635, 641) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[644, 648) "\"\\t\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[650, 673) "test-string-escape-null",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[676, 682) "String",
+                ),
+            ),
+            body: LiteralIntro(
+                String,
+                FileId(0):[685, 689) "\"\\0\"",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[692, 707) "test-synth-char",
+            params: [],
+            body_ty: None,
+            body: LiteralIntro(
+                Char,
+                FileId(0):[710, 713) "\'a\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[715, 730) "test-check-char",
+            params: [],
+            body_ty: None,
+            body: Ann(
+                LiteralIntro(
+                    Char,
+                    FileId(0):[733, 736) "\'a\'",
+                ),
+                Var(
+                    FileId(0):[739, 743) "Char",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[746, 768) "test-char-escape-upper",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[771, 775) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[778, 784) "\'\\x7f\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[786, 808) "test-char-escape-ascii",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[811, 815) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[818, 824) "\'\\x7F\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[826, 856) "test-char-escape-unicode-lower",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[859, 863) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[866, 876) "\'\\u{7fff}\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[878, 908) "test-char-escape-unicode-upper",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[911, 915) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[918, 928) "\'\\u{7FFF}\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[930, 959) "test-char-escape-single-quote",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[962, 966) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[969, 973) "\'\\\'\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[975, 1004) "test-char-escape-double-quote",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1007, 1011) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[1014, 1018) "\'\\\"\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1020, 1047) "test-char-escape-back-slash",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1050, 1054) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[1057, 1061) "\'\\\\\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1063, 1088) "test-char-escape-new-line",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1091, 1095) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[1098, 1102) "\'\\n\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1104, 1136) "test-char-escape-carriage-return",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1139, 1143) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[1146, 1150) "\'\\r\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1152, 1172) "test-char-escape-tab",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1175, 1179) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[1182, 1186) "\'\\t\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1188, 1209) "test-char-escape-null",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1212, 1216) "Char",
+                ),
+            ),
+            body: LiteralIntro(
+                Char,
+                FileId(0):[1219, 1223) "\'\\0\'",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1226, 1240) "test-bool-true",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1243, 1247) "Bool",
+                ),
+            ),
+            body: Var(
+                FileId(0):[1250, 1254) "true",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1256, 1271) "test-bool-false",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1274, 1278) "Bool",
+                ),
+            ),
+            body: Var(
+                FileId(0):[1281, 1286) "false",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1289, 1302) "test-u8-bin-0",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1305, 1307) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1310, 1313) "0b0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1315, 1328) "test-u8-bin-1",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1331, 1333) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1336, 1339) "0b1",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1341, 1355) "test-u8-bin-11",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1358, 1360) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1363, 1367) "0b11",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1369, 1386) "test-u8-bin-11-11",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1389, 1391) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1394, 1402) "0b_11_11",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1404, 1419) "test-u8-oct-172",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1422, 1424) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1427, 1435) "0o___172",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1437, 1450) "test-u8-dec-0",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1453, 1455) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1458, 1459) "0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1461, 1477) "test-u8-dec-0000",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1480, 1482) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1485, 1489) "0000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1491, 1508) "test-u8-dec-0--12",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1511, 1513) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1516, 1521) "0__12",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1523, 1536) "test-u8-hex-a",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1539, 1541) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1544, 1547) "0xA",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1550, 1568) "test-s8-bin-neg-11",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1571, 1573) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1576, 1581) "-0b11",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1583, 1601) "test-s8-oct-neg-11",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1604, 1606) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1609, 1614) "-0o11",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1616, 1634) "test-s8-hex-neg-11",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1637, 1639) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1642, 1647) "-0x11",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1650, 1665) "test-u8-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1668, 1670) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1673, 1676) "0b0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1678, 1694) "test-u16-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1697, 1700) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1703, 1706) "0b0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1708, 1724) "test-u32-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1727, 1730) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1733, 1736) "0b0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1738, 1754) "test-u64-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1757, 1760) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1763, 1766) "0b0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1768, 1783) "test-s8-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1786, 1788) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1791, 1802) "-0b10000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1804, 1820) "test-s16-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1823, 1826) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1829, 1848) "-0b1000000000000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1850, 1866) "test-s32-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1869, 1872) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1875, 1910) "-0b10000000000000000000000000000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1912, 1928) "test-s64-bin-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[1931, 1934) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[1937, 2004) "-0b1000000000000000000000000000000000000000000000000000000000000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2007, 2022) "test-u8-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2025, 2027) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2030, 2033) "0o0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2035, 2051) "test-u16-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2054, 2057) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2060, 2063) "0o0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2065, 2081) "test-u32-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2084, 2087) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2090, 2093) "0o0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2095, 2111) "test-u64-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2114, 2117) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2120, 2123) "0o0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2125, 2140) "test-s8-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2143, 2145) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2148, 2154) "-0o200",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2156, 2172) "test-s16-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2175, 2178) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2181, 2190) "-0o100000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2192, 2208) "test-s32-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2211, 2214) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2217, 2231) "-0o20000000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2233, 2249) "test-s64-oct-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2252, 2255) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2258, 2283) "-0o1000000000000000000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2286, 2301) "test-u8-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2304, 2306) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2309, 2310) "0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2312, 2328) "test-u16-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2331, 2334) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2337, 2338) "0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2340, 2356) "test-u32-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2359, 2362) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2365, 2366) "0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2368, 2384) "test-u64-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2387, 2390) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2393, 2394) "0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2396, 2411) "test-s8-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2414, 2416) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2419, 2423) "-128",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2425, 2441) "test-s16-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2444, 2447) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2450, 2456) "-32768",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2458, 2474) "test-s32-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2477, 2480) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2483, 2494) "-2147483648",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2496, 2512) "test-s64-dec-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2515, 2518) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2521, 2541) "-9223372036854775808",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2544, 2559) "test-u8-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2562, 2564) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2567, 2570) "0x0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2572, 2588) "test-u16-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2591, 2594) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2597, 2600) "0x0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2602, 2618) "test-u32-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2621, 2624) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2627, 2630) "0x0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2632, 2648) "test-u64-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2651, 2654) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2657, 2660) "0x0",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2662, 2677) "test-s8-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2680, 2682) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2685, 2690) "-0x80",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2692, 2708) "test-s16-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2711, 2714) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2717, 2724) "-0x8000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2726, 2742) "test-s32-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2745, 2748) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2751, 2762) "-0x80000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2764, 2780) "test-s64-hex-min",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2783, 2786) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2789, 2808) "-0x8000000000000000",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2811, 2826) "test-u8-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2829, 2831) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2834, 2844) "0b11111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2846, 2862) "test-u16-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2865, 2868) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2871, 2889) "0b1111111111111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2891, 2907) "test-u32-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2910, 2913) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2916, 2950) "0b11111111111111111111111111111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2952, 2968) "test-u64-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[2971, 2974) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[2977, 3043) "0b1111111111111111111111111111111111111111111111111111111111111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3045, 3060) "test-s8-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3063, 3065) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3068, 3077) "0b1111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3079, 3095) "test-s16-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3098, 3101) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3104, 3121) "0b111111111111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3123, 3139) "test-s32-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3142, 3145) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3148, 3181) "0b1111111111111111111111111111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3183, 3199) "test-s64-bin-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3202, 3205) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3208, 3273) "0b111111111111111111111111111111111111111111111111111111111111111",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3276, 3291) "test-u8-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3294, 3296) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3299, 3304) "0o377",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3306, 3322) "test-u16-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3325, 3328) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3331, 3339) "0o177777",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3341, 3357) "test-u32-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3360, 3363) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3366, 3379) "0o37777777777",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3381, 3397) "test-u64-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3400, 3403) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3406, 3430) "0o1777777777777777777777",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3432, 3447) "test-s8-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3450, 3452) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3455, 3460) "0o177",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3462, 3478) "test-s16-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3481, 3484) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3487, 3494) "0o77777",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3496, 3512) "test-s32-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3515, 3518) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3521, 3534) "0o17777777777",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3536, 3552) "test-s64-oct-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3555, 3558) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3561, 3584) "0o777777777777777777777",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3587, 3602) "test-u8-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3605, 3607) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3610, 3613) "255",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3615, 3631) "test-u16-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3634, 3637) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3640, 3645) "65535",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3647, 3663) "test-u32-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3666, 3669) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3672, 3682) "4294967295",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3684, 3700) "test-u64-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3703, 3706) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3709, 3729) "18446744073709551615",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3731, 3746) "test-s8-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3749, 3751) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3754, 3757) "127",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3759, 3775) "test-s16-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3778, 3781) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3784, 3789) "32767",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3791, 3807) "test-s32-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3810, 3813) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3816, 3826) "2147483647",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3828, 3844) "test-s64-dec-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3847, 3850) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3853, 3872) "9223372036854775807",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3875, 3890) "test-u8-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3893, 3895) "U8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3898, 3902) "0xff",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3904, 3920) "test-u16-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3923, 3926) "U16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3929, 3935) "0xffff",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3937, 3953) "test-u32-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3956, 3959) "U32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3962, 3972) "0xffffffff",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[3974, 3990) "test-u64-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[3993, 3996) "U64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[3999, 4017) "0xffffffffffffffff",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4019, 4034) "test-s8-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[4037, 4039) "S8",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[4042, 4046) "0x7f",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4048, 4064) "test-s16-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[4067, 4070) "S16",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[4073, 4079) "0x7fff",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4081, 4097) "test-s32-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[4100, 4103) "S32",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[4106, 4116) "0x7fffffff",
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[4118, 4134) "test-s64-hex-max",
+            params: [],
+            body_ty: Some(
+                Var(
+                    FileId(0):[4137, 4140) "S64",
+                ),
+            ),
+            body: LiteralIntro(
+                Int,
+                FileId(0):[4143, 4161) "0x7fffffffffffffff",
+            ),
+        },
+    ),
+]

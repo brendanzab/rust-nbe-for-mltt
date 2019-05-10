@@ -1,0 +1,262 @@
+abort : Fun {A : Type^0} (x : String) -> A;
+
+abort = fun {A = _} => primitive "abort";
+
+string-eq = primitive "string-eq" : Fun (x : String) (x1 : String) -> Bool;
+
+char-eq = primitive "char-eq" : Fun (x : Char) (x1 : Char) -> Bool;
+
+u8-eq = primitive "u8-eq" : Fun (x : U8) (x1 : U8) -> Bool;
+
+u16-eq = primitive "u16-eq" : Fun (x : U16) (x1 : U16) -> Bool;
+
+u32-eq = primitive "u32-eq" : Fun (x : U32) (x1 : U32) -> Bool;
+
+u64-eq = primitive "u64-eq" : Fun (x : U64) (x1 : U64) -> Bool;
+
+s8-eq = primitive "s8-eq" : Fun (x : S8) (x1 : S8) -> Bool;
+
+s16-eq = primitive "s16-eq" : Fun (x : S16) (x1 : S16) -> Bool;
+
+s32-eq = primitive "s32-eq" : Fun (x : S32) (x1 : S32) -> Bool;
+
+s64-eq = primitive "s64-eq" : Fun (x : S64) (x1 : S64) -> Bool;
+
+f32-eq = primitive "f32-eq" : Fun (x : F32) (x1 : F32) -> Bool;
+
+f64-eq = primitive "f64-eq" : Fun (x : F64) (x1 : F64) -> Bool;
+
+string-ne = primitive "string-ne" : Fun (x : String) (x1 : String) -> Bool;
+
+char-ne = primitive "char-ne" : Fun (x : Char) (x1 : Char) -> Bool;
+
+u8-ne = primitive "u8-ne" : Fun (x : U8) (x1 : U8) -> Bool;
+
+u16-ne = primitive "u16-ne" : Fun (x : U16) (x1 : U16) -> Bool;
+
+u32-ne = primitive "u32-ne" : Fun (x : U32) (x1 : U32) -> Bool;
+
+u64-ne = primitive "u64-ne" : Fun (x : U64) (x1 : U64) -> Bool;
+
+s8-ne = primitive "s8-ne" : Fun (x : S8) (x1 : S8) -> Bool;
+
+s16-ne = primitive "s16-ne" : Fun (x : S16) (x1 : S16) -> Bool;
+
+s32-ne = primitive "s32-ne" : Fun (x : S32) (x1 : S32) -> Bool;
+
+s64-ne = primitive "s64-ne" : Fun (x : S64) (x1 : S64) -> Bool;
+
+f32-ne = primitive "f32-ne" : Fun (x : F32) (x1 : F32) -> Bool;
+
+f64-ne = primitive "f64-ne" : Fun (x : F64) (x1 : F64) -> Bool;
+
+string-lt = primitive "string-lt" : Fun (x : String) (x1 : String) -> Bool;
+
+char-lt = primitive "char-lt" : Fun (x : Char) (x1 : Char) -> Bool;
+
+u8-lt = primitive "u8-lt" : Fun (x : U8) (x1 : U8) -> Bool;
+
+u16-lt = primitive "u16-lt" : Fun (x : U16) (x1 : U16) -> Bool;
+
+u32-lt = primitive "u32-lt" : Fun (x : U32) (x1 : U32) -> Bool;
+
+u64-lt = primitive "u64-lt" : Fun (x : U64) (x1 : U64) -> Bool;
+
+s8-lt = primitive "s8-lt" : Fun (x : S8) (x1 : S8) -> Bool;
+
+s16-lt = primitive "s16-lt" : Fun (x : S16) (x1 : S16) -> Bool;
+
+s32-lt = primitive "s32-lt" : Fun (x : S32) (x1 : S32) -> Bool;
+
+s64-lt = primitive "s64-lt" : Fun (x : S64) (x1 : S64) -> Bool;
+
+f32-lt = primitive "f32-lt" : Fun (x : F32) (x1 : F32) -> Bool;
+
+f64-lt = primitive "f64-lt" : Fun (x : F64) (x1 : F64) -> Bool;
+
+string-le = primitive "string-le" : Fun (x : String) (x1 : String) -> Bool;
+
+char-le = primitive "char-le" : Fun (x : Char) (x1 : Char) -> Bool;
+
+u8-le = primitive "u8-le" : Fun (x : U8) (x1 : U8) -> Bool;
+
+u16-le = primitive "u16-le" : Fun (x : U16) (x1 : U16) -> Bool;
+
+u32-le = primitive "u32-le" : Fun (x : U32) (x1 : U32) -> Bool;
+
+u64-le = primitive "u64-le" : Fun (x : U64) (x1 : U64) -> Bool;
+
+s8-le = primitive "s8-le" : Fun (x : S8) (x1 : S8) -> Bool;
+
+s16-le = primitive "s16-le" : Fun (x : S16) (x1 : S16) -> Bool;
+
+s32-le = primitive "s32-le" : Fun (x : S32) (x1 : S32) -> Bool;
+
+s64-le = primitive "s64-le" : Fun (x : S64) (x1 : S64) -> Bool;
+
+f32-le = primitive "f32-le" : Fun (x : F32) (x1 : F32) -> Bool;
+
+f64-le = primitive "f64-le" : Fun (x : F64) (x1 : F64) -> Bool;
+
+string-ge = primitive "string-ge" : Fun (x : String) (x1 : String) -> Bool;
+
+char-ge = primitive "char-ge" : Fun (x : Char) (x1 : Char) -> Bool;
+
+u8-ge = primitive "u8-ge" : Fun (x : U8) (x1 : U8) -> Bool;
+
+u16-ge = primitive "u16-ge" : Fun (x : U16) (x1 : U16) -> Bool;
+
+u32-ge = primitive "u32-ge" : Fun (x : U32) (x1 : U32) -> Bool;
+
+u64-ge = primitive "u64-ge" : Fun (x : U64) (x1 : U64) -> Bool;
+
+s8-ge = primitive "s8-ge" : Fun (x : S8) (x1 : S8) -> Bool;
+
+s16-ge = primitive "s16-ge" : Fun (x : S16) (x1 : S16) -> Bool;
+
+s32-ge = primitive "s32-ge" : Fun (x : S32) (x1 : S32) -> Bool;
+
+s64-ge = primitive "s64-ge" : Fun (x : S64) (x1 : S64) -> Bool;
+
+f32-ge = primitive "f32-ge" : Fun (x : F32) (x1 : F32) -> Bool;
+
+f64-ge = primitive "f64-ge" : Fun (x : F64) (x1 : F64) -> Bool;
+
+string-gt = primitive "string-gt" : Fun (x : String) (x1 : String) -> Bool;
+
+char-gt = primitive "char-gt" : Fun (x : Char) (x1 : Char) -> Bool;
+
+u8-gt = primitive "u8-gt" : Fun (x : U8) (x1 : U8) -> Bool;
+
+u16-gt = primitive "u16-gt" : Fun (x : U16) (x1 : U16) -> Bool;
+
+u32-gt = primitive "u32-gt" : Fun (x : U32) (x1 : U32) -> Bool;
+
+u64-gt = primitive "u64-gt" : Fun (x : U64) (x1 : U64) -> Bool;
+
+s8-gt = primitive "s8-gt" : Fun (x : S8) (x1 : S8) -> Bool;
+
+s16-gt = primitive "s16-gt" : Fun (x : S16) (x1 : S16) -> Bool;
+
+s32-gt = primitive "s32-gt" : Fun (x : S32) (x1 : S32) -> Bool;
+
+s64-gt = primitive "s64-gt" : Fun (x : S64) (x1 : S64) -> Bool;
+
+f32-gt = primitive "f32-gt" : Fun (x : F32) (x1 : F32) -> Bool;
+
+f64-gt = primitive "f64-gt" : Fun (x : F64) (x1 : F64) -> Bool;
+
+u8-add = primitive "u8-add" : Fun (x : U8) (x1 : U8) -> U8;
+
+u16-add = primitive "u16-add" : Fun (x : U16) (x1 : U16) -> U16;
+
+u32-add = primitive "u32-add" : Fun (x : U32) (x1 : U32) -> U32;
+
+u64-add = primitive "u64-add" : Fun (x : U64) (x1 : U64) -> U64;
+
+s8-add = primitive "s8-add" : Fun (x : S8) (x1 : S8) -> S8;
+
+s16-add = primitive "s16-add" : Fun (x : S16) (x1 : S16) -> S16;
+
+s32-add = primitive "s32-add" : Fun (x : S32) (x1 : S32) -> S32;
+
+s64-add = primitive "s64-add" : Fun (x : S64) (x1 : S64) -> S64;
+
+f32-add = primitive "f32-add" : Fun (x : F32) (x1 : F32) -> F32;
+
+f64-add = primitive "f64-add" : Fun (x : F64) (x1 : F64) -> F64;
+
+u8-sub = primitive "u8-sub" : Fun (x : U8) (x1 : U8) -> U8;
+
+u16-sub = primitive "u16-sub" : Fun (x : U16) (x1 : U16) -> U16;
+
+u32-sub = primitive "u32-sub" : Fun (x : U32) (x1 : U32) -> U32;
+
+u64-sub = primitive "u64-sub" : Fun (x : U64) (x1 : U64) -> U64;
+
+s8-sub = primitive "s8-sub" : Fun (x : S8) (x1 : S8) -> S8;
+
+s16-sub = primitive "s16-sub" : Fun (x : S16) (x1 : S16) -> S16;
+
+s32-sub = primitive "s32-sub" : Fun (x : S32) (x1 : S32) -> S32;
+
+s64-sub = primitive "s64-sub" : Fun (x : S64) (x1 : S64) -> S64;
+
+f32-sub = primitive "f32-sub" : Fun (x : F32) (x1 : F32) -> F32;
+
+f64-sub = primitive "f64-sub" : Fun (x : F64) (x1 : F64) -> F64;
+
+s8-neg = primitive "s8-neg" : Fun (x : S8) -> S8;
+
+s16-neg = primitive "s16-neg" : Fun (x : S16) -> S16;
+
+s32-neg = primitive "s32-neg" : Fun (x : S32) -> S32;
+
+s64-neg = primitive "s64-neg" : Fun (x : S64) -> S64;
+
+f32-neg = primitive "f32-neg" : Fun (x : F32) -> F32;
+
+f64-neg = primitive "f64-neg" : Fun (x : F64) -> F64;
+
+u8-mul = primitive "u8-mul" : Fun (x : U8) (x1 : U8) -> U8;
+
+u16-mul = primitive "u16-mul" : Fun (x : U16) (x1 : U16) -> U16;
+
+u32-mul = primitive "u32-mul" : Fun (x : U32) (x1 : U32) -> U32;
+
+u64-mul = primitive "u64-mul" : Fun (x : U64) (x1 : U64) -> U64;
+
+s8-mul = primitive "s8-mul" : Fun (x : S8) (x1 : S8) -> S8;
+
+s16-mul = primitive "s16-mul" : Fun (x : S16) (x1 : S16) -> S16;
+
+s32-mul = primitive "s32-mul" : Fun (x : S32) (x1 : S32) -> S32;
+
+s64-mul = primitive "s64-mul" : Fun (x : S64) (x1 : S64) -> S64;
+
+f32-mul = primitive "f32-mul" : Fun (x : F32) (x1 : F32) -> F32;
+
+f64-mul = primitive "f64-mul" : Fun (x : F64) (x1 : F64) -> F64;
+
+u8-div = primitive "u8-div" : Fun (x : U8) (x1 : U8) -> U8;
+
+u16-div = primitive "u16-div" : Fun (x : U16) (x1 : U16) -> U16;
+
+u32-div = primitive "u32-div" : Fun (x : U32) (x1 : U32) -> U32;
+
+u64-div = primitive "u64-div" : Fun (x : U64) (x1 : U64) -> U64;
+
+s8-div = primitive "s8-div" : Fun (x : S8) (x1 : S8) -> S8;
+
+s16-div = primitive "s16-div" : Fun (x : S16) (x1 : S16) -> S16;
+
+s32-div = primitive "s32-div" : Fun (x : S32) (x1 : S32) -> S32;
+
+s64-div = primitive "s64-div" : Fun (x : S64) (x1 : S64) -> S64;
+
+f32-div = primitive "f32-div" : Fun (x : F32) (x1 : F32) -> F32;
+
+f64-div = primitive "f64-div" : Fun (x : F64) (x1 : F64) -> F64;
+
+char-to-string = primitive "char-to-string" : Fun (x : Char) -> String;
+
+u8-to-string = primitive "u8-to-string" : Fun (x : U8) -> String;
+
+u16-to-string = primitive "u16-to-string" : Fun (x : U16) -> String;
+
+u32-to-string = primitive "u32-to-string" : Fun (x : U32) -> String;
+
+u64-to-string = primitive "u64-to-string" : Fun (x : U64) -> String;
+
+s8-to-string = primitive "s8-to-string" : Fun (x : S8) -> String;
+
+s16-to-string = primitive "s16-to-string" : Fun (x : S16) -> String;
+
+s32-to-string = primitive "s32-to-string" : Fun (x : S32) -> String;
+
+s64-to-string = primitive "s64-to-string" : Fun (x : S64) -> String;
+
+f32-to-string = primitive "f32-to-string" : Fun (x : F32) -> String;
+
+f64-to-string = primitive "f64-to-string" : Fun (x : F64) -> String;
+

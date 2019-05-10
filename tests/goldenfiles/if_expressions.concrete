@@ -1,0 +1,145 @@
+[
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[0, 10) "String-S32",
+            body_ty: FunArrowType(
+                Var(
+                    FileId(0):[13, 17) "Bool",
+                ),
+                Universe(
+                    FileId(0):[21, 25),
+                    None,
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[27, 37) "String-S32",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[38, 42) "flag",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: If(
+                FileId(0):[49, 77),
+                Var(
+                    FileId(0):[52, 56) "flag",
+                ),
+                Var(
+                    FileId(0):[62, 68) "String",
+                ),
+                Var(
+                    FileId(0):[74, 77) "S32",
+                ),
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[80, 89) "test-true",
+            body_ty: FunElim(
+                Var(
+                    FileId(0):[92, 102) "String-S32",
+                ),
+                [
+                    Explicit(
+                        Var(
+                            FileId(0):[103, 107) "true",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[109, 118) "test-true",
+            params: [],
+            body_ty: None,
+            body: LiteralIntro(
+                String,
+                FileId(0):[121, 128) "\"hello\"",
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[131, 141) "test-false",
+            body_ty: FunElim(
+                Var(
+                    FileId(0):[144, 154) "String-S32",
+                ),
+                [
+                    Explicit(
+                        Var(
+                            FileId(0):[155, 160) "false",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[162, 172) "test-false",
+            params: [],
+            body_ty: None,
+            body: LiteralIntro(
+                Int,
+                FileId(0):[175, 176) "0",
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [],
+            label: FileId(0):[179, 192) "make-greeting",
+            body_ty: FunArrowType(
+                Var(
+                    FileId(0):[195, 199) "Bool",
+                ),
+                Var(
+                    FileId(0):[203, 209) "String",
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[211, 224) "make-greeting",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[225, 229) "flag",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: If(
+                FileId(0):[236, 267),
+                Var(
+                    FileId(0):[239, 243) "flag",
+                ),
+                LiteralIntro(
+                    String,
+                    FileId(0):[249, 256) "\"hello\"",
+                ),
+                LiteralIntro(
+                    String,
+                    FileId(0):[262, 267) "\"bye\"",
+                ),
+            ),
+        },
+    ),
+]

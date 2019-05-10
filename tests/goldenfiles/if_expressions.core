@@ -1,0 +1,16 @@
+String-S32 : Fun (x : Bool) -> Type^0;
+
+String-S32 = fun flag => case flag { true => String; _ => S32; };
+
+test-true : String-S32 true;
+
+test-true = "hello";
+
+test-false : String-S32 false;
+
+test-false = 0;
+
+make-greeting : Fun (x : Bool) -> String;
+
+make-greeting = fun flag => case flag { true => "hello"; _ => "bye"; };
+

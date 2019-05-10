@@ -1,0 +1,12 @@
+Unit : Type^0;
+
+Unit = Record {};
+
+foo : Fun (x : Type^0) -> Unit;
+
+unit : Unit;
+
+unit = record {};
+
+foo = fun A => unit;
+

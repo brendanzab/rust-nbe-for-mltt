@@ -1,0 +1,123 @@
+Unit : Type^0;
+
+Unit = Record {};
+
+unit : Unit;
+
+unit = record {};
+
+id : Fun {A : Type^0} (x : A) -> A;
+
+id = fun {A} a => a;
+
+test-id : Unit;
+
+test-id = id {A = Unit} unit;
+
+test-id-holes : Unit;
+
+test-id-holes = id {A = ?0} unit;
+
+test-id-implicit : Unit;
+
+test-id-implicit = id {A = ?1} unit;
+
+const : Fun {A : Type^0} {B : Type^0} (x : A) (x1 : B) -> A;
+
+const = fun {A} {B} a b => a;
+
+test-const : Unit;
+
+test-const = const {A = Unit} {B = Fun (x : String) -> String} unit (id {A = String});
+
+test-const-holes : Unit;
+
+test-const-holes = const {A = ?2} {B = ?3} unit (id {A = String});
+
+test-const-implicit : Unit;
+
+test-const-implicit = const {A = ?4} {B = ?5} unit (id {A = String});
+
+d-subst :
+    Fun
+        {A : Type^0}
+        {B : Fun (x : A) -> Type^0}
+        {C : Fun (x : A) (x1 : B x) -> Type^0}
+        (x : Fun (x : A) (x1 : B x) -> (C x x1))
+        (x1 : Fun (x1 : A) -> (B x1))
+        (x2 : A)
+    -> (C x2 (x1 x2));
+
+d-subst = fun {A} {B} {C} f g a => f a (g a);
+
+subst :
+    Fun
+        {A : Type^0}
+        {B : Type^0}
+        {C : Type^0}
+        (x : Fun (x : A) (x1 : B) -> C)
+        (x1 : Fun (x1 : A) -> B)
+        (x2 : A)
+    -> C;
+
+subst = fun {A} {B} {C} f g => d-subst {A = A} {B = fun a => B} {C = fun a b => C} f g;
+
+d-compose :
+    Fun
+        {A : Type^0}
+        {B : Fun (x : A) -> Type^0}
+        {C : Fun {a : A} (x : B a) -> Type^0}
+        (x : Fun {a : A} (x : B a) -> (C {a = a} x))
+        (x1 : Fun (x1 : A) -> (B x1))
+        (x2 : A)
+    -> (C {a = x2} (x1 x2));
+
+d-compose = fun {A} {B} {C} f g a => f {a = a} (g a);
+
+compose :
+    Fun
+        {A : Type^0}
+        {B : Type^0}
+        {C : Type^0}
+        (x : Fun (x : B) -> C)
+        (x1 : Fun (x1 : A) -> B)
+        (x2 : A)
+    -> C;
+
+compose =
+    fun {A} {B} {C} f g => d-compose {A = A} {B = fun a => B} {C = fun {a} b => C} (fun {a} b => f b) g;
+
+d-flip :
+    Fun
+        {A : Type^0}
+        {B : Type^0}
+        {C : Fun (x : A) (x1 : B) -> Type^0}
+        (x : Fun (x : A) (x1 : B) -> (C x x1))
+        (x1 : B)
+        (x2 : A)
+    -> (C x2 x1);
+
+d-flip = fun {A} {B} {C} f a b => f b a;
+
+flip :
+    Fun {A : Type^0} {B : Type^0} {C : Type^0} (x : Fun (x : A) (x1 : B) -> C) (x1 : B) (x2 : A) -> C;
+
+flip = fun {A} {B} {C} f => d-flip {A = A} {B = B} {C = fun a b => C} f;
+
+test-flip : Fun (x : Fun (x : Unit) -> Unit) (x1 : Unit) -> Unit;
+
+test-flip =
+    flip
+        {A = Unit}
+        {B = Fun (x : Unit) -> Unit}
+        {C = Unit}
+        (const {A = Unit} {B = Fun (x : Unit) -> Unit});
+
+test-flip-holes : Fun (x : Fun (x : Unit) -> Unit) (x1 : Unit) -> Unit;
+
+test-flip-holes = flip {A = ?6} {B = ?7} {C = ?8} (const {A = ?9} {B = ?10});
+
+test-flip-implicit : Fun (x : Fun (x : Unit) -> Unit) (x1 : Unit) -> Unit;
+
+test-flip-implicit = flip {A = ?11} {B = ?12} {C = ?13} (const {A = ?14} {B = ?15});
+

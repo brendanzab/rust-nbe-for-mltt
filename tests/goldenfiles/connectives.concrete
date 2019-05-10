@@ -1,0 +1,178 @@
+[
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[0, 22) "||| Dependent products",
+            ],
+            label: FileId(0):[23, 27) "Prod",
+            body_ty: FunType(
+                FileId(0):[30, 68),
+                [
+                    Explicit(
+                        FileId(0):[34, 44),
+                        [
+                            FileId(0):[35, 36) "A",
+                        ],
+                        Universe(
+                            FileId(0):[39, 43),
+                            None,
+                        ),
+                    ),
+                    Explicit(
+                        FileId(0):[45, 60),
+                        [
+                            FileId(0):[46, 47) "B",
+                        ],
+                        FunArrowType(
+                            Var(
+                                FileId(0):[50, 51) "A",
+                            ),
+                            Universe(
+                                FileId(0):[55, 59),
+                                None,
+                            ),
+                        ),
+                    ),
+                ],
+                Universe(
+                    FileId(0):[64, 68),
+                    None,
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[70, 74) "Prod",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[75, 76) "A",
+                    ),
+                ),
+                Explicit(
+                    Var(
+                        FileId(0):[77, 78) "B",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: FunType(
+                FileId(0):[81, 99),
+                [
+                    Explicit(
+                        FileId(0):[85, 92),
+                        [
+                            FileId(0):[86, 87) "a",
+                        ],
+                        Var(
+                            FileId(0):[90, 91) "A",
+                        ),
+                    ),
+                ],
+                FunElim(
+                    Var(
+                        FileId(0):[96, 97) "B",
+                    ),
+                    [
+                        Explicit(
+                            Var(
+                                FileId(0):[98, 99) "a",
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[102, 131) "||| Dependent sums (subtypes)",
+            ],
+            label: FileId(0):[132, 135) "Sum",
+            body_ty: FunType(
+                FileId(0):[138, 176),
+                [
+                    Explicit(
+                        FileId(0):[142, 152),
+                        [
+                            FileId(0):[143, 144) "A",
+                        ],
+                        Universe(
+                            FileId(0):[147, 151),
+                            None,
+                        ),
+                    ),
+                    Explicit(
+                        FileId(0):[153, 168),
+                        [
+                            FileId(0):[154, 155) "B",
+                        ],
+                        FunArrowType(
+                            Var(
+                                FileId(0):[158, 159) "A",
+                            ),
+                            Universe(
+                                FileId(0):[163, 167),
+                                None,
+                            ),
+                        ),
+                    ),
+                ],
+                Universe(
+                    FileId(0):[172, 176),
+                    None,
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[178, 181) "Sum",
+            params: [
+                Explicit(
+                    Var(
+                        FileId(0):[182, 183) "A",
+                    ),
+                ),
+                Explicit(
+                    Var(
+                        FileId(0):[184, 185) "B",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[188, 230),
+                [
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[201, 204) "val",
+                        ann: Var(
+                            FileId(0):[207, 208) "A",
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [],
+                        label: FileId(0):[214, 219) "proof",
+                        ann: FunElim(
+                            Var(
+                                FileId(0):[222, 223) "B",
+                            ),
+                            [
+                                Explicit(
+                                    Var(
+                                        FileId(0):[224, 227) "val",
+                                    ),
+                                ),
+                            ],
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+]

@@ -1,0 +1,904 @@
+[
+    Definition(
+        Definition {
+            docs: [
+                FileId(0):[0, 82) "||| A category is a very general structure that provides a common way of composing",
+                FileId(0):[83, 109) "||| units of functionality",
+                FileId(0):[110, 113) "|||",
+                FileId(0):[114, 194) "||| The most common category programmers would be familiar with would be `Type`s",
+                FileId(0):[195, 274) "||| are the objects, and the functions between those types are the arrows. Many",
+                FileId(0):[275, 322) "||| other categories exist though, for example:",
+                FileId(0):[323, 326) "|||",
+                FileId(0):[327, 394) "||| - nodes in a directed graph, and the edges between those nodes.",
+                FileId(0):[395, 405) "||| - etc.",
+            ],
+            label: FileId(0):[406, 414) "Category",
+            params: [],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[417, 745),
+                [
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[430, 459) "||| An object in the category",
+                        ],
+                        label: FileId(0):[464, 470) "Object",
+                        ann: Universe(
+                            FileId(0):[473, 477),
+                            None,
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[483, 529) "||| Arrows between the objects in the category",
+                        ],
+                        label: FileId(0):[534, 539) "Arrow",
+                        ann: FunArrowType(
+                            Var(
+                                FileId(0):[542, 548) "Object",
+                            ),
+                            FunArrowType(
+                                Var(
+                                    FileId(0):[552, 558) "Object",
+                                ),
+                                Universe(
+                                    FileId(0):[562, 566),
+                                    None,
+                                ),
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[573, 595) "||| The identity arrow",
+                        ],
+                        label: FileId(0):[600, 602) "id",
+                        ann: FunType(
+                            FileId(0):[605, 634),
+                            [
+                                Implicit(
+                                    FileId(0):[609, 621),
+                                    [
+                                        FileId(0):[610, 611) "A",
+                                    ],
+                                    Some(
+                                        Var(
+                                            FileId(0):[614, 620) "Object",
+                                        ),
+                                    ),
+                                ),
+                            ],
+                            FunElim(
+                                Var(
+                                    FileId(0):[625, 630) "Arrow",
+                                ),
+                                [
+                                    Explicit(
+                                        Var(
+                                            FileId(0):[631, 632) "A",
+                                        ),
+                                    ),
+                                    Explicit(
+                                        Var(
+                                            FileId(0):[633, 634) "A",
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[640, 672) "||| The sequencing of two arrows",
+                        ],
+                        label: FileId(0):[677, 680) "seq",
+                        ann: FunType(
+                            FileId(0):[683, 742),
+                            [
+                                Implicit(
+                                    FileId(0):[687, 703),
+                                    [
+                                        FileId(0):[688, 689) "A",
+                                        FileId(0):[690, 691) "B",
+                                        FileId(0):[692, 693) "C",
+                                    ],
+                                    Some(
+                                        Var(
+                                            FileId(0):[696, 702) "Object",
+                                        ),
+                                    ),
+                                ),
+                            ],
+                            FunArrowType(
+                                FunElim(
+                                    Var(
+                                        FileId(0):[707, 712) "Arrow",
+                                    ),
+                                    [
+                                        Explicit(
+                                            Var(
+                                                FileId(0):[713, 714) "A",
+                                            ),
+                                        ),
+                                        Explicit(
+                                            Var(
+                                                FileId(0):[715, 716) "B",
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                                FunArrowType(
+                                    FunElim(
+                                        Var(
+                                            FileId(0):[720, 725) "Arrow",
+                                        ),
+                                        [
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[726, 727) "B",
+                                                ),
+                                            ),
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[728, 729) "C",
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                    FunElim(
+                                        Var(
+                                            FileId(0):[733, 738) "Arrow",
+                                        ),
+                                        [
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[739, 740) "A",
+                                                ),
+                                            ),
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[741, 742) "C",
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                ),
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[748, 770) "||| The identity arrow",
+            ],
+            label: FileId(0):[771, 773) "id",
+            body_ty: FunType(
+                FileId(0):[776, 832),
+                [
+                    Instance(
+                        FileId(0):[780, 798),
+                        FileId(0):[782, 785) "cat",
+                        Var(
+                            FileId(0):[788, 796) "Category",
+                        ),
+                    ),
+                    Implicit(
+                        FileId(0):[799, 815),
+                        [
+                            FileId(0):[800, 801) "A",
+                        ],
+                        Some(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[804, 807) "cat",
+                                ),
+                                FileId(0):[808, 814) "Object",
+                            ),
+                        ),
+                    ),
+                ],
+                FunElim(
+                    RecordElim(
+                        Var(
+                            FileId(0):[819, 822) "cat",
+                        ),
+                        FileId(0):[823, 828) "Arrow",
+                    ),
+                    [
+                        Explicit(
+                            Var(
+                                FileId(0):[829, 830) "A",
+                            ),
+                        ),
+                        Explicit(
+                            Var(
+                                FileId(0):[831, 832) "A",
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[834, 836) "id",
+            params: [
+                Instance(
+                    FileId(0):[837, 844),
+                    FileId(0):[839, 842) "cat",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[845, 848),
+                    FileId(0):[846, 847) "A",
+                    None,
+                ),
+            ],
+            body_ty: None,
+            body: FunElim(
+                RecordElim(
+                    Var(
+                        FileId(0):[851, 854) "cat",
+                    ),
+                    FileId(0):[855, 857) "id",
+                ),
+                [
+                    Implicit(
+                        FileId(0):[858, 861),
+                        FileId(0):[859, 860) "A",
+                        None,
+                    ),
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[893, 925) "||| The sequencing of two arrows",
+            ],
+            label: FileId(0):[926, 929) "seq",
+            body_ty: FunType(
+                FileId(0):[932, 1026),
+                [
+                    Instance(
+                        FileId(0):[936, 954),
+                        FileId(0):[938, 941) "cat",
+                        Var(
+                            FileId(0):[944, 952) "Category",
+                        ),
+                    ),
+                    Implicit(
+                        FileId(0):[955, 975),
+                        [
+                            FileId(0):[956, 957) "A",
+                            FileId(0):[958, 959) "B",
+                            FileId(0):[960, 961) "C",
+                        ],
+                        Some(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[964, 967) "cat",
+                                ),
+                                FileId(0):[968, 974) "Object",
+                            ),
+                        ),
+                    ),
+                ],
+                FunArrowType(
+                    FunElim(
+                        RecordElim(
+                            Var(
+                                FileId(0):[979, 982) "cat",
+                            ),
+                            FileId(0):[983, 988) "Arrow",
+                        ),
+                        [
+                            Explicit(
+                                Var(
+                                    FileId(0):[989, 990) "A",
+                                ),
+                            ),
+                            Explicit(
+                                Var(
+                                    FileId(0):[991, 992) "B",
+                                ),
+                            ),
+                        ],
+                    ),
+                    FunArrowType(
+                        FunElim(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[996, 999) "cat",
+                                ),
+                                FileId(0):[1000, 1005) "Arrow",
+                            ),
+                            [
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1006, 1007) "B",
+                                    ),
+                                ),
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1008, 1009) "C",
+                                    ),
+                                ),
+                            ],
+                        ),
+                        FunElim(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[1013, 1016) "cat",
+                                ),
+                                FileId(0):[1017, 1022) "Arrow",
+                            ),
+                            [
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1023, 1024) "A",
+                                    ),
+                                ),
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1025, 1026) "C",
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1028, 1031) "seq",
+            params: [
+                Instance(
+                    FileId(0):[1032, 1039),
+                    FileId(0):[1034, 1037) "cat",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[1040, 1043),
+                    FileId(0):[1041, 1042) "A",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[1044, 1047),
+                    FileId(0):[1045, 1046) "B",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[1048, 1051),
+                    FileId(0):[1049, 1050) "C",
+                    None,
+                ),
+            ],
+            body_ty: None,
+            body: FunElim(
+                RecordElim(
+                    Var(
+                        FileId(0):[1054, 1057) "cat",
+                    ),
+                    FileId(0):[1058, 1061) "seq",
+                ),
+                [
+                    Implicit(
+                        FileId(0):[1062, 1065),
+                        FileId(0):[1063, 1064) "A",
+                        None,
+                    ),
+                    Implicit(
+                        FileId(0):[1066, 1069),
+                        FileId(0):[1067, 1068) "B",
+                        None,
+                    ),
+                    Implicit(
+                        FileId(0):[1070, 1073),
+                        FileId(0):[1071, 1072) "C",
+                        None,
+                    ),
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[1105, 1138) "||| The composition of two arrows",
+            ],
+            label: FileId(0):[1139, 1146) "compose",
+            body_ty: FunType(
+                FileId(0):[1149, 1243),
+                [
+                    Instance(
+                        FileId(0):[1153, 1171),
+                        FileId(0):[1155, 1158) "cat",
+                        Var(
+                            FileId(0):[1161, 1169) "Category",
+                        ),
+                    ),
+                    Implicit(
+                        FileId(0):[1172, 1192),
+                        [
+                            FileId(0):[1173, 1174) "A",
+                            FileId(0):[1175, 1176) "B",
+                            FileId(0):[1177, 1178) "C",
+                        ],
+                        Some(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[1181, 1184) "cat",
+                                ),
+                                FileId(0):[1185, 1191) "Object",
+                            ),
+                        ),
+                    ),
+                ],
+                FunArrowType(
+                    FunElim(
+                        RecordElim(
+                            Var(
+                                FileId(0):[1196, 1199) "cat",
+                            ),
+                            FileId(0):[1200, 1205) "Arrow",
+                        ),
+                        [
+                            Explicit(
+                                Var(
+                                    FileId(0):[1206, 1207) "B",
+                                ),
+                            ),
+                            Explicit(
+                                Var(
+                                    FileId(0):[1208, 1209) "C",
+                                ),
+                            ),
+                        ],
+                    ),
+                    FunArrowType(
+                        FunElim(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[1213, 1216) "cat",
+                                ),
+                                FileId(0):[1217, 1222) "Arrow",
+                            ),
+                            [
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1223, 1224) "A",
+                                    ),
+                                ),
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1225, 1226) "B",
+                                    ),
+                                ),
+                            ],
+                        ),
+                        FunElim(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[1230, 1233) "cat",
+                                ),
+                                FileId(0):[1234, 1239) "Arrow",
+                            ),
+                            [
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1240, 1241) "A",
+                                    ),
+                                ),
+                                Explicit(
+                                    Var(
+                                        FileId(0):[1242, 1243) "C",
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[1245, 1252) "compose",
+            params: [
+                Instance(
+                    FileId(0):[1253, 1260),
+                    FileId(0):[1255, 1258) "cat",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[1261, 1264),
+                    FileId(0):[1262, 1263) "A",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[1265, 1268),
+                    FileId(0):[1266, 1267) "B",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[1269, 1272),
+                    FileId(0):[1270, 1271) "C",
+                    None,
+                ),
+                Explicit(
+                    Var(
+                        FileId(0):[1273, 1274) "f",
+                    ),
+                ),
+                Explicit(
+                    Var(
+                        FileId(0):[1275, 1276) "g",
+                    ),
+                ),
+            ],
+            body_ty: None,
+            body: FunElim(
+                Var(
+                    FileId(0):[1279, 1282) "seq",
+                ),
+                [
+                    Instance(
+                        FileId(0):[1283, 1290),
+                        FileId(0):[1285, 1288) "cat",
+                        None,
+                    ),
+                    Implicit(
+                        FileId(0):[1291, 1294),
+                        FileId(0):[1292, 1293) "A",
+                        None,
+                    ),
+                    Implicit(
+                        FileId(0):[1295, 1298),
+                        FileId(0):[1296, 1297) "B",
+                        None,
+                    ),
+                    Implicit(
+                        FileId(0):[1299, 1302),
+                        FileId(0):[1300, 1301) "C",
+                        None,
+                    ),
+                    Explicit(
+                        Var(
+                            FileId(0):[1303, 1304) "g",
+                        ),
+                    ),
+                    Explicit(
+                        Var(
+                            FileId(0):[1305, 1306) "f",
+                        ),
+                    ),
+                ],
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [
+                FileId(0):[1309, 1384) "||| Provides a mapping from objects-to-objects and arrows-to-arrows for two",
+                FileId(0):[1385, 1422) "||| categories, `Source` and `Target`",
+                FileId(0):[1423, 1426) "|||",
+                FileId(0):[1427, 1501) "||| Mappings can be anything from applying a function to each element of a",
+                FileId(0):[1502, 1570) "||| collection, to compiling a source language to a target language.",
+                FileId(0):[1571, 1574) "|||",
+                FileId(0):[1575, 1649) "||| Haskell programmers might find this definition a little foreign - this",
+                FileId(0):[1650, 1721) "||| is because we use general categories in the definition, rather than",
+                FileId(0):[1722, 1780) "||| specializing it into the category of Pikelet functions",
+            ],
+            label: FileId(0):[1781, 1788) "Functor",
+            params: [],
+            body_ty: None,
+            body: RecordType(
+                FileId(0):[1791, 2155),
+                [
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[1804, 1827) "||| The source category",
+                        ],
+                        label: FileId(0):[1832, 1838) "Source",
+                        ann: Var(
+                            FileId(0):[1841, 1849) "Category",
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[1855, 1878) "||| The target category",
+                        ],
+                        label: FileId(0):[1883, 1889) "Target",
+                        ann: Var(
+                            FileId(0):[1892, 1900) "Category",
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[1906, 1961) "||| Maps an object in `Source` to an object in `Target`",
+                        ],
+                        label: FileId(0):[1966, 1969) "Map",
+                        ann: FunArrowType(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[1972, 1978) "Source",
+                                ),
+                                FileId(0):[1979, 1985) "Object",
+                            ),
+                            RecordElim(
+                                Var(
+                                    FileId(0):[1989, 1995) "Target",
+                                ),
+                                FileId(0):[1996, 2002) "Object",
+                            ),
+                        ),
+                    },
+                    RecordTypeField {
+                        docs: [
+                            FileId(0):[2009, 2064) "||| Maps an arrow in `Source` into an arrow in `Target`",
+                        ],
+                        label: FileId(0):[2069, 2072) "map",
+                        ann: FunType(
+                            FileId(0):[2075, 2152),
+                            [
+                                Implicit(
+                                    FileId(0):[2079, 2100),
+                                    [
+                                        FileId(0):[2080, 2081) "A",
+                                        FileId(0):[2082, 2083) "B",
+                                    ],
+                                    Some(
+                                        RecordElim(
+                                            Var(
+                                                FileId(0):[2086, 2092) "Source",
+                                            ),
+                                            FileId(0):[2093, 2099) "Object",
+                                        ),
+                                    ),
+                                ),
+                            ],
+                            FunArrowType(
+                                FunElim(
+                                    RecordElim(
+                                        Var(
+                                            FileId(0):[2104, 2110) "Source",
+                                        ),
+                                        FileId(0):[2111, 2116) "Arrow",
+                                    ),
+                                    [
+                                        Explicit(
+                                            Var(
+                                                FileId(0):[2117, 2118) "A",
+                                            ),
+                                        ),
+                                        Explicit(
+                                            Var(
+                                                FileId(0):[2119, 2120) "B",
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                                FunElim(
+                                    RecordElim(
+                                        Var(
+                                            FileId(0):[2124, 2130) "Target",
+                                        ),
+                                        FileId(0):[2131, 2136) "Arrow",
+                                    ),
+                                    [
+                                        Explicit(
+                                            Parens(
+                                                FileId(0):[2137, 2144),
+                                                FunElim(
+                                                    Var(
+                                                        FileId(0):[2138, 2141) "Map",
+                                                    ),
+                                                    [
+                                                        Explicit(
+                                                            Var(
+                                                                FileId(0):[2142, 2143) "A",
+                                                            ),
+                                                        ),
+                                                    ],
+                                                ),
+                                            ),
+                                        ),
+                                        Explicit(
+                                            Parens(
+                                                FileId(0):[2145, 2152),
+                                                FunElim(
+                                                    Var(
+                                                        FileId(0):[2146, 2149) "Map",
+                                                    ),
+                                                    [
+                                                        Explicit(
+                                                            Var(
+                                                                FileId(0):[2150, 2151) "B",
+                                                            ),
+                                                        ),
+                                                    ],
+                                                ),
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+    ),
+    Declaration(
+        Declaration {
+            docs: [
+                FileId(0):[2158, 2217) "||| Maps an arrow in `F.Source` into an arrow in `F.Target`",
+            ],
+            label: FileId(0):[2218, 2221) "map",
+            body_ty: FunType(
+                FileId(0):[2228, 2383),
+                [
+                    Instance(
+                        FileId(0):[2232, 2253),
+                        FileId(0):[2234, 2241) "functor",
+                        Var(
+                            FileId(0):[2244, 2251) "Functor",
+                        ),
+                    ),
+                    Implicit(
+                        FileId(0):[2254, 2283),
+                        [
+                            FileId(0):[2255, 2256) "A",
+                            FileId(0):[2257, 2258) "B",
+                        ],
+                        Some(
+                            RecordElim(
+                                RecordElim(
+                                    Var(
+                                        FileId(0):[2261, 2268) "functor",
+                                    ),
+                                    FileId(0):[2269, 2275) "Source",
+                                ),
+                                FileId(0):[2276, 2282) "Object",
+                            ),
+                        ),
+                    ),
+                ],
+                FunArrowType(
+                    FunElim(
+                        RecordElim(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[2295, 2302) "functor",
+                                ),
+                                FileId(0):[2303, 2309) "Source",
+                            ),
+                            FileId(0):[2310, 2315) "Arrow",
+                        ),
+                        [
+                            Explicit(
+                                Var(
+                                    FileId(0):[2316, 2317) "A",
+                                ),
+                            ),
+                            Explicit(
+                                Var(
+                                    FileId(0):[2318, 2319) "B",
+                                ),
+                            ),
+                        ],
+                    ),
+                    FunElim(
+                        RecordElim(
+                            RecordElim(
+                                Var(
+                                    FileId(0):[2331, 2338) "functor",
+                                ),
+                                FileId(0):[2339, 2345) "Target",
+                            ),
+                            FileId(0):[2346, 2351) "Arrow",
+                        ),
+                        [
+                            Explicit(
+                                Parens(
+                                    FileId(0):[2352, 2367),
+                                    FunElim(
+                                        RecordElim(
+                                            Var(
+                                                FileId(0):[2353, 2360) "functor",
+                                            ),
+                                            FileId(0):[2361, 2364) "Map",
+                                        ),
+                                        [
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[2365, 2366) "A",
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                ),
+                            ),
+                            Explicit(
+                                Parens(
+                                    FileId(0):[2368, 2383),
+                                    FunElim(
+                                        RecordElim(
+                                            Var(
+                                                FileId(0):[2369, 2376) "functor",
+                                            ),
+                                            FileId(0):[2377, 2380) "Map",
+                                        ),
+                                        [
+                                            Explicit(
+                                                Var(
+                                                    FileId(0):[2381, 2382) "B",
+                                                ),
+                                            ),
+                                        ],
+                                    ),
+                                ),
+                            ),
+                        ],
+                    ),
+                ),
+            ),
+        },
+    ),
+    Definition(
+        Definition {
+            docs: [],
+            label: FileId(0):[2385, 2388) "map",
+            params: [
+                Instance(
+                    FileId(0):[2389, 2400),
+                    FileId(0):[2391, 2398) "functor",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[2401, 2404),
+                    FileId(0):[2402, 2403) "A",
+                    None,
+                ),
+                Implicit(
+                    FileId(0):[2405, 2408),
+                    FileId(0):[2406, 2407) "B",
+                    None,
+                ),
+            ],
+            body_ty: None,
+            body: FunElim(
+                RecordElim(
+                    Var(
+                        FileId(0):[2411, 2418) "functor",
+                    ),
+                    FileId(0):[2419, 2422) "map",
+                ),
+                [
+                    Implicit(
+                        FileId(0):[2423, 2426),
+                        FileId(0):[2424, 2425) "A",
+                        None,
+                    ),
+                    Implicit(
+                        FileId(0):[2427, 2430),
+                        FileId(0):[2428, 2429) "B",
+                        None,
+                    ),
+                ],
+            ),
+        },
+    ),
+]
