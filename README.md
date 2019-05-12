@@ -46,11 +46,13 @@ DeBruijn levels in the syntax of the semantic domain.
     - [ ] Lambda case
 - [x] Dependent record types
 - [x] Primitive operations
-- [x] Add eta rules to elaborator
+- [ ] Unification
+    - [x] Basic unification
     - [x] Function eta rules
     - [x] Record eta rules
-- [x] Metavariable solving
-- [ ] Use skolemization to improve unification
+    - [ ] [Pruning](https://gitter.im/pikelet-lang/Lobby?at=5cd519e60f381d0a768e7811)
+    - [ ] [Skolemization](https://gitter.im/pikelet-lang/Lobby?at=5cd129ca6a84d76ed85bbefd)
+- [x] Metavariable insertion
 - [ ] Integration tests
   - [ ] Parse (pass)
   - [ ] Parse (fail)
