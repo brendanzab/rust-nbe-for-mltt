@@ -3,7 +3,7 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{IntroParam, LiteralKind, Pattern, SpannedString, Term};
 use mltt_core::literal::LiteralIntro;
-use mltt_core::{domain, meta, syntax, AppMode, DocString, Label};
+use mltt_core::{domain, meta, syntax, AppMode, DocString};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -309,18 +309,20 @@ fn done(
     params: Vec<(AppMode, Option<String>)>,
     body: Rc<syntax::Term>,
 ) -> Rc<syntax::Term> {
-    use mltt_core::syntax::Item::{Declaration, Definition};
-
-    let mut items = Vec::new();
-
-    for (scrutinee, scrutinee_ty) in scrutinees {
-        let doc = DocString::from("");
-        let label = Label("_".to_owned());
-        if let Some(scrutinee_ty) = scrutinee_ty {
-            items.push(Declaration(doc.clone(), label.clone(), scrutinee_ty));
-        }
-        items.push(Definition(doc, label, scrutinee));
-    }
+    let items = scrutinees
+        .into_iter()
+        .map(|(scrutinee, scrutinee_ty)| {
+            syntax::Item::Definition(
+                DocString::from(""),
+                None,
+                None,
+                match scrutinee_ty {
+                    None => scrutinee,
+                    Some(scrutinee_ty) => Rc::from(syntax::Term::ann(scrutinee, scrutinee_ty)),
+                },
+            )
+        })
+        .collect::<Vec<_>>();
 
     let body = params
         .into_iter()

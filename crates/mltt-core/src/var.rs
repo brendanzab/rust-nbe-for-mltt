@@ -40,7 +40,7 @@ impl<Entry: Clone> Env<Entry> {
 }
 
 /// The size of the environment.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size(pub u32);
 
 impl Size {
@@ -85,7 +85,7 @@ impl ops::Add<u32> for Size {
 /// need to be shifted while moving around terms under a specific scope. This
 /// makes them ideal for representing values. We'll convert these back into
 /// indices during read-back.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Level(pub u32);
 
 impl From<u32> for Level {
@@ -121,7 +121,7 @@ impl std::fmt::Display for Level {
 /// tree to get to the binder that bound this variable. De Bruijn indices are
 /// useful for being able to quickly looking up entries in an `Env` when deep in
 /// a nested scope. They also provide easy access to alpha equality.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Index(pub u32);
 
 impl From<u32> for Index {

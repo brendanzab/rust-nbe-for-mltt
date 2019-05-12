@@ -65,31 +65,35 @@ fn check_items(
     metas: &mut meta::Env,
     concrete_items: &[Item<'_>],
 ) -> Result<Vec<syntax::Item>, Diagnostic<FileSpan>> {
-    // Declarations that may be waiting to be defined
-    let mut forward_declarations = im::HashMap::new();
-    // The elaborated items
-    let mut core_items = {
-        let expected_defn_count = concrete_items.iter().filter(|i| i.is_definition()).count();
-        Vec::with_capacity(expected_defn_count)
+    let mut decl_count = 0;
+    let mut next_decl_index = || {
+        let next_index = decl_count;
+        decl_count += 1;
+        syntax::DeclarationIndex(next_index)
     };
+
+    // Declarations that may be waiting to be defined
+    let mut forward_decls = im::HashMap::new();
+    // The elaborated items
+    let expected_defn_count = concrete_items.iter().filter(|i| i.is_definition()).count();
+    let mut core_items = Vec::with_capacity(expected_defn_count);
 
     for concrete_item in concrete_items {
         use im::hashmap::Entry;
 
         match concrete_item {
-            Item::Declaration(declaration) => {
-                let label = declaration.label.slice;
-                let concrete_body_ty = &declaration.body_ty;
+            Item::Declaration(decl) => {
+                let name = decl.name.slice;
+                let concrete_body_ty = &decl.body_ty;
 
-                log::trace!("checking declaration:\t\t{}\t: {}", label, concrete_body_ty);
+                log::trace!("checking declaration:\t\t{}\t: {}", name, concrete_body_ty);
 
-                match forward_declarations.entry(label) {
+                match forward_decls.entry(name) {
                     // No previous declaration for this name was seen, so we can
                     // go-ahead and type check, elaborate, and then add it to
                     // the context
                     Entry::Vacant(entry) => {
-                        let docs = concat_docs(&declaration.docs);
-                        let label = Label(label.to_owned());
+                        let docs = concat_docs(&decl.docs);
                         let (body_ty, _) = synth_universe(&context, metas, &concrete_body_ty)?;
                         // Ensure that we evaluate the forward declaration in
                         // the current context - if we wait until later more
@@ -97,48 +101,49 @@ fn check_items(
                         let body_ty_value =
                             context.eval_term(metas, concrete_body_ty.span(), &body_ty)?;
 
-                        log::trace!("elaborated declaration:\t{}\t: {:?}", label, body_ty);
+                        log::trace!("elaborated declaration:\t{}\t: {:?}", name, body_ty);
 
-                        core_items.push(syntax::Item::Declaration(docs, label, body_ty));
-                        entry.insert(Some(body_ty_value));
+                        let name_hint = Some(name.to_owned());
+                        core_items.push(syntax::Item::Declaration(docs, name_hint, body_ty));
+                        entry.insert(Some((next_decl_index(), body_ty_value)));
                     },
                     // There's a declaration for this name already pending - we
                     // can't add a new one!
                     Entry::Occupied(_) => {
                         return Err(Diagnostic::new_error("already declared")
-                            .with_label(DiagnosticLabel::new_primary(declaration.label.span())));
+                            .with_label(DiagnosticLabel::new_primary(decl.name.span())));
                     },
                 }
             },
-            Item::Definition(definition) => {
-                let label = definition.label.slice;
-                let params = &definition.params;
-                let body_ty = definition.body_ty.as_ref();
-                let body = &definition.body;
+            Item::Definition(defn) => {
+                let name = defn.name.slice;
+                let body_ty = defn.body_ty.as_ref();
+                let body = &defn.body;
 
-                log::trace!("checking definition:\t\t{}\t= {}", label, body);
+                log::trace!("checking definition:\t\t{}\t= {}", name, body);
 
-                let (term, term_span, ty) = match forward_declarations.entry(label) {
+                let (decl_index, term, term_span, term_ty) = match forward_decls.entry(name) {
                     // No prior declaration was found, so we'll try synthesizing
                     // its type instead
                     Entry::Vacant(entry) => {
-                        let clause = Clause::new(params, body_ty, body);
-                        let (term, ty) = clause::synth_clause(&context, metas, clause)?;
+                        let clause = Clause::new(&defn.params, body_ty, body);
+                        let (term, term_ty) = clause::synth_clause(&context, metas, clause)?;
 
                         entry.insert(None);
+                        next_decl_index();
 
-                        (term, body.span(), ty)
+                        (None, term, body.span(), term_ty)
                     },
                     // Something has happened with this declaration, let's
                     // 'take' a look!
                     Entry::Occupied(mut entry) => match entry.get_mut().take() {
                         // We found a prior declaration, so we'll use it as a
                         // basis for checking the definition
-                        Some(ty) => {
-                            let clause = Clause::new(params, body_ty, body);
-                            let term = clause::check_clause(&context, metas, clause, &ty)?;
+                        Some((decl_index, term_ty)) => {
+                            let clause = Clause::new(&defn.params, body_ty, body);
+                            let term = clause::check_clause(&context, metas, clause, &term_ty)?;
 
-                            (term, body.span(), ty)
+                            (Some(decl_index), term, body.span(), term_ty)
                         },
                         // This declaration was already given a definition, so
                         // this is an error!
@@ -147,21 +152,20 @@ fn check_items(
                         // Erlang) turn duplicate definitions into case matches.
                         // Languages like Elm don't. What should we do here?
                         None => {
-                            return Err(Diagnostic::new_error("already defined").with_label(
-                                DiagnosticLabel::new_primary(definition.label.span()),
-                            ));
+                            return Err(Diagnostic::new_error("already defined")
+                                .with_label(DiagnosticLabel::new_primary(defn.name.span())));
                         },
                     },
                 };
 
-                log::trace!("elaborated definition:\t{}\t= {:?}", label, term);
+                log::trace!("elaborated definition:\t{}\t= {:?}", name, term);
 
-                let label = Label(label.to_owned());
-                let docs = concat_docs(&definition.docs);
+                let docs = concat_docs(&defn.docs);
+                let name_hint = Some(name.to_owned());
                 let value = context.eval_term(metas, term_span, &term)?;
 
-                context.add_defn(label.to_string(), value, ty);
-                core_items.push(syntax::Item::Definition(docs, label, term));
+                context.add_defn(name, value, term_ty);
+                core_items.push(syntax::Item::Definition(docs, decl_index, name_hint, term));
             },
         }
     }

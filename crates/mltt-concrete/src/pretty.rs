@@ -9,8 +9,8 @@ impl<'file> Item<'file> {
     /// Convert the item into a pretty-printable document.
     pub fn to_doc(&self) -> Doc<'_, BoxDoc<'_, ()>> {
         match self {
-            Item::Declaration(declaration) => declaration.to_doc(),
-            Item::Definition(definition) => definition.to_doc(),
+            Item::Declaration(decl) => decl.to_doc(),
+            Item::Definition(defn) => defn.to_doc(),
         }
     }
 }
@@ -26,7 +26,7 @@ impl<'file> Declaration<'file> {
 
         Doc::nil()
             .append(docs)
-            .append(self.label.to_doc())
+            .append(self.name.to_doc())
             .append(Doc::space())
             .append(":")
             .append(Doc::space())
@@ -54,7 +54,7 @@ impl<'file> Definition<'file> {
 
         Doc::nil()
             .append(docs)
-            .append(self.label.to_doc())
+            .append(self.name.to_doc())
             .append(Doc::space())
             .append(params)
             .append(Doc::space())

@@ -87,7 +87,7 @@ fn let_expr() {
         FileSpan::new(file_id, 0, 22),
         vec![Item::Definition(Definition {
             docs: Vec::new(),
-            label: SpannedString::new(file_id, 4, "var"),
+            name: SpannedString::new(file_id, 4, "var"),
             params: Vec::new(),
             body_ty: None,
             body: Term::Universe(FileSpan::new(file_id, 10, 14), None),

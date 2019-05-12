@@ -9,6 +9,8 @@ use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 /// Top-level module.
 #[derive(Clone, PartialEq)]
 pub struct Module {
+    // TODO: public exports?
+    // pub exports: im::HashMap<Label, DeclarationIndex>,
     pub items: Vec<Item>,
 }
 
@@ -19,13 +21,49 @@ impl fmt::Debug for Module {
     }
 }
 
+/// An index into the list of declarations.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DeclarationIndex(pub u32);
+
+impl std::fmt::Display for DeclarationIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// Top-level item.
 #[derive(Clone, PartialEq)]
 pub enum Item {
     /// Forward-declarations.
-    Declaration(DocString, Label, Rc<Term>),
+    Declaration(DocString, Option<String>, Rc<Term>),
     /// Term definitions.
-    Definition(DocString, Label, Rc<Term>),
+    ///
+    /// An associated forward-declaration may be referenced by using an index
+    /// into the list of declarations.
+    ///
+    // FIXME: feels like we might need something like `Either<DeclarationIndex, Option<String>>`
+    Definition(
+        DocString,
+        Option<DeclarationIndex>,
+        Option<String>,
+        Rc<Term>,
+    ),
+}
+
+impl Item {
+    /// Checks if an item is _alpha equivalent_ to another item.
+    pub fn alpha_eq(&self, other: &Item) -> bool {
+        match (self, other) {
+            (Item::Declaration(_, _, ty1), Item::Declaration(_, _, ty2)) => {
+                Term::alpha_eq(ty1, ty2)
+            },
+            (
+                Item::Definition(_, decl_index1, _, term1),
+                Item::Definition(_, decl_index2, _, term2),
+            ) => decl_index1 == decl_index2 && Term::alpha_eq(term1, term2),
+            (_, _) => false,
+        }
+    }
 }
 
 impl fmt::Debug for Item {
@@ -143,17 +181,8 @@ impl Term {
             },
             (Term::Let(items1, body1), Term::Let(items2, body2)) => {
                 items1.len() == items2.len()
-                    && Iterator::zip(items1.iter(), items2.iter()).all(|(item1, item2)| {
-                        match (item1, item2) {
-                            (Item::Declaration(_, _, ty1), Item::Declaration(_, _, ty2)) => {
-                                Term::alpha_eq(ty1, ty2)
-                            },
-                            (Item::Definition(_, _, term1), Item::Definition(_, _, term2)) => {
-                                Term::alpha_eq(term1, term2)
-                            },
-                            (_, _) => false,
-                        }
-                    })
+                    && Iterator::zip(items1.iter(), items2.iter())
+                        .all(|(item1, item2)| Item::alpha_eq(item1, item2))
                     && Term::alpha_eq(body1, body2)
             },
 
