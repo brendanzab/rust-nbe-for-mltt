@@ -311,14 +311,6 @@ pub enum MetaInsertion<'file> {
     UntilInstance(&'file str),
 }
 
-fn arg_to_meta_insertion<'arg, 'file>(concrete_arg: &'arg Arg<'file>) -> MetaInsertion<'file> {
-    match concrete_arg {
-        Arg::Explicit(_) => MetaInsertion::Yes,
-        Arg::Implicit(_, label, _) => MetaInsertion::UntilImplicit(label.slice),
-        Arg::Instance(_, label, _) => MetaInsertion::UntilInstance(label.slice),
-    }
-}
-
 /// Insert metavariables based on the expected type.
 fn insert_metas(
     meta_insertion: MetaInsertion<'_>,
@@ -536,8 +528,14 @@ pub fn synth_term(
 
             // FIXME: Clean up some duplication here?
 
-            let arg_meta_ins = arg_to_meta_insertion(concrete_arg);
-            let (mut fun, mut fun_ty) = synth_term(arg_meta_ins, context, metas, concrete_fun)?;
+            let (mut fun, mut fun_ty) = {
+                let arg_meta_ins = match concrete_arg {
+                    Arg::Explicit(_) => MetaInsertion::Yes,
+                    Arg::Implicit(_, label, _) => MetaInsertion::UntilImplicit(label.slice),
+                    Arg::Instance(_, label, _) => MetaInsertion::UntilInstance(label.slice),
+                };
+                synth_term(arg_meta_ins, context, metas, concrete_fun)?
+            };
 
             match context.force_value(metas, None, &fun_ty)?.as_ref() {
                 domain::Value::FunType(app_mode, param_ty, body_ty) => {
@@ -559,10 +557,15 @@ pub fn synth_term(
             }
 
             for concrete_arg in concrete_args {
-                let arg_meta_ins = arg_to_meta_insertion(concrete_arg);
-                let span = concrete_arg.span().start_span();
-                let (new_fun, new_fun_ty) =
-                    insert_metas(arg_meta_ins, context, metas, span, fun, &fun_ty)?;
+                let (new_fun, new_fun_ty) = {
+                    let arg_span = concrete_arg.span().start_span();
+                    let arg_meta_ins = match concrete_arg {
+                        Arg::Explicit(_) => MetaInsertion::Yes,
+                        Arg::Implicit(_, label, _) => MetaInsertion::UntilImplicit(label.slice),
+                        Arg::Instance(_, label, _) => MetaInsertion::UntilInstance(label.slice),
+                    };
+                    insert_metas(arg_meta_ins, context, metas, arg_span, fun, &fun_ty)?
+                };
 
                 match context.force_value(metas, None, &new_fun_ty)?.as_ref() {
                     domain::Value::FunType(app_mode, param_ty, body_ty) => {
