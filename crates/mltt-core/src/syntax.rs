@@ -59,6 +59,11 @@ impl RcTerm {
         RcTerm::from(Term::prim(name))
     }
 
+    /// Construct an annotated term.
+    pub fn ann(term: impl Into<RcTerm>, term_ty: impl Into<RcTerm>) -> RcTerm {
+        RcTerm::from(Term::ann(term, term_ty))
+    }
+
     /// Construct a literal type.
     pub fn literal_ty(ty: impl Into<LiteralType>) -> RcTerm {
         RcTerm::from(Term::literal_ty(ty))
@@ -162,6 +167,11 @@ impl Term {
     /// Construct a primitive.
     pub fn prim(name: impl Into<prim::Name>) -> Term {
         Term::Prim(name.into())
+    }
+
+    /// Construct an annotated term.
+    pub fn ann(term: impl Into<RcTerm>, term_ty: impl Into<RcTerm>) -> Term {
+        Term::Ann(term.into(), term_ty.into())
     }
 
     /// Construct a literal type.

@@ -416,10 +416,7 @@ pub fn synth_term(
             let term_ty_value = context.eval_term(metas, concrete_term_ty.span(), &term_ty)?;
             let term = check_term(context, metas, concrete_term, &term_ty_value)?;
 
-            Ok((
-                syntax::RcTerm::from(syntax::Term::Ann(term, term_ty)),
-                term_ty_value,
-            ))
+            Ok((syntax::RcTerm::ann(term, term_ty), term_ty_value))
         },
         Term::Let(_, concrete_items, concrete_body) => {
             let mut context = context.clone();
