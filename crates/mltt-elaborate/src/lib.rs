@@ -28,7 +28,7 @@ mod unify;
 
 /// Check that this is a valid module.
 ///
-/// Returns the elaborated items.
+/// Returns the elaborated module.
 pub fn check_module(
     context: &Context,
     metas: &mut meta::Env,
