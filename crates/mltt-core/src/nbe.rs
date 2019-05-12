@@ -164,7 +164,7 @@ pub fn eval_term(
         Term::Let(items, body) => {
             let mut values = values.clone();
             for item in items {
-                if let Item::Definition(_, _, term) = item {
+                if let Item::Definition(_, _, _, term) = item {
                     values.add_entry(eval_term(prims, metas, &values, term)?);
                 }
             }

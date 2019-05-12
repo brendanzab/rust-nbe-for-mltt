@@ -173,6 +173,7 @@ impl syntax::Module {
     }
 
     pub fn to_display_doc(&self, env: &Env) -> Doc<'static, BoxDoc<'static, ()>> {
+        // TODO: Use export names
         let mut env = env.clone();
         items_to_display_doc(&self.items, &mut env)
     }
@@ -180,12 +181,24 @@ impl syntax::Module {
 
 impl syntax::Item {
     pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
+        let mut decl_count = 0;
+
+        let mut new_decl_name = || {
+            let decl_index = syntax::DeclarationIndex(decl_count);
+            decl_count += 1;
+            Doc::as_string(&decl_index)
+        };
+
         match self {
-            syntax::Item::Declaration(_, label, term_ty) => {
-                declaration(Doc::as_string(label), term_ty.to_debug_doc())
+            syntax::Item::Declaration(_, _, term_ty) => {
+                declaration(new_decl_name(), term_ty.to_debug_doc())
             },
-            syntax::Item::Definition(_, label, term) => {
-                definition(Doc::as_string(label), term.to_debug_doc())
+            syntax::Item::Definition(_, decl_index, _, term) => {
+                let name = match decl_index {
+                    Some(decl_index) => Doc::as_string(&decl_index),
+                    None => new_decl_name(),
+                };
+                definition(name, term.to_debug_doc())
             },
         }
     }
@@ -195,21 +208,33 @@ pub fn items_to_display_doc(
     items: &[syntax::Item],
     env: &mut Env,
 ) -> Doc<'static, BoxDoc<'static, ()>> {
-    Doc::concat(items.iter().map(|item| {
-        match item {
-            syntax::Item::Declaration(_, label, term_ty) => {
-                declaration(Doc::as_string(label), term_ty.to_display_doc(env))
-                    .append(Doc::newline())
-                    .append(Doc::newline())
-            },
-            syntax::Item::Definition(_, label, term) => {
-                let doc = definition(Doc::as_string(label), term.to_display_doc(env))
-                    .append(Doc::newline())
-                    .append(Doc::newline());
-                env.fresh_name(Some(&label.0));
-                doc
-            },
-        }
+    let mut names = Vec::new();
+
+    Doc::concat(items.iter().map(|item| match item {
+        syntax::Item::Declaration(_, name_hint, term_ty) => {
+            let name = env.fresh_name(name_hint.as_ref().map(String::as_str));
+            let doc = declaration(Doc::as_string(&name), term_ty.to_display_doc(env))
+                // TODO: Don't print new line when we are expecting another definition
+                .append(Doc::newline())
+                .append(Doc::newline());
+            names.push(name);
+            doc
+        },
+        syntax::Item::Definition(_, decl_index, name_hint, term) => {
+            let name = match decl_index {
+                Some(decl_index) => Doc::as_string(&names[decl_index.0 as usize]),
+                None => {
+                    let name = env.fresh_name(name_hint.as_ref().map(String::as_str));
+                    let name_doc = Doc::as_string(&name);
+                    names.push(name);
+                    name_doc
+                },
+            };
+            let doc = definition(name, term.to_display_doc(env))
+                .append(Doc::newline())
+                .append(Doc::newline());
+            doc
+        },
     }))
 }
 

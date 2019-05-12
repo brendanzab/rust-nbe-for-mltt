@@ -23,7 +23,7 @@ pub type DocString = Rc<str>;
 
 /// A label. These are treated as significant when comparing terms for alpha
 /// equivalence.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Label(pub String);
 
 impl fmt::Display for Label {

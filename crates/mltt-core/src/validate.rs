@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, Type, Value};
-use crate::syntax::{Item, Module, Term};
+use crate::syntax::{DeclarationIndex, Item, Module, Term};
 use crate::{meta, nbe, prim, var, AppMode, Label, UniverseLevel};
 
 /// Local type checking context.
@@ -105,8 +105,8 @@ impl Context {
 /// An error produced during type checking.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
-    AlreadyDeclared(Label),
-    AlreadyDefined(Label),
+    NotYetDeclared(DeclarationIndex),
+    AlreadyDefined(DeclarationIndex),
     ExpectedFunType { found: Rc<Type> },
     ExpectedPairType { found: Rc<Type> },
     ExpectedUniverse { found: Rc<Type> },
@@ -130,8 +130,8 @@ impl Error for TypeError {}
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypeError::AlreadyDeclared(label) => write!(f, "already declared: {}", label),
-            TypeError::AlreadyDefined(label) => write!(f, "already defined: {}", label),
+            TypeError::NotYetDeclared(decl_index) => write!(f, "not yet declared: {}", decl_index),
+            TypeError::AlreadyDefined(decl_index) => write!(f, "already defined: {}", decl_index),
             TypeError::ExpectedFunType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedPairType { .. } => write!(f, "expected function type"),
             TypeError::ExpectedUniverse { .. } => write!(f, "expected universe"),
@@ -171,6 +171,7 @@ pub fn check_module(
     module: &Module,
 ) -> Result<(), TypeError> {
     let mut context = context.clone();
+    // TODO: Check that each export has a corresponding item
     check_items(&mut context, metas, &module.items)?;
     Ok(())
 }
@@ -178,68 +179,47 @@ pub fn check_module(
 /// Check the given items and add them to the context.
 fn check_items(context: &mut Context, metas: &meta::Env, items: &[Item]) -> Result<(), TypeError> {
     // Declarations that may be waiting to be defined
-    let mut forward_declarations = im::HashMap::new();
+    let mut declarations = Vec::new();
 
     for item in items {
-        use im::hashmap::Entry;
-
         match item {
-            Item::Declaration(_, label, term_ty) => {
-                log::trace!("checking declaration:\t{}\t= {:?}", label, term_ty);
+            Item::Declaration(_, _, term_ty) => {
+                let decl_index = declarations.len() as u32;
+                log::trace!("checking declaration:\t{}\t= {:?}", decl_index, term_ty);
 
-                match forward_declarations.entry(&label.0) {
-                    // No previous declaration for this name was seen, so we can
-                    // go-ahead and type check, elaborate, and then add it to
-                    // the context
-                    Entry::Vacant(entry) => {
-                        synth_universe(&context, metas, &term_ty)?;
-                        // Ensure that we evaluate the forward declaration in
-                        // the current context - if we wait until later more
-                        // definitions might have come in to scope!
-                        let term_ty = context.eval_term(metas, &term_ty)?;
-                        entry.insert(Some(term_ty));
-                    },
-                    // There's a declaration for this name already pending - we
-                    // can't add a new one!
-                    Entry::Occupied(_) => return Err(TypeError::AlreadyDeclared(label.clone())),
-                }
+                synth_universe(&context, metas, &term_ty)?;
+                let term_ty = context.eval_term(metas, &term_ty)?;
+                declarations.push(Some(term_ty));
 
-                log::trace!("validated declaration:\t{}", label);
+                log::trace!("validated declaration:\t{}", decl_index);
             },
-            Item::Definition(_, label, term) => {
-                log::trace!("checking definition:\t{}\t= {:?}", label, term);
+            Item::Definition(_, None, _, term) => {
+                let decl_index = declarations.len() as u32;
+                log::trace!("checking definition:\t{}\t= {:?}", decl_index, term);
 
-                let (term, ty) = match forward_declarations.entry(&label.0) {
-                    // No prior declaration was found, so we'll try synthesizing
-                    // its type instead
-                    Entry::Vacant(entry) => {
-                        let term_ty = synth_term(&context, metas, term)?;
-                        entry.insert(None);
-                        (term, term_ty)
-                    },
-                    // Something has happened with this declaration, let's
-                    // 'take' a look!
-                    Entry::Occupied(mut entry) => match entry.get_mut().take() {
-                        // We found a prior declaration, so we'll use it as a
-                        // basis for checking the definition
+                let term_ty = synth_term(&context, metas, term)?;
+                declarations.push(None);
+
+                let value = context.eval_term(metas, term)?;
+                context.add_defn(value, term_ty);
+
+                log::trace!("validated definition:\t{}", decl_index);
+            },
+            Item::Definition(_, Some(decl_index), _, term) => {
+                log::trace!("checking definition:\t{}\t= {:?}", decl_index, term);
+
+                match declarations.get_mut(decl_index.0 as usize) {
+                    None => return Err(TypeError::NotYetDeclared(*decl_index)),
+                    Some(decl) => match decl.take() {
+                        None => return Err(TypeError::AlreadyDefined(*decl_index)),
                         Some(term_ty) => {
-                            check_term(&context, metas, term, &term_ty)?;
-                            (term, term_ty)
+                            let value = context.eval_term(metas, &term)?;
+                            context.add_defn(value, term_ty);
+
+                            log::trace!("validated definition:\t{}", decl_index);
                         },
-                        // This declaration was already given a definition, so
-                        // this is an error!
-                        //
-                        // NOTE: Some languages (eg. Haskell, Agda, Idris, and
-                        // Erlang) turn duplicate definitions into case matches.
-                        // Languages like Elm don't. What should we do here?
-                        None => return Err(TypeError::AlreadyDefined(label.clone())),
                     },
                 };
-
-                log::trace!("validated definition:\t{}", label);
-
-                let value = context.eval_term(metas, &term)?;
-                context.add_defn(value, ty);
             },
         }
     }

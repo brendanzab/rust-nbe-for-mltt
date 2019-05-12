@@ -302,9 +302,9 @@ where
         log::trace!("expecting item");
 
         let docs = self.expect_doc_comments();
-        let label = self.expect_identifier()?;
+        let name = self.expect_identifier()?;
 
-        log::trace!("item label: {:?}", label);
+        log::trace!("item name: {:?}", name);
 
         let params = self.parse_intro_params()?;
 
@@ -312,13 +312,13 @@ where
             let body_ty = self.parse_term(Prec(0))?;
 
             if params.is_empty() && self.try_match(TokenKind::Semicolon).is_some() {
-                let declaration = Declaration {
+                let decl = Declaration {
                     docs,
-                    label,
+                    name,
                     body_ty,
                 };
 
-                return Ok(Item::Declaration(declaration));
+                return Ok(Item::Declaration(decl));
             } else {
                 Some(body_ty)
             }
@@ -330,15 +330,15 @@ where
             let body = self.parse_term(Prec(0))?;
             self.expect_match(TokenKind::Semicolon)?;
 
-            let definition = Definition {
+            let defn = Definition {
                 docs,
-                label,
+                name,
                 params,
                 body_ty,
                 body,
             };
 
-            Ok(Item::Definition(definition))
+            Ok(Item::Definition(defn))
         } else if params.is_empty() {
             // TODO: Span
             Err(Diagnostic::new_error("expected declaration or definition"))

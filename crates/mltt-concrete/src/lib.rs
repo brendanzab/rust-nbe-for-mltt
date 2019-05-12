@@ -39,8 +39,8 @@ impl<'file> Item<'file> {
 
     pub fn span(&self) -> FileSpan {
         match self {
-            Item::Declaration(declaration) => declaration.span(),
-            Item::Definition(definition) => definition.span(),
+            Item::Declaration(decl) => decl.span(),
+            Item::Definition(defn) => defn.span(),
         }
     }
 }
@@ -49,13 +49,13 @@ impl<'file> Item<'file> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration<'file> {
     pub docs: Vec<SpannedString<'file>>,
-    pub label: SpannedString<'file>,
+    pub name: SpannedString<'file>,
     pub body_ty: Term<'file>,
 }
 
 impl<'file> Declaration<'file> {
     pub fn span(&self) -> FileSpan {
-        FileSpan::merge(self.label.span(), self.body_ty.span())
+        FileSpan::merge(self.name.span(), self.body_ty.span())
     }
 }
 
@@ -63,7 +63,7 @@ impl<'file> Declaration<'file> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition<'file> {
     pub docs: Vec<SpannedString<'file>>,
-    pub label: SpannedString<'file>,
+    pub name: SpannedString<'file>,
     pub params: Vec<IntroParam<'file>>,
     pub body_ty: Option<Term<'file>>,
     pub body: Term<'file>,
@@ -71,7 +71,7 @@ pub struct Definition<'file> {
 
 impl<'file> Definition<'file> {
     pub fn span(&self) -> FileSpan {
-        FileSpan::merge(self.label.span(), self.body.span())
+        FileSpan::merge(self.name.span(), self.body.span())
     }
 }
 
