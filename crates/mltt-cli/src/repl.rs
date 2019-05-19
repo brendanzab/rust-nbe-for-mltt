@@ -10,6 +10,7 @@ use rustyline::{Config, Editor};
 use std::error::Error;
 use std::io::Write;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 /// The MLTT REPL/interactive mode.
 #[derive(structopt::StructOpt)]
@@ -91,7 +92,7 @@ fn read_eval(
     context: &Context,
     metas: &mut meta::Env,
     file: &File,
-) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(Rc<syntax::Term>, Rc<domain::Type>), Diagnostic<FileSpan>> {
     let lexer = Lexer::new(&file);
     let concrete_term = parser::parse_term(lexer)?;;
 

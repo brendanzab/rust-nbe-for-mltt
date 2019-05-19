@@ -45,8 +45,8 @@ pub fn check_clause(
     context: &Context,
     metas: &mut meta::Env,
     mut clause: Clause<'_>,
-    expected_ty: &domain::RcType,
-) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
+    expected_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
     let mut context = context.clone();
     let mut params = Vec::new();
     let mut expected_ty = expected_ty.clone();
@@ -103,8 +103,8 @@ pub fn check_case<'file>(
     span: FileSpan,
     scrutinee: &Term<'file>,
     clauses: Vec<CaseClause<'file>>,
-    expected_ty: &domain::RcType,
-) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
+    expected_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
     // TODO: Merge with `check_clause`
     // TODO: Zero or more scrutinees
     // TODO: One-or-more patterns per case clause
@@ -128,7 +128,7 @@ pub fn check_case<'file>(
             };
 
             let mut literal_branches =
-                Vec::<(LiteralIntro, syntax::RcTerm)>::with_capacity(literal_clauses.len());
+                Vec::<(LiteralIntro, Rc<syntax::Term>)>::with_capacity(literal_clauses.len());
 
             for literal_clause in literal_clauses {
                 match literal_clause.pattern {
@@ -171,8 +171,10 @@ pub fn check_case<'file>(
                 },
             };
 
-            let body = syntax::RcTerm::from(syntax::Term::LiteralElim(
-                syntax::RcTerm::var(context.values().size().index(param_level)),
+            let body = Rc::from(syntax::Term::LiteralElim(
+                Rc::from(syntax::Term::var(
+                    context.values().size().index(param_level),
+                )),
                 Rc::from(literal_branches),
                 default_body,
             ));
@@ -189,7 +191,7 @@ pub fn synth_clause(
     context: &Context,
     metas: &mut meta::Env,
     clause: Clause<'_>,
-) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(Rc<syntax::Term>, Rc<domain::Type>), Diagnostic<FileSpan>> {
     if let Some(param) = clause.params.first() {
         // TODO: We will be able to type this once we have annotated patterns!
         return Err(
@@ -207,8 +209,8 @@ pub fn synth_clause(
 
 /// Get the next expected parameter
 fn next_expected_param<'ty>(
-    expected_ty: &'ty domain::RcType,
-) -> Option<(AppMode, domain::RcValue, &'ty domain::AppClosure)> {
+    expected_ty: &'ty Rc<domain::Type>,
+) -> Option<(AppMode, Rc<domain::Value>, &'ty domain::AppClosure)> {
     match expected_ty.as_ref() {
         domain::Value::FunType(app_mode, _, param_ty, body_ty) => {
             Some((app_mode.clone(), param_ty.clone(), body_ty))
@@ -265,8 +267,8 @@ fn check_clause_body(
     context: &Context,
     metas: &mut meta::Env,
     clause: &Clause<'_>,
-    expected_body_ty: &domain::RcType,
-) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
+    expected_body_ty: &Rc<domain::Type>,
+) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
     match clause.body_ty {
         None => check_term(&context, metas, clause.body, &expected_body_ty),
         Some(body_ty) => {
@@ -277,7 +279,7 @@ fn check_clause_body(
             // TODO: Ensure that this is respecting variance correctly!
             context.unify_values(metas, clause.body.span(), &body_ty_value, &expected_body_ty)?;
 
-            Ok(syntax::RcTerm::ann(body, body_ty))
+            Ok(Rc::from(syntax::Term::ann(body, body_ty)))
         },
     }
 }
@@ -287,7 +289,7 @@ fn synth_clause_body(
     context: &Context,
     metas: &mut meta::Env,
     clause: &Clause<'_>,
-) -> Result<(syntax::RcTerm, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(Rc<syntax::Term>, Rc<domain::Type>), Diagnostic<FileSpan>> {
     match clause.body_ty {
         None => synth_term(MetaInsertion::Yes, context, metas, clause.body),
         Some(body_ty) => {
@@ -296,17 +298,17 @@ fn synth_clause_body(
             let body_ty_value = context.eval_term(metas, body_ty_span, &body_ty)?;
             let body = check_term(context, metas, clause.body, &body_ty_value)?;
 
-            Ok((syntax::RcTerm::ann(body, body_ty), body_ty_value))
+            Ok((Rc::from(syntax::Term::ann(body, body_ty)), body_ty_value))
         },
     }
 }
 
 /// Finish elaborating the patterns into a case tree.
 fn done(
-    scrutinees: Vec<(syntax::RcTerm, Option<syntax::RcTerm>)>,
+    scrutinees: Vec<(Rc<syntax::Term>, Option<Rc<syntax::Term>>)>,
     params: Vec<(AppMode, Option<String>)>,
-    body: syntax::RcTerm,
-) -> syntax::RcTerm {
+    body: Rc<syntax::Term>,
+) -> Rc<syntax::Term> {
     use mltt_core::syntax::Item::{Declaration, Definition};
 
     let mut items = Vec::new();
@@ -324,12 +326,12 @@ fn done(
         .into_iter()
         .rev()
         .fold(body, |acc, (app_mode, name_hint)| {
-            syntax::RcTerm::from(syntax::Term::FunIntro(app_mode, name_hint, acc))
+            Rc::from(syntax::Term::FunIntro(app_mode, name_hint, acc))
         });
 
     if items.is_empty() {
         body
     } else {
-        syntax::RcTerm::from(syntax::Term::Let(items, body))
+        Rc::from(syntax::Term::Let(items, body))
     }
 }

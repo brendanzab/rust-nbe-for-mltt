@@ -4,6 +4,7 @@ use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_core::literal::{LiteralIntro, LiteralType};
 use mltt_core::{domain, meta, prim, syntax, var, AppMode};
 use mltt_span::FileSpan;
+use std::rc::Rc;
 
 use crate::nbe;
 
@@ -41,7 +42,7 @@ fn check_solution(
     span: FileSpan,
     head: meta::Index,
     bound_levels: &im::Vector<var::Level>,
-    rhs: &syntax::RcTerm,
+    rhs: &Rc<syntax::Term>,
 ) -> Result<(), Diagnostic<FileSpan>> {
     match rhs.as_ref() {
         // Scope check
@@ -129,11 +130,11 @@ fn check_solution(
 fn solve_neutral(
     prims: &prim::Env,
     metas: &mut meta::Env,
-    values: &var::Env<domain::RcValue>,
+    values: &var::Env<Rc<domain::Value>>,
     span: FileSpan,
     head: meta::Index,
     spine: &domain::Spine,
-    rhs: &domain::RcValue,
+    rhs: &Rc<domain::Value>,
 ) -> Result<(), Diagnostic<FileSpan>> {
     let bound_levels = check_spine(prims, metas, span, spine)?;
     let rhs = nbe::read_back_value(prims, metas, values.size(), None, rhs)?;
@@ -141,7 +142,7 @@ fn solve_neutral(
     check_solution(values.size(), span, head, &bound_levels, &rhs)?;
 
     let rhs = bound_levels.iter().rev().fold(rhs, |acc, _| {
-        syntax::RcTerm::from(syntax::Term::FunIntro(AppMode::Explicit, None, acc))
+        Rc::from(syntax::Term::FunIntro(AppMode::Explicit, None, acc))
     });
 
     let rhs_value = nbe::eval_term(prims, metas, &var::Env::new(), None, &rhs)?;
@@ -157,26 +158,26 @@ fn solve_neutral(
 pub fn unify_values(
     prims: &prim::Env,
     metas: &mut meta::Env,
-    values: &var::Env<domain::RcValue>,
+    values: &var::Env<Rc<domain::Value>>,
     span: FileSpan,
-    value1: &domain::RcValue,
-    value2: &domain::RcValue,
+    value1: &Rc<domain::Value>,
+    value2: &Rc<domain::Value>,
 ) -> Result<(), Diagnostic<FileSpan>> {
     log::trace!("unifying values");
 
     fn instantiate_value(
-        values: &var::Env<domain::RcValue>,
-    ) -> (domain::RcValue, var::Env<domain::RcValue>) {
+        values: &var::Env<Rc<domain::Value>>,
+    ) -> (Rc<domain::Value>, var::Env<Rc<domain::Value>>) {
         let mut values = values.clone();
-        let value = domain::RcValue::var(values.size().next_level());
+        let value = Rc::from(domain::Value::var(values.size().next_level()));
         values.add_entry(value.clone());
         (value, values)
     }
 
     fn unification_error(
         span: FileSpan,
-        _value1: &domain::RcValue,
-        _value2: &domain::RcValue,
+        _value1: &Rc<domain::Value>,
+        _value2: &Rc<domain::Value>,
     ) -> Result<(), Diagnostic<FileSpan>> {
         // FIXME: Better error message
         Err(Diagnostic::new_error("can't unify").with_label(DiagnosticLabel::new_primary(span)))
@@ -306,7 +307,7 @@ pub fn unify_values(
             {
                 if label1 == label2 {
                     unify_values(prims, metas, &values, span, value1, value2)?;
-                    values.add_entry(domain::RcValue::var(values.size().next_level()));
+                    values.add_entry(Rc::from(domain::Value::var(values.size().next_level())));
                 } else {
                     unification_error(span, value1, value2)?;
                 }
@@ -330,7 +331,7 @@ pub fn unify_values(
             for (label1, value1) in fields1 {
                 let value2 = nbe::eval_record_elim(value2.clone(), label1)?;
                 unify_values(prims, metas, &values, span, value1, &value2)?;
-                values.add_entry(domain::RcValue::var(values.size().next_level()));
+                values.add_entry(Rc::from(domain::Value::var(values.size().next_level())));
             }
             Ok(())
         },
@@ -339,7 +340,7 @@ pub fn unify_values(
             for (label2, value2) in fields2 {
                 let value1 = nbe::eval_record_elim(value1.clone(), label2)?;
                 unify_values(prims, metas, &values, span, &value1, value2)?;
-                values.add_entry(domain::RcValue::var(values.size().next_level()));
+                values.add_entry(Rc::from(domain::Value::var(values.size().next_level())));
             }
             Ok(())
         },

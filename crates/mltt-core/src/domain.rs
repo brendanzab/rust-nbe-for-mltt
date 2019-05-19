@@ -1,72 +1,10 @@
 //! The semantic domain.
 
-use std::ops;
 use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
-use crate::syntax::RcTerm;
+use crate::syntax::Term;
 use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
-
-/// Reference counted value.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RcValue {
-    /// The inner value.
-    pub inner: Rc<Value>,
-}
-
-impl RcValue {
-    /// Construct a variable.
-    pub fn var(level: impl Into<var::Level>) -> RcValue {
-        RcValue::from(Value::var(level))
-    }
-
-    /// Construct a metavariable.
-    pub fn meta(index: impl Into<meta::Index>) -> RcValue {
-        RcValue::from(Value::meta(index))
-    }
-
-    /// Construct a primitive.
-    pub fn prim(name: impl Into<prim::Name>) -> RcValue {
-        RcValue::from(Value::prim(name))
-    }
-
-    /// Construct a literal type.
-    pub fn literal_ty(ty: LiteralType) -> RcValue {
-        RcValue::from(Value::literal_ty(ty))
-    }
-
-    /// Construct a literal introduction.
-    pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcValue {
-        RcValue::from(Value::literal_intro(value))
-    }
-
-    /// Construct a universe.
-    pub fn universe(level: impl Into<UniverseLevel>) -> RcValue {
-        RcValue::from(Value::universe(level))
-    }
-}
-
-impl From<Value> for RcValue {
-    fn from(src: Value) -> RcValue {
-        RcValue {
-            inner: Rc::new(src),
-        }
-    }
-}
-
-impl AsRef<Value> for RcValue {
-    fn as_ref(&self) -> &Value {
-        self.inner.as_ref()
-    }
-}
-
-impl ops::Deref for RcValue {
-    type Target = Value;
-
-    fn deref(&self) -> &Value {
-        self.as_ref()
-    }
-}
 
 /// Terms that are in _weak head normal form_.
 ///
@@ -88,16 +26,16 @@ pub enum Value {
     LiteralIntro(LiteralIntro),
 
     /// Dependent function types
-    FunType(AppMode, Option<String>, RcType, AppClosure),
+    FunType(AppMode, Option<String>, Rc<Type>, AppClosure),
     /// Introduce a function
     FunIntro(AppMode, Option<String>, AppClosure),
 
     /// Dependent record type extension
-    RecordTypeExtend(DocString, Label, Option<String>, RcType, AppClosure),
+    RecordTypeExtend(DocString, Label, Option<String>, Rc<Type>, AppClosure),
     /// Empty record type
     RecordTypeEmpty,
     /// Introduce a record
-    RecordIntro(Vec<(Label, RcValue)>),
+    RecordIntro(Vec<(Label, Rc<Value>)>),
 
     /// Universe of types
     Universe(UniverseLevel),
@@ -139,10 +77,6 @@ impl Value {
 /// types, so this is just an alias.
 pub type Type = Value;
 
-/// Alias for reference counted types - we are using describing a dependently
-/// typed language types, so this is just an alias.
-pub type RcType = RcValue;
-
 /// The head of a neutral term.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Head {
@@ -163,7 +97,7 @@ pub enum Elim {
     /// Literal elimination (case split).
     Literal(LiteralClosure),
     /// Function elimination (application).
-    Fun(AppMode, RcValue),
+    Fun(AppMode, Rc<Value>),
     /// Record elimination (projection).
     Record(Label),
 }
@@ -178,16 +112,16 @@ pub enum Elim {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AppClosure {
     /// The term that the argument will be applied to.
-    pub term: RcTerm,
+    pub term: Rc<Term>,
     /// The environment in which we'll run the term in.
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub values: var::Env<RcValue>,
+    pub values: var::Env<Rc<Value>>,
 }
 
 impl AppClosure {
-    pub fn new(term: RcTerm, values: var::Env<RcValue>) -> AppClosure {
+    pub fn new(term: Rc<Term>, values: var::Env<Rc<Value>>) -> AppClosure {
         AppClosure { term, values }
     }
 }
@@ -196,21 +130,21 @@ impl AppClosure {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LiteralClosure {
     /// The clauses.
-    pub clauses: Rc<[(LiteralIntro, RcTerm)]>,
+    pub clauses: Rc<[(LiteralIntro, Rc<Term>)]>,
     /// The default term.
-    pub default: RcTerm,
+    pub default: Rc<Term>,
     /// The environment in which we'll run the clauses in.
     ///
     /// At the moment this captures the _entire_ environment - would it be
     /// better to only capture what the `term` needs?
-    pub values: var::Env<RcValue>,
+    pub values: var::Env<Rc<Value>>,
 }
 
 impl LiteralClosure {
     pub fn new(
-        clauses: Rc<[(LiteralIntro, RcTerm)]>,
-        default: RcTerm,
-        values: var::Env<RcValue>,
+        clauses: Rc<[(LiteralIntro, Rc<Term>)]>,
+        default: Rc<Term>,
+        values: var::Env<Rc<Value>>,
     ) -> LiteralClosure {
         LiteralClosure {
             clauses,

@@ -6,8 +6,8 @@
 
 use std::rc::Rc;
 
-use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spine, Value};
-use crate::syntax::{Item, RcTerm, Term};
+use crate::domain::{AppClosure, Elim, Head, LiteralClosure, Spine, Type, Value};
+use crate::syntax::{Item, Term};
 use crate::{meta, prim, var, AppMode, Label};
 
 /// Evaluate a primitive.
@@ -15,14 +15,14 @@ pub fn eval_prim<'spine>(
     prims: &prim::Env,
     prim_name: &prim::Name,
     spine: &'spine [Elim],
-) -> Result<(RcValue, &'spine [Elim]), String> {
+) -> Result<(Rc<Value>, &'spine [Elim]), String> {
     let prim = prims
         .lookup_entry(prim_name)
         .ok_or_else(|| format!("eval: primitive not found: {:?}", prim_name))?;
 
     match prim.interpret(spine) {
         Some(result) => result,
-        None => Ok((RcValue::prim(prim_name.clone()), spine)),
+        None => Ok((Rc::from(Value::prim(prim_name.clone())), spine)),
     }
 }
 
@@ -30,9 +30,9 @@ pub fn eval_prim<'spine>(
 pub fn eval_elim(
     prims: &prim::Env,
     metas: &meta::Env,
-    head: RcValue,
+    head: Rc<Value>,
     elim: &Elim,
-) -> Result<RcValue, String> {
+) -> Result<Rc<Value>, String> {
     match elim {
         Elim::Literal(closure) => eval_literal_elim(prims, metas, head, closure.clone()),
         Elim::Fun(app_mode, arg) => eval_fun_elim(prims, metas, head, app_mode, arg.clone()),
@@ -44,9 +44,9 @@ pub fn eval_elim(
 pub fn eval_literal_elim(
     prims: &prim::Env,
     metas: &meta::Env,
-    scrutinee: RcValue,
+    scrutinee: Rc<Value>,
     closure: LiteralClosure,
-) -> Result<RcValue, String> {
+) -> Result<Rc<Value>, String> {
     match scrutinee.as_ref() {
         Value::LiteralIntro(literal_intro) => {
             let index = closure.clauses.binary_search_by(|(l, _)| {
@@ -62,14 +62,14 @@ pub fn eval_literal_elim(
         Value::Neutral(head, spine) => {
             let mut spine = spine.clone();
             spine.push(Elim::Literal(closure));
-            Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
+            Ok(Rc::from(Value::Neutral(head.clone(), spine)))
         },
         _ => Err("eval_literal_elim: not a literal".to_owned()),
     }
 }
 
 /// Return the field in from a record.
-pub fn eval_record_elim(record: RcValue, label: &Label) -> Result<RcValue, String> {
+pub fn eval_record_elim(record: Rc<Value>, label: &Label) -> Result<Rc<Value>, String> {
     match record.as_ref() {
         Value::RecordIntro(fields) => match fields.iter().find(|(l, _)| l == label) {
             Some((_, term)) => Ok(term.clone()),
@@ -82,7 +82,7 @@ pub fn eval_record_elim(record: RcValue, label: &Label) -> Result<RcValue, Strin
             let mut spine = spine.clone();
             spine.push(Elim::Record(label.clone()));
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
-            Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
+            Ok(Rc::from(Value::Neutral(head.clone(), spine)))
         },
         _ => Err("eval_record_elim: not a record".to_owned()),
     }
@@ -92,10 +92,10 @@ pub fn eval_record_elim(record: RcValue, label: &Label) -> Result<RcValue, Strin
 pub fn eval_fun_elim(
     prims: &prim::Env,
     metas: &meta::Env,
-    fun: RcValue,
+    fun: Rc<Value>,
     app_mode: &AppMode,
-    arg: RcValue,
-) -> Result<RcValue, String> {
+    arg: Rc<Value>,
+) -> Result<Rc<Value>, String> {
     match fun.as_ref() {
         Value::FunIntro(fun_app_mode, _, body) => {
             if fun_app_mode == app_mode {
@@ -111,7 +111,7 @@ pub fn eval_fun_elim(
             let mut spine = spine.clone();
             spine.push(Elim::Fun(app_mode.clone(), arg));
             // TODO: If head is `primitive`, and arity == number of initial spine apps in NF
-            Ok(RcValue::from(Value::Neutral(head.clone(), spine)))
+            Ok(Rc::from(Value::Neutral(head.clone(), spine)))
         },
         _ => Err("eval_ap: not a function".to_owned()),
     }
@@ -122,8 +122,8 @@ pub fn app_closure(
     prims: &prim::Env,
     metas: &meta::Env,
     closure: &AppClosure,
-    arg: RcValue,
-) -> Result<RcValue, String> {
+    arg: Rc<Value>,
+) -> Result<Rc<Value>, String> {
     let mut values = closure.values.clone();
     values.add_entry(arg);
     eval_term(prims, metas, &values, &closure.term)
@@ -135,8 +135,9 @@ pub fn inst_closure(
     metas: &meta::Env,
     size: var::Size,
     closure: &AppClosure,
-) -> Result<RcValue, String> {
-    app_closure(prims, metas, closure, RcValue::var(size.next_level()))
+) -> Result<Rc<Value>, String> {
+    let arg = Rc::from(Value::var(size.next_level()));
+    app_closure(prims, metas, closure, arg)
 }
 
 /// Evaluate a term in the environment that corresponds to the context in which
@@ -144,9 +145,9 @@ pub fn inst_closure(
 pub fn eval_term(
     prims: &prim::Env,
     metas: &meta::Env,
-    values: &var::Env<RcValue>,
-    term: &RcTerm,
-) -> Result<RcValue, String> {
+    values: &var::Env<Rc<Value>>,
+    term: &Rc<Term>,
+) -> Result<Rc<Value>, String> {
     match term.as_ref() {
         Term::Var(var_index) => match values.lookup_entry(*var_index) {
             Some(value) => Ok(value.clone()),
@@ -154,7 +155,7 @@ pub fn eval_term(
         },
         Term::Meta(meta_level) => match metas.lookup_solution(*meta_level) {
             Some((_, meta::Solution::Solved(value), _)) => Ok(value.clone()),
-            Some((_, meta::Solution::Unsolved, _)) => Ok(RcValue::meta(*meta_level)),
+            Some((_, meta::Solution::Unsolved, _)) => Ok(Rc::from(Value::meta(*meta_level))),
             None => Err("eval: metavariable not found".to_owned()),
         },
         Term::Prim(prim_name) => Ok(eval_prim(prims, prim_name, &[])?.0),
@@ -171,8 +172,8 @@ pub fn eval_term(
         },
 
         // Literals
-        Term::LiteralType(literal_ty) => Ok(RcValue::literal_ty(literal_ty.clone())),
-        Term::LiteralIntro(literal_intro) => Ok(RcValue::literal_intro(literal_intro.clone())),
+        Term::LiteralType(ty) => Ok(Rc::from(Value::literal_ty(ty.clone()))),
+        Term::LiteralIntro(intro) => Ok(Rc::from(Value::literal_intro(intro.clone()))),
         Term::LiteralElim(scrutinee, clauses, default_body) => {
             let scrutinee = eval_term(prims, metas, values, scrutinee)?;
             let closure =
@@ -188,7 +189,7 @@ pub fn eval_term(
             let param_ty = eval_term(prims, metas, values, param_ty)?;
             let body_ty = AppClosure::new(body_ty.clone(), values.clone());
 
-            Ok(RcValue::from(Value::FunType(
+            Ok(Rc::from(Value::FunType(
                 app_mode, name_hint, param_ty, body_ty,
             )))
         },
@@ -197,7 +198,7 @@ pub fn eval_term(
             let name_hint = name_hint.clone();
             let body = AppClosure::new(body.clone(), values.clone());
 
-            Ok(RcValue::from(Value::FunIntro(app_mode, name_hint, body)))
+            Ok(Rc::from(Value::FunIntro(app_mode, name_hint, body)))
         },
         Term::FunElim(fun, app_mode, arg) => {
             let fun = eval_term(prims, metas, values, fun)?;
@@ -208,17 +209,16 @@ pub fn eval_term(
 
         // Records
         Term::RecordType(fields) => match fields.split_first() {
-            None => Ok(RcValue::from(Value::RecordTypeEmpty)),
+            None => Ok(Rc::from(Value::RecordTypeEmpty)),
             Some(((doc, label, name_hint, ty), rest)) => {
                 let doc = doc.clone();
                 let label = label.clone();
                 let name_hint = name_hint.clone();
                 let ty = eval_term(prims, metas, values, ty)?;
                 let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
-                let rest =
-                    AppClosure::new(RcTerm::from(Term::RecordType(rest_fields)), values.clone());
+                let rest = AppClosure::new(Rc::from(Term::RecordType(rest_fields)), values.clone());
 
-                Ok(RcValue::from(Value::RecordTypeExtend(
+                Ok(Rc::from(Value::RecordTypeExtend(
                     doc, label, name_hint, ty, rest,
                 )))
             },
@@ -229,14 +229,14 @@ pub fn eval_term(
                 .map(|(label, term)| Ok((label.clone(), eval_term(prims, metas, values, term)?)))
                 .collect::<Result<_, String>>()?;
 
-            Ok(RcValue::from(Value::RecordIntro(fields)))
+            Ok(Rc::from(Value::RecordIntro(fields)))
         },
         Term::RecordElim(record, label) => {
             eval_record_elim(eval_term(prims, metas, values, record)?, label)
         },
 
         // Universes
-        Term::Universe(level) => Ok(RcValue::universe(*level)),
+        Term::Universe(level) => Ok(Rc::from(Value::universe(*level))),
     }
 }
 
@@ -245,14 +245,16 @@ pub fn read_back_value(
     prims: &prim::Env,
     metas: &meta::Env,
     size: var::Size,
-    term: &RcValue,
-) -> Result<RcTerm, String> {
+    term: &Rc<Value>,
+) -> Result<Rc<Term>, String> {
     match term.as_ref() {
         Value::Neutral(head, spine) => read_back_neutral(prims, metas, size, head, spine),
 
         // Literals
-        Value::LiteralType(literal_ty) => Ok(RcTerm::literal_ty(literal_ty.clone())),
-        Value::LiteralIntro(literal_intro) => Ok(RcTerm::literal_intro(literal_intro.clone())),
+        Value::LiteralType(literal_ty) => Ok(Rc::from(Term::literal_ty(literal_ty.clone()))),
+        Value::LiteralIntro(literal_intro) => {
+            Ok(Rc::from(Term::literal_intro(literal_intro.clone())))
+        },
 
         // Functions
         Value::FunType(app_mode, name_hint, param_ty, body_ty) => {
@@ -262,7 +264,7 @@ pub fn read_back_value(
             let param_ty = read_back_value(prims, metas, size, param_ty)?;
             let body_ty = read_back_value(prims, metas, size + 1, &body_ty)?;
 
-            Ok(RcTerm::from(Term::FunType(
+            Ok(Rc::from(Term::FunType(
                 app_mode, name_hint, param_ty, body_ty,
             )))
         },
@@ -272,7 +274,7 @@ pub fn read_back_value(
             let body = inst_closure(prims, metas, size, body)?;
             let body = read_back_value(prims, metas, size + 1, &body)?;
 
-            Ok(RcTerm::from(Term::FunIntro(app_mode, name_hint, body)))
+            Ok(Rc::from(Term::FunIntro(app_mode, name_hint, body)))
         },
 
         // Records
@@ -293,9 +295,9 @@ pub fn read_back_value(
                 rest_ty = inst_closure(prims, metas, size, next_rest_ty)?;
             }
 
-            Ok(RcTerm::from(Term::RecordType(field_tys)))
+            Ok(Rc::from(Term::RecordType(field_tys)))
         },
-        Value::RecordTypeEmpty => Ok(RcTerm::from(Term::RecordType(Vec::new()))),
+        Value::RecordTypeEmpty => Ok(Rc::from(Term::RecordType(Vec::new()))),
         Value::RecordIntro(fields) => {
             let fields = fields
                 .iter()
@@ -304,11 +306,11 @@ pub fn read_back_value(
                 })
                 .collect::<Result<_, String>>()?;
 
-            Ok(RcTerm::from(Term::RecordIntro(fields)))
+            Ok(Rc::from(Term::RecordIntro(fields)))
         },
 
         // Universes
-        Value::Universe(level) => Ok(RcTerm::universe(*level)),
+        Value::Universe(level) => Ok(Rc::from(Term::universe(*level))),
     }
 }
 
@@ -319,10 +321,13 @@ pub fn read_back_neutral(
     size: var::Size,
     head: &Head,
     spine: &Spine,
-) -> Result<RcTerm, String> {
+) -> Result<Rc<Term>, String> {
     let (head, spine) = match head {
-        Head::Var(var_level) => (RcTerm::var(size.index(*var_level)), &spine[..]),
-        Head::Meta(meta_index) => (RcTerm::meta(*meta_index), &spine[..]),
+        Head::Var(var_level) => (
+            Rc::from(Term::var(size.index(*var_level))),
+            spine.as_slice(),
+        ),
+        Head::Meta(meta_index) => (Rc::from(Term::meta(*meta_index)), spine.as_slice()),
         Head::Prim(prim_name) => {
             let (value, spine) = eval_prim(prims, prim_name, &spine)?;
             (read_back_value(prims, metas, size, &value)?, spine)
@@ -345,14 +350,14 @@ pub fn read_back_neutral(
             let default_body = eval_term(prims, metas, &closure.values, &closure.default)?;
             let default_body = read_back_value(prims, metas, size, &default_body)?;
 
-            Ok(RcTerm::from(Term::LiteralElim(acc?, clauses, default_body)))
+            Ok(Rc::from(Term::LiteralElim(acc?, clauses, default_body)))
         },
         Elim::Fun(app_mode, arg) => {
             let arg = read_back_value(prims, metas, size, &arg)?;
 
-            Ok(RcTerm::from(Term::FunElim(acc?, app_mode.clone(), arg)))
+            Ok(Rc::from(Term::FunElim(acc?, app_mode.clone(), arg)))
         },
-        Elim::Record(label) => Ok(RcTerm::from(Term::RecordElim(acc?, label.clone()))),
+        Elim::Record(label) => Ok(Rc::from(Term::RecordElim(acc?, label.clone()))),
     })
 }
 
@@ -360,9 +365,9 @@ pub fn read_back_neutral(
 pub fn normalize_term(
     prims: &prim::Env,
     metas: &meta::Env,
-    values: &var::Env<RcValue>,
-    term: &RcTerm,
-) -> Result<RcTerm, String> {
+    values: &var::Env<Rc<Value>>,
+    term: &Rc<Term>,
+) -> Result<Rc<Term>, String> {
     let value = eval_term(prims, metas, values, term)?;
     read_back_value(prims, metas, values.size(), &value)
 }
@@ -372,8 +377,8 @@ pub fn normalize_term(
 pub fn force_value(
     prims: &prim::Env,
     metas: &meta::Env,
-    value: &RcValue,
-) -> Result<RcValue, String> {
+    value: &Rc<Value>,
+) -> Result<Rc<Value>, String> {
     match value.as_ref() {
         Value::Neutral(Head::Meta(meta_level), spine) => match metas.lookup_solution(*meta_level) {
             Some((_, meta::Solution::Solved(value), _)) => {
@@ -393,8 +398,8 @@ pub fn check_subtype(
     prims: &prim::Env,
     metas: &meta::Env,
     size: var::Size,
-    ty1: &RcType,
-    ty2: &RcType,
+    ty1: &Rc<Type>,
+    ty2: &Rc<Type>,
 ) -> Result<bool, String> {
     match (
         force_value(prims, metas, ty1)?.as_ref(),

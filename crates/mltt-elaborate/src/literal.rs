@@ -24,7 +24,7 @@ pub fn check(
     metas: &meta::Env,
     kind: LiteralKind,
     src: &SpannedString<'_>,
-    expected_ty: &domain::RcType,
+    expected_ty: &Rc<domain::Type>,
 ) -> Result<LiteralIntro, Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as LitKind;
     use mltt_core::domain::Value::LiteralType;
@@ -60,18 +60,18 @@ pub fn check(
 pub fn synth(
     kind: LiteralKind,
     src: &SpannedString<'_>,
-) -> Result<(LiteralIntro, domain::RcType), Diagnostic<FileSpan>> {
+) -> Result<(LiteralIntro, Rc<domain::Type>), Diagnostic<FileSpan>> {
     use mltt_concrete::LiteralKind as LitKind;
     use mltt_core::literal::{LiteralIntro as LitIntro, LiteralType as LitType};
 
     match kind {
         LitKind::String => Ok((
             LitIntro::String(Rc::from(parse_string(src)?)),
-            domain::RcValue::literal_ty(LitType::String),
+            Rc::from(domain::Value::literal_ty(LitType::String)),
         )),
         LitKind::Char => Ok((
             LitIntro::Char(parse_char(src)?),
-            domain::RcValue::literal_ty(LitType::Char),
+            Rc::from(domain::Value::literal_ty(LitType::Char)),
         )),
         LitKind::Int | LitKind::Float => Err(Diagnostic::new_error("ambiguous literal")
             .with_label(DiagnosticLabel::new_primary(src.span()))),

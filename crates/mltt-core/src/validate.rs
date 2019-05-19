@@ -7,10 +7,11 @@
 use itertools::Itertools;
 use std::error::Error;
 use std::fmt;
+use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
-use crate::domain::{AppClosure, RcType, RcValue, Value};
-use crate::syntax::{Item, Module, RcTerm, Term};
+use crate::domain::{AppClosure, Type, Value};
+use crate::syntax::{Item, Module, Term};
 use crate::{meta, nbe, prim, var, AppMode, Label, UniverseLevel};
 
 /// Local type checking context.
@@ -19,16 +20,16 @@ pub struct Context {
     /// Primitive entries.
     prims: prim::Env,
     /// Values to be used during evaluation.
-    values: var::Env<RcValue>,
+    values: var::Env<Rc<Value>>,
     /// Types of the entries in the context.
-    tys: var::Env<RcType>,
+    tys: var::Env<Rc<Type>>,
 }
 
 impl Context {
     /// Create a new context.
     ///
     /// We assume that the value and type environments are of the same length.
-    pub fn new(prims: prim::Env, values: var::Env<RcValue>, tys: var::Env<RcType>) -> Context {
+    pub fn new(prims: prim::Env, values: var::Env<Rc<Value>>, tys: var::Env<Rc<Type>>) -> Context {
         Context { prims, values, tys }
     }
 
@@ -43,17 +44,17 @@ impl Context {
     }
 
     /// Values to be used during evaluation.
-    pub fn values(&self) -> &var::Env<RcValue> {
+    pub fn values(&self) -> &var::Env<Rc<Value>> {
         &self.values
     }
 
     /// Lookup the type of a variable in the context.
-    pub fn lookup_ty(&self, var_index: var::Index) -> Option<&RcType> {
+    pub fn lookup_ty(&self, var_index: var::Index) -> Option<&Rc<Type>> {
         self.tys.lookup_entry(var_index)
     }
 
     /// Add a definition to the context.
-    pub fn add_defn(&mut self, value: RcValue, ty: RcType) {
+    pub fn add_defn(&mut self, value: Rc<Value>, ty: Rc<Type>) {
         log::trace!("add definition");
         self.values.add_entry(value);
         self.tys.add_entry(ty);
@@ -61,9 +62,9 @@ impl Context {
 
     /// Add a bound variable the context, returning a variable that points to
     /// the correct binder.
-    pub fn add_param(&mut self, ty: RcType) -> RcValue {
+    pub fn add_param(&mut self, ty: Rc<Type>) -> Rc<Value> {
         log::trace!("add parameter");
-        let value = RcValue::var(self.values.size().next_level());
+        let value = Rc::from(Value::var(self.values.size().next_level()));
         self.values.add_entry(value.clone());
         self.tys.add_entry(ty);
         value
@@ -74,13 +75,13 @@ impl Context {
         &self,
         metas: &meta::Env,
         closure: &AppClosure,
-        arg: RcValue,
-    ) -> Result<RcValue, TypeError> {
+        arg: Rc<Value>,
+    ) -> Result<Rc<Value>, TypeError> {
         nbe::app_closure(self.prims(), metas, closure, arg).map_err(TypeError::Nbe)
     }
 
     /// Evaluate a term using the evaluation environment.
-    pub fn eval_term(&self, metas: &meta::Env, term: &RcTerm) -> Result<RcValue, TypeError> {
+    pub fn eval_term(&self, metas: &meta::Env, term: &Rc<Term>) -> Result<Rc<Value>, TypeError> {
         nbe::eval_term(self.prims(), metas, self.values(), term).map_err(TypeError::Nbe)
     }
 
@@ -88,8 +89,8 @@ impl Context {
     pub fn check_subtype(
         &self,
         metas: &meta::Env,
-        ty1: &RcType,
-        ty2: &RcType,
+        ty1: &Rc<Type>,
+        ty2: &Rc<Type>,
     ) -> Result<(), TypeError> {
         if nbe::check_subtype(self.prims(), metas, self.values().size(), ty1, ty2)
             .map_err(TypeError::Nbe)?
@@ -106,11 +107,11 @@ impl Context {
 pub enum TypeError {
     AlreadyDeclared(Label),
     AlreadyDefined(Label),
-    ExpectedFunType { found: RcType },
-    ExpectedPairType { found: RcType },
-    ExpectedUniverse { found: RcType },
-    ExpectedSubtype(RcType, RcType),
-    AmbiguousTerm(RcTerm),
+    ExpectedFunType { found: Rc<Type> },
+    ExpectedPairType { found: Rc<Type> },
+    ExpectedUniverse { found: Rc<Type> },
+    ExpectedSubtype(Rc<Type>, Rc<Type>),
+    AmbiguousTerm(Rc<Term>),
     UnboundVariable(var::Index),
     UnboundMeta(meta::Index),
     UnsolvedMeta(meta::Index),
@@ -251,14 +252,14 @@ pub fn check_literal(
     context: &Context,
     metas: &meta::Env,
     literal_intro: &LiteralIntro,
-    expected_ty: &RcType,
+    expected_ty: &Rc<Type>,
 ) -> Result<(), TypeError> {
     context.check_subtype(metas, &synth_literal(literal_intro), expected_ty)
 }
 
 /// Synthesize the type of the literal.
-pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
-    RcValue::literal_ty(match literal_intro {
+pub fn synth_literal(literal_intro: &LiteralIntro) -> Rc<Type> {
+    Rc::from(Value::literal_ty(match literal_intro {
         LiteralIntro::String(_) => LiteralType::String,
         LiteralIntro::Char(_) => LiteralType::Char,
         LiteralIntro::Bool(_) => LiteralType::Bool,
@@ -272,14 +273,14 @@ pub fn synth_literal(literal_intro: &LiteralIntro) -> RcType {
         LiteralIntro::S64(_) => LiteralType::S64,
         LiteralIntro::F32(_) => LiteralType::F32,
         LiteralIntro::F64(_) => LiteralType::F64,
-    })
+    }))
 }
 
 /// Ensures that the given term is a universe, returning the level of that universe.
 pub fn synth_universe(
     context: &Context,
     metas: &meta::Env,
-    term: &RcTerm,
+    term: &Rc<Term>,
 ) -> Result<UniverseLevel, TypeError> {
     let ty = synth_term(context, metas, term)?;
     match ty.as_ref() {
@@ -292,8 +293,8 @@ pub fn synth_universe(
 pub fn check_term(
     context: &Context,
     metas: &meta::Env,
-    term: &RcTerm,
-    expected_ty: &RcType,
+    term: &Rc<Term>,
+    expected_ty: &Rc<Type>,
 ) -> Result<(), TypeError> {
     log::trace!("checking term:\t\t{:?}", term);
 
@@ -392,8 +393,8 @@ pub fn check_term(
 pub fn synth_term(
     context: &Context,
     metas: &meta::Env,
-    term: &RcTerm,
-) -> Result<RcType, TypeError> {
+    term: &Rc<Term>,
+) -> Result<Rc<Type>, TypeError> {
     use std::cmp;
 
     log::trace!("synthesizing term:\t{:?}", term);
@@ -425,7 +426,7 @@ pub fn synth_term(
             synth_term(&context, metas, body)
         },
 
-        Term::LiteralType(_) => Ok(RcValue::universe(0)),
+        Term::LiteralType(_) => Ok(Rc::from(Value::universe(0))),
         Term::LiteralIntro(literal_intro) => Ok(synth_literal(literal_intro)),
         Term::LiteralElim(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
@@ -438,7 +439,7 @@ pub fn synth_term(
 
             let body_level = synth_universe(&body_ty_context, metas, body_ty)?;
 
-            Ok(RcValue::universe(cmp::max(param_level, body_level)))
+            Ok(Rc::from(Value::universe(cmp::max(param_level, body_level))))
         },
         Term::FunIntro(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
@@ -470,11 +471,11 @@ pub fn synth_term(
                 max_level = cmp::max(max_level, ty_level);
             }
 
-            Ok(RcValue::universe(max_level))
+            Ok(Rc::from(Value::universe(max_level)))
         },
         Term::RecordIntro(intro_fields) => {
             if intro_fields.is_empty() {
-                Ok(RcValue::from(Value::RecordTypeEmpty))
+                Ok(Rc::from(Value::RecordTypeEmpty))
             } else {
                 Err(TypeError::AmbiguousTerm(term.clone()))
             }
@@ -489,7 +490,7 @@ pub fn synth_term(
                     return Ok(current_ty.clone());
                 } else {
                     let label = current_label.clone();
-                    let expr = RcTerm::from(Term::RecordElim(record.clone(), label));
+                    let expr = Rc::from(Term::RecordElim(record.clone(), label));
                     record_ty =
                         context.app_closure(metas, rest, context.eval_term(metas, &expr)?)?;
                 }
@@ -498,7 +499,7 @@ pub fn synth_term(
             Err(TypeError::NoFieldInType(label.clone()))
         },
 
-        Term::Universe(level) => Ok(RcValue::universe(*level + 1)),
+        Term::Universe(level) => Ok(Rc::from(Value::universe(*level + 1))),
     }
 }
 
@@ -510,17 +511,17 @@ mod test {
     fn add_params() {
         let mut context = Context::empty();
 
-        let ty1 = RcValue::universe(0);
-        let ty2 = RcValue::universe(1);
-        let ty3 = RcValue::universe(2);
+        let ty1 = Rc::from(Value::universe(0));
+        let ty2 = Rc::from(Value::universe(1));
+        let ty3 = Rc::from(Value::universe(2));
 
         let param1 = context.add_param(ty1.clone());
         let param2 = context.add_param(ty2.clone());
         let param3 = context.add_param(ty3.clone());
 
-        assert_eq!(param1, RcValue::from(Value::var(var::Level(0))));
-        assert_eq!(param2, RcValue::from(Value::var(var::Level(1))));
-        assert_eq!(param3, RcValue::from(Value::var(var::Level(2))));
+        assert_eq!(param1, Rc::from(Value::var(0)));
+        assert_eq!(param2, Rc::from(Value::var(1)));
+        assert_eq!(param3, Rc::from(Value::var(2)));
 
         assert_eq!(context.lookup_ty(var::Index(2)).unwrap(), &ty1);
         assert_eq!(context.lookup_ty(var::Index(1)).unwrap(), &ty2);

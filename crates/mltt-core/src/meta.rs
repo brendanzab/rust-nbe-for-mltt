@@ -1,5 +1,6 @@
 use mltt_span::FileSpan;
 use std::fmt;
+use std::rc::Rc;
 
 use crate::domain;
 
@@ -27,14 +28,14 @@ impl From<u32> for Index {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Solution {
     Unsolved,
-    Solved(domain::RcValue),
+    Solved(Rc<domain::Value>),
 }
 
 /// An environment of solved and unsolved metavariables.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Env {
     /// The solutions.
-    solutions: Vec<(FileSpan, Solution, domain::RcType)>,
+    solutions: Vec<(FileSpan, Solution, Rc<domain::Type>)>,
 }
 
 impl Env {
@@ -46,12 +47,12 @@ impl Env {
     }
 
     /// Lookup a the solution for a metavariable in the environment.
-    pub fn lookup_solution(&self, index: Index) -> Option<&(FileSpan, Solution, domain::RcType)> {
+    pub fn lookup_solution(&self, index: Index) -> Option<&(FileSpan, Solution, Rc<domain::Type>)> {
         self.solutions.get(index.0 as usize)
     }
 
     /// Add a solution to the given metavariable index.
-    pub fn add_solved(&mut self, index: Index, solved: domain::RcValue) {
+    pub fn add_solved(&mut self, index: Index, solved: Rc<domain::Value>) {
         match self.solutions.get_mut(index.0 as usize) {
             Some((_, solution @ Solution::Unsolved, _)) => *solution = Solution::Solved(solved),
             Some((_, Solution::Solved(_), _)) => unimplemented!("updating solved solution"),
@@ -60,7 +61,7 @@ impl Env {
     }
 
     /// Create a fresh metavariable index.
-    pub fn add_unsolved(&mut self, span: FileSpan, ty: domain::RcType) -> Index {
+    pub fn add_unsolved(&mut self, span: FileSpan, ty: Rc<domain::Type>) -> Index {
         let index = Index(self.solutions.len() as u32);
         self.solutions.push((span, Solution::Unsolved, ty));
         index

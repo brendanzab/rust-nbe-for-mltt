@@ -1,7 +1,6 @@
 //! The core syntax of the language.
 
 use std::fmt;
-use std::ops;
 use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
@@ -24,87 +23,15 @@ impl fmt::Debug for Module {
 #[derive(Clone, PartialEq)]
 pub enum Item {
     /// Forward-declarations.
-    Declaration(DocString, Label, RcTerm),
+    Declaration(DocString, Label, Rc<Term>),
     /// Term definitions.
-    Definition(DocString, Label, RcTerm),
+    Definition(DocString, Label, Rc<Term>),
 }
 
 impl fmt::Debug for Item {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let doc = self.to_debug_doc().group();
         fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
-    }
-}
-
-/// Reference counted term.
-#[derive(Clone, PartialEq)]
-pub struct RcTerm {
-    /// The inner term.
-    pub inner: Rc<Term>,
-}
-
-impl RcTerm {
-    /// Construct a variable.
-    pub fn var(index: impl Into<var::Index>) -> RcTerm {
-        RcTerm::from(Term::var(index))
-    }
-
-    /// Construct a metavariable.
-    pub fn meta(index: impl Into<meta::Index>) -> RcTerm {
-        RcTerm::from(Term::meta(index))
-    }
-
-    /// Construct a primitive.
-    pub fn prim(name: impl Into<prim::Name>) -> RcTerm {
-        RcTerm::from(Term::prim(name))
-    }
-
-    /// Construct an annotated term.
-    pub fn ann(term: impl Into<RcTerm>, term_ty: impl Into<RcTerm>) -> RcTerm {
-        RcTerm::from(Term::ann(term, term_ty))
-    }
-
-    /// Construct a literal type.
-    pub fn literal_ty(ty: impl Into<LiteralType>) -> RcTerm {
-        RcTerm::from(Term::literal_ty(ty))
-    }
-
-    /// Construct a literal introduction.
-    pub fn literal_intro(value: impl Into<LiteralIntro>) -> RcTerm {
-        RcTerm::from(Term::literal_intro(value))
-    }
-
-    /// Construct a universe.
-    pub fn universe(level: impl Into<UniverseLevel>) -> RcTerm {
-        RcTerm::from(Term::universe(level))
-    }
-}
-
-impl From<Term> for RcTerm {
-    fn from(src: Term) -> RcTerm {
-        RcTerm {
-            inner: Rc::new(src),
-        }
-    }
-}
-
-impl AsRef<Term> for RcTerm {
-    fn as_ref(&self) -> &Term {
-        self.inner.as_ref()
-    }
-}
-
-impl ops::Deref for RcTerm {
-    type Target = Term;
-
-    fn deref(&self) -> &Term {
-        self.as_ref()
-    }
-}
-
-impl fmt::Debug for RcTerm {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, f)
     }
 }
 
@@ -120,9 +47,9 @@ pub enum Term {
     Prim(prim::Name),
 
     /// A term that is explicitly annotated with a type
-    Ann(RcTerm, RcTerm),
+    Ann(Rc<Term>, Rc<Term>),
     /// Let bindings
-    Let(Vec<Item>, RcTerm),
+    Let(Vec<Item>, Rc<Term>),
 
     /// Literal types
     LiteralType(LiteralType),
@@ -133,21 +60,21 @@ pub enum Term {
     /// We include a scrutinee, a list of clauses, and a default term. The
     /// clauses are sorted in ascending order by the literal to allow for
     /// efficient binary searching during evaluation.
-    LiteralElim(RcTerm, Rc<[(LiteralIntro, RcTerm)]>, RcTerm),
+    LiteralElim(Rc<Term>, Rc<[(LiteralIntro, Rc<Term>)]>, Rc<Term>),
 
     /// Dependent function types
-    FunType(AppMode, Option<String>, RcTerm, RcTerm),
+    FunType(AppMode, Option<String>, Rc<Term>, Rc<Term>),
     /// Introduce a function
-    FunIntro(AppMode, Option<String>, RcTerm),
+    FunIntro(AppMode, Option<String>, Rc<Term>),
     /// Eliminate a function (application)
-    FunElim(RcTerm, AppMode, RcTerm),
+    FunElim(Rc<Term>, AppMode, Rc<Term>),
 
     /// Dependent record types
-    RecordType(Vec<(DocString, Label, Option<String>, RcTerm)>),
+    RecordType(Vec<(DocString, Label, Option<String>, Rc<Term>)>),
     /// Introduce a record
-    RecordIntro(Vec<(Label, RcTerm)>),
+    RecordIntro(Vec<(Label, Rc<Term>)>),
     /// Eliminate a record (projection)
-    RecordElim(RcTerm, Label),
+    RecordElim(Rc<Term>, Label),
 
     /// Universe of types
     Universe(UniverseLevel),
@@ -170,7 +97,7 @@ impl Term {
     }
 
     /// Construct an annotated term.
-    pub fn ann(term: impl Into<RcTerm>, term_ty: impl Into<RcTerm>) -> Term {
+    pub fn ann(term: impl Into<Rc<Term>>, term_ty: impl Into<Rc<Term>>) -> Term {
         Term::Ann(term.into(), term_ty.into())
     }
 
