@@ -1,6 +1,6 @@
 //! Integration tests for the MLTT language.
 
-macro_rules! run_test {
+macro_rules! test_sample {
     ($name:ident, $path:literal) => {
         #[test]
         fn $name() {
@@ -16,8 +16,9 @@ macro_rules! run_test {
             let writer = StandardStream::stdout(ColorChoice::Always);
             let reporting_config = language_reporting::DefaultConfig;
 
-            let src = include_str!(concat!("../../../", $path));
-            let file_id = files.add($path, src);
+            let path = concat!("tests/samples/", $path, ".mltt");
+            let src = include_str!(concat!("../../../tests/samples/", $path, ".mltt"));
+            let file_id = files.add(path, src);
 
             let lexer = Lexer::new(&files[file_id]);
             let module = parser::parse_module(lexer).unwrap_or_else(|diagnostic| {
@@ -46,15 +47,15 @@ macro_rules! run_test {
     };
 }
 
-run_test!(case_expressions, "tests/case-expressions.mltt");
-run_test!(categories, "tests/categories.mltt");
-run_test!(combinators, "tests/combinators.mltt");
-run_test!(connectives, "tests/connectives.mltt");
-run_test!(cumulativity, "tests/cumulativity.mltt");
-run_test!(empty, "tests/empty.mltt");
-run_test!(forward_declarations, "tests/forward-declarations.mltt");
-run_test!(if_expressions, "tests/if-expressions.mltt");
-run_test!(literals, "tests/literals.mltt");
-run_test!(let_expressions, "tests/let-expressions.mltt");
-run_test!(primitives, "tests/primitives.mltt");
-run_test!(records, "tests/records.mltt");
+test_sample!(case_expressions, "case-expressions");
+test_sample!(categories, "categories");
+test_sample!(combinators, "combinators");
+test_sample!(connectives, "connectives");
+test_sample!(cumulativity, "cumulativity");
+test_sample!(empty, "empty");
+test_sample!(forward_declarations, "forward-declarations");
+test_sample!(if_expressions, "if-expressions");
+test_sample!(literals, "literals");
+test_sample!(let_expressions, "let-expressions");
+test_sample!(primitives, "primitives");
+test_sample!(records, "records");
