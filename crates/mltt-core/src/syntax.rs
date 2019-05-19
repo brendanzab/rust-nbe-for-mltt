@@ -136,14 +136,14 @@ pub enum Term {
     LiteralElim(RcTerm, Rc<[(LiteralIntro, RcTerm)]>, RcTerm),
 
     /// Dependent function types
-    FunType(AppMode, RcTerm, RcTerm),
+    FunType(AppMode, Option<String>, RcTerm, RcTerm),
     /// Introduce a function
-    FunIntro(AppMode, RcTerm),
+    FunIntro(AppMode, Option<String>, RcTerm),
     /// Eliminate a function (application)
     FunElim(RcTerm, AppMode, RcTerm),
 
     /// Dependent record types
-    RecordType(Vec<(DocString, Label, RcTerm)>),
+    RecordType(Vec<(DocString, Label, Option<String>, RcTerm)>),
     /// Introduce a record
     RecordIntro(Vec<(Label, RcTerm)>),
     /// Eliminate a record (projection)
@@ -248,14 +248,14 @@ impl Term {
             },
 
             (
-                Term::FunType(app_mode1, param_ty1, body_ty1),
-                Term::FunType(app_mode2, param_ty2, body_ty2),
+                Term::FunType(app_mode1, _, param_ty1, body_ty1),
+                Term::FunType(app_mode2, _, param_ty2, body_ty2),
             ) => {
                 Term::alpha_eq(param_ty1, param_ty2)
                     && app_mode1 == app_mode2
                     && Term::alpha_eq(body_ty1, body_ty2)
             },
-            (Term::FunIntro(app_mode1, body1), Term::FunIntro(app_mode2, body2)) => {
+            (Term::FunIntro(app_mode1, _, body1), Term::FunIntro(app_mode2, _, body2)) => {
                 app_mode1 == app_mode2 && Term::alpha_eq(body1, body2)
             },
             (Term::FunElim(fun1, app_mode1, arg1), Term::FunElim(fun2, app_mode2, arg2)) => {
@@ -265,7 +265,7 @@ impl Term {
             (Term::RecordType(ty_fields1), Term::RecordType(ty_fields2)) => {
                 ty_fields1.len() == ty_fields2.len()
                     && Iterator::zip(ty_fields1.iter(), ty_fields2.iter())
-                        .all(|((_, l1, t1), (_, l2, t2))| l1 == l2 && Term::alpha_eq(t1, t2))
+                        .all(|((_, l1, _, t1), (_, l2, _, t2))| l1 == l2 && Term::alpha_eq(t1, t2))
             },
             (Term::RecordIntro(intro_fields1), Term::RecordIntro(intro_fields2)) => {
                 intro_fields1.len() == intro_fields2.len()

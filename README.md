@@ -64,5 +64,5 @@ DeBruijn levels in the syntax of the semantic domain.
   - [ ] Parser
   - [ ] Elaborator
   - [ ] Validator
-- [ ] Preserve pretty names through type checking and normalization
+- [x] Preserve pretty names through type checking and normalization
 - [ ] Use arena allocation rather than reference counting

@@ -88,12 +88,12 @@ pub enum Value {
     LiteralIntro(LiteralIntro),
 
     /// Dependent function types
-    FunType(AppMode, RcType, AppClosure),
+    FunType(AppMode, Option<String>, RcType, AppClosure),
     /// Introduce a function
-    FunIntro(AppMode, AppClosure),
+    FunIntro(AppMode, Option<String>, AppClosure),
 
     /// Dependent record type extension
-    RecordTypeExtend(DocString, Label, RcType, AppClosure),
+    RecordTypeExtend(DocString, Label, Option<String>, RcType, AppClosure),
     /// Empty record type
     RecordTypeEmpty,
     /// Introduce a record

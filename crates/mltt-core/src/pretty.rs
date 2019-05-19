@@ -265,7 +265,7 @@ impl syntax::Term {
                     .append("}")
             },
 
-            syntax::Term::FunType(app_mode, param_ty, body_ty) => {
+            syntax::Term::FunType(app_mode, _, param_ty, body_ty) => {
                 let param = match app_mode {
                     AppMode::Explicit => Doc::nil()
                         .append("(")
@@ -307,7 +307,7 @@ impl syntax::Term {
                             .nest(4),
                     )
             },
-            syntax::Term::FunIntro(app_mode, body) => {
+            syntax::Term::FunIntro(app_mode, _, body) => {
                 let param = match app_mode {
                     AppMode::Explicit => Doc::text("_"),
                     AppMode::Implicit(label) => Doc::nil()
@@ -374,7 +374,7 @@ impl syntax::Term {
                     Doc::nil()
                         .append(Doc::space())
                         .append(Doc::intersperse(
-                            ty_fields.iter().map(|(_, label, ty)| {
+                            ty_fields.iter().map(|(_, label, _, ty)| {
                                 Doc::nil()
                                     .append(Doc::as_string(label))
                                     .append(Doc::space())
@@ -508,22 +508,24 @@ impl syntax::Term {
                     .append("}")
             },
 
-            syntax::Term::FunType(app_mode, param_ty, body_ty) => {
+            syntax::Term::FunType(app_mode, name_hint, param_ty, body_ty) => {
                 let mut env = env.clone();
                 let mut body_ty = body_ty;
-                let mut params = vec![(app_mode, param_ty)];
-                while let syntax::Term::FunType(app_mode, param_ty, next_body_ty) = body_ty.as_ref()
+                let mut params = vec![(app_mode, name_hint, param_ty)];
+                while let syntax::Term::FunType(app_mode, name_hint, param_ty, next_body_ty) =
+                    body_ty.as_ref()
                 {
-                    params.push((app_mode, param_ty));
+                    params.push((app_mode, name_hint, param_ty));
                     body_ty = next_body_ty;
                 }
 
                 let params_doc = Doc::intersperse(
-                    params.iter().map(|(app_mode, param_ty)| {
+                    params.iter().map(|(app_mode, name_hint, param_ty)| {
                         let param_ty_doc = param_ty.to_display_doc(&env);
                         match app_mode {
                             AppMode::Explicit => {
-                                let param_name = env.fresh_name(None);
+                                let name_hint = name_hint.as_ref().map(String::as_str);
+                                let param_name = env.fresh_name(name_hint);
 
                                 Doc::nil()
                                     .append("(")
@@ -536,7 +538,10 @@ impl syntax::Term {
                                     .group()
                             },
                             AppMode::Implicit(label) => {
-                                let param_name = env.fresh_name(Some(&label.0));
+                                let param_name = match name_hint {
+                                    None => env.fresh_name(Some(&label.0)),
+                                    Some(name_hint) => env.fresh_name(Some(name_hint.as_str())),
+                                };
 
                                 Doc::nil()
                                     .append(if label.0 == param_name {
@@ -558,7 +563,10 @@ impl syntax::Term {
                                     .group()
                             },
                             AppMode::Instance(label) => {
-                                let param_name = env.fresh_name(Some(&label.0));
+                                let param_name = match name_hint {
+                                    None => env.fresh_name(Some(&label.0)),
+                                    Some(name_hint) => env.fresh_name(Some(name_hint.as_str())),
+                                };
 
                                 Doc::nil()
                                     .append(if label.0 == param_name {
@@ -599,55 +607,66 @@ impl syntax::Term {
                             .nest(4),
                     )
             },
-            syntax::Term::FunIntro(app_mode, body) => {
+            syntax::Term::FunIntro(app_mode, name_hint, body) => {
                 let mut env = env.clone();
                 let mut body = body;
-                let mut app_modes = vec![app_mode];
-                while let syntax::Term::FunIntro(app_mode, next_body) = body.as_ref() {
-                    app_modes.push(app_mode);
+                let mut app_modes = vec![(app_mode, name_hint)];
+                while let syntax::Term::FunIntro(app_mode, name_hint, next_body) = body.as_ref() {
+                    app_modes.push((app_mode, name_hint));
                     body = next_body;
                 }
 
                 let params_doc = Doc::intersperse(
-                    app_modes.iter().map(|app_mode| match app_mode {
-                        AppMode::Explicit => Doc::as_string(env.fresh_name(None)).group(),
-                        AppMode::Implicit(label) => {
-                            let param_name = env.fresh_name(Some(&label.0));
+                    app_modes
+                        .iter()
+                        .map(|(app_mode, name_hint)| match app_mode {
+                            AppMode::Explicit => {
+                                let name_hint = name_hint.as_ref().map(String::as_str);
+                                Doc::as_string(env.fresh_name(name_hint)).group()
+                            },
+                            AppMode::Implicit(label) => {
+                                let param_name = match name_hint {
+                                    None => env.fresh_name(Some(&label.0)),
+                                    Some(name_hint) => env.fresh_name(Some(name_hint.as_str())),
+                                };
 
-                            Doc::nil()
-                                .append(if label.0 == param_name {
-                                    Doc::text("{").append(Doc::as_string(label)).group()
-                                } else {
-                                    Doc::nil()
-                                        .append("{")
-                                        .append(Doc::as_string(label))
-                                        .append(Doc::space())
-                                        .append("=")
-                                        .group()
-                                        .append(Doc::space().append(param_name).nest(4))
-                                })
-                                .append("}")
-                                .group()
-                        },
-                        AppMode::Instance(label) => {
-                            let param_name = env.fresh_name(Some(&label.0));
+                                Doc::nil()
+                                    .append(if label.0 == param_name {
+                                        Doc::text("{").append(Doc::as_string(label)).group()
+                                    } else {
+                                        Doc::nil()
+                                            .append("{")
+                                            .append(Doc::as_string(label))
+                                            .append(Doc::space())
+                                            .append("=")
+                                            .group()
+                                            .append(Doc::space().append(param_name).nest(4))
+                                    })
+                                    .append("}")
+                                    .group()
+                            },
+                            AppMode::Instance(label) => {
+                                let param_name = match name_hint {
+                                    None => env.fresh_name(Some(&label.0)),
+                                    Some(name_hint) => env.fresh_name(Some(name_hint.as_str())),
+                                };
 
-                            Doc::nil()
-                                .append(if label.0 == param_name {
-                                    Doc::text("{{").append(Doc::as_string(label)).group()
-                                } else {
-                                    Doc::nil()
-                                        .append("{{")
-                                        .append(Doc::as_string(label))
-                                        .append(Doc::space())
-                                        .append("=")
-                                        .group()
-                                        .append(Doc::space().append(param_name).nest(4))
-                                })
-                                .append("}}")
-                                .group()
-                        },
-                    }),
+                                Doc::nil()
+                                    .append(if label.0 == param_name {
+                                        Doc::text("{{").append(Doc::as_string(label)).group()
+                                    } else {
+                                        Doc::nil()
+                                            .append("{{")
+                                            .append(Doc::as_string(label))
+                                            .append(Doc::space())
+                                            .append("=")
+                                            .group()
+                                            .append(Doc::space().append(param_name).nest(4))
+                                    })
+                                    .append("}}")
+                                    .group()
+                            },
+                        }),
                     Doc::space(),
                 );
 
@@ -709,9 +728,12 @@ impl syntax::Term {
 
                 let fields_doc = {
                     Doc::intersperse(
-                        ty_fields.iter().map(|(_, label, ty)| {
+                        ty_fields.iter().map(|(_, label, name_hint, ty)| {
                             let ty_doc = ty.to_display_doc(&env);
-                            let field_name = env.fresh_name(Some(&label.0));
+                            let field_name = match name_hint {
+                                None => env.fresh_name(Some(&label.0)),
+                                Some(name_hint) => env.fresh_name(Some(name_hint.as_str())),
+                            };
 
                             Doc::nil()
                                 .append(if label.0 == field_name {

@@ -255,7 +255,7 @@ pub fn check_term(
 
             for concrete_intro_field in concrete_intro_fields {
                 let (expected_label, expected_term_ty, rest) = match expected_ty.as_ref() {
-                    domain::Value::RecordTypeExtend(_, label, ty, rest) => Ok((label, ty, rest)),
+                    domain::Value::RecordTypeExtend(_, label, _, ty, rest) => Ok((label, ty, rest)),
                     _ => Err(Diagnostic::new_error("too many fields found")
                         .with_label(DiagnosticLabel::new_primary(*span))),
                 }?;
@@ -324,7 +324,7 @@ fn insert_metas(
 
     let mut term_ty = term_ty.clone();
 
-    while let FunType(app_mode, param_ty, body_ty) = term_ty.as_ref() {
+    while let FunType(app_mode, _, param_ty, body_ty) = term_ty.as_ref() {
         match (meta_insertion, app_mode) {
             // The user requested we stop inserting metavariables, or
             // we have seen an explicit argument, so we stop inserting
@@ -497,7 +497,7 @@ pub fn synth_term(
                     .into_iter()
                     .rev()
                     .fold(body_ty, |acc, (app_mode, param_ty)| {
-                        syntax::RcTerm::from(syntax::Term::FunType(app_mode, param_ty, acc))
+                        syntax::RcTerm::from(syntax::Term::FunType(app_mode, None, param_ty, acc))
                     }),
                 domain::RcValue::universe(max_level),
             ))
@@ -511,9 +511,12 @@ pub fn synth_term(
                 synth_universe(&context, metas, concrete_body_ty)?
             };
 
+            let fun_ty = syntax::Term::FunType(AppMode::Explicit, None, param_ty, body_ty);
+            let max_level = cmp::max(param_level, body_level);
+
             Ok((
-                syntax::RcTerm::from(syntax::Term::FunType(AppMode::Explicit, param_ty, body_ty)),
-                domain::RcValue::universe(cmp::max(param_level, body_level)),
+                syntax::RcTerm::from(fun_ty),
+                domain::RcValue::universe(max_level),
             ))
         },
         Term::FunIntro(_, concrete_params, concrete_body) => {
@@ -538,7 +541,7 @@ pub fn synth_term(
             };
 
             match context.force_value(metas, None, &fun_ty)?.as_ref() {
-                domain::Value::FunType(app_mode, param_ty, body_ty) => {
+                domain::Value::FunType(app_mode, _, param_ty, body_ty) => {
                     let concrete_arg_term = concrete_arg.desugar_arg_term();
                     let app_mode = app_mode.clone(); // TODO: check app mode is compatible with insertion
                     let arg = check_term(context, metas, concrete_arg_term.as_ref(), param_ty)?;
@@ -568,7 +571,7 @@ pub fn synth_term(
                 };
 
                 match context.force_value(metas, None, &new_fun_ty)?.as_ref() {
-                    domain::Value::FunType(app_mode, param_ty, body_ty) => {
+                    domain::Value::FunType(app_mode, _, param_ty, body_ty) => {
                         let concrete_arg_term = concrete_arg.desugar_arg_term();
                         let app_mode = app_mode.clone(); // TODO: check app mode is compatible with insertion
                         let arg = check_term(context, metas, concrete_arg_term.as_ref(), param_ty)?;
@@ -605,7 +608,7 @@ pub fn synth_term(
                     context.add_param(concrete_ty_field.label, ty_value);
                     max_level = cmp::max(max_level, ty_level);
 
-                    Ok((docs, Label(concrete_ty_field.label.to_string()), ty))
+                    Ok((docs, Label(concrete_ty_field.label.to_string()), None, ty))
                 })
                 .collect::<Result<_, Diagnostic<FileSpan>>>()?;
 
@@ -631,7 +634,7 @@ pub fn synth_term(
             let (record, mut record_ty) =
                 synth_term(MetaInsertion::Yes, context, metas, concrete_record)?;
 
-            while let domain::Value::RecordTypeExtend(_, current_label, current_ty, rest) =
+            while let domain::Value::RecordTypeExtend(_, current_label, _, current_ty, rest) =
                 record_ty.as_ref()
             {
                 let expr = syntax::RcTerm::from(syntax::Term::RecordElim(

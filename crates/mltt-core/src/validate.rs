@@ -332,15 +332,15 @@ pub fn check_term(
             check_term(context, metas, default_body, expected_ty)
         },
 
-        Term::FunIntro(intro_app_mode, body) => match expected_ty.as_ref() {
-            Value::FunType(ty_app_mode, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
+        Term::FunIntro(intro_app_mode, _, body) => match expected_ty.as_ref() {
+            Value::FunType(ty_app_mode, _, param_ty, body_ty) if intro_app_mode == ty_app_mode => {
                 let mut body_context = context.clone();
                 let param = body_context.add_param(param_ty.clone());
                 let body_ty = context.app_closure(metas, body_ty, param)?;
 
                 check_term(&body_context, metas, body, &body_ty)
             },
-            Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
+            Value::FunType(ty_app_mode, _, _, _) => Err(TypeError::UnexpectedAppMode {
                 found: intro_app_mode.clone(),
                 expected: ty_app_mode.clone(),
             }),
@@ -354,7 +354,7 @@ pub fn check_term(
             let mut expected_ty = expected_ty.clone();
 
             for (label, term) in intro_fields {
-                if let Value::RecordTypeExtend(_, expected_label, expected_term_ty, rest) =
+                if let Value::RecordTypeExtend(_, expected_label, _, expected_term_ty, rest) =
                     expected_ty.as_ref()
                 {
                     if label != expected_label {
@@ -429,7 +429,7 @@ pub fn synth_term(
         Term::LiteralIntro(literal_intro) => Ok(synth_literal(literal_intro)),
         Term::LiteralElim(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
-        Term::FunType(_app_mode, param_ty, body_ty) => {
+        Term::FunType(_app_mode, _, param_ty, body_ty) => {
             let param_level = synth_universe(context, metas, param_ty)?;
             let param_ty_value = context.eval_term(metas, param_ty)?;
 
@@ -440,17 +440,17 @@ pub fn synth_term(
 
             Ok(RcValue::universe(cmp::max(param_level, body_level)))
         },
-        Term::FunIntro(_, _) => Err(TypeError::AmbiguousTerm(term.clone())),
+        Term::FunIntro(_, _, _) => Err(TypeError::AmbiguousTerm(term.clone())),
 
         Term::FunElim(fun, arg_app_mode, arg) => {
             let fun_ty = synth_term(context, metas, fun)?;
             match fun_ty.as_ref() {
-                Value::FunType(ty_app_mode, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
+                Value::FunType(ty_app_mode, _, arg_ty, body_ty) if arg_app_mode == ty_app_mode => {
                     check_term(context, metas, arg, arg_ty)?;
                     let arg_value = context.eval_term(metas, arg)?;
                     Ok(context.app_closure(metas, body_ty, arg_value)?)
                 },
-                Value::FunType(ty_app_mode, _, _) => Err(TypeError::UnexpectedAppMode {
+                Value::FunType(ty_app_mode, _, _, _) => Err(TypeError::UnexpectedAppMode {
                     found: arg_app_mode.clone(),
                     expected: ty_app_mode.clone(),
                 }),
@@ -464,7 +464,7 @@ pub fn synth_term(
             let mut context = context.clone();
             let mut max_level = UniverseLevel(0);
 
-            for (_, _, ty) in ty_fields {
+            for (_, _, _, ty) in ty_fields {
                 let ty_level = synth_universe(&context, metas, &ty)?;
                 context.add_param(context.eval_term(metas, &ty)?);
                 max_level = cmp::max(max_level, ty_level);
@@ -482,7 +482,7 @@ pub fn synth_term(
         Term::RecordElim(record, label) => {
             let mut record_ty = synth_term(context, metas, record)?;
 
-            while let Value::RecordTypeExtend(_, current_label, current_ty, rest) =
+            while let Value::RecordTypeExtend(_, current_label, _, current_ty, rest) =
                 record_ty.as_ref()
             {
                 if label == current_label {

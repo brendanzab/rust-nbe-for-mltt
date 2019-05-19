@@ -97,7 +97,7 @@ pub fn eval_fun_elim(
     arg: RcValue,
 ) -> Result<RcValue, String> {
     match fun.as_ref() {
-        Value::FunIntro(fun_app_mode, body) => {
+        Value::FunIntro(fun_app_mode, _, body) => {
             if fun_app_mode == app_mode {
                 app_closure(prims, metas, body, arg)
             } else {
@@ -182,18 +182,22 @@ pub fn eval_term(
         },
 
         // Functions
-        Term::FunType(app_mode, param_ty, body_ty) => {
+        Term::FunType(app_mode, name_hint, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
+            let name_hint = name_hint.clone();
             let param_ty = eval_term(prims, metas, values, param_ty)?;
             let body_ty = AppClosure::new(body_ty.clone(), values.clone());
 
-            Ok(RcValue::from(Value::FunType(app_mode, param_ty, body_ty)))
+            Ok(RcValue::from(Value::FunType(
+                app_mode, name_hint, param_ty, body_ty,
+            )))
         },
-        Term::FunIntro(app_mode, body) => {
+        Term::FunIntro(app_mode, name_hint, body) => {
             let app_mode = app_mode.clone();
+            let name_hint = name_hint.clone();
             let body = AppClosure::new(body.clone(), values.clone());
 
-            Ok(RcValue::from(Value::FunIntro(app_mode, body)))
+            Ok(RcValue::from(Value::FunIntro(app_mode, name_hint, body)))
         },
         Term::FunElim(fun, app_mode, arg) => {
             let fun = eval_term(prims, metas, values, fun)?;
@@ -205,15 +209,18 @@ pub fn eval_term(
         // Records
         Term::RecordType(fields) => match fields.split_first() {
             None => Ok(RcValue::from(Value::RecordTypeEmpty)),
-            Some(((doc, label, ty), rest)) => {
+            Some(((doc, label, name_hint, ty), rest)) => {
                 let doc = doc.clone();
                 let label = label.clone();
+                let name_hint = name_hint.clone();
                 let ty = eval_term(prims, metas, values, ty)?;
                 let rest_fields = rest.iter().cloned().collect(); // FIXME: Seems expensive?
                 let rest =
                     AppClosure::new(RcTerm::from(Term::RecordType(rest_fields)), values.clone());
 
-                Ok(RcValue::from(Value::RecordTypeExtend(doc, label, ty, rest)))
+                Ok(RcValue::from(Value::RecordTypeExtend(
+                    doc, label, name_hint, ty, rest,
+                )))
             },
         },
         Term::RecordIntro(fields) => {
@@ -248,37 +255,41 @@ pub fn read_back_value(
         Value::LiteralIntro(literal_intro) => Ok(RcTerm::literal_intro(literal_intro.clone())),
 
         // Functions
-        Value::FunType(app_mode, param_ty, body_ty) => {
+        Value::FunType(app_mode, name_hint, param_ty, body_ty) => {
             let app_mode = app_mode.clone();
+            let name_hint = name_hint.clone();
             let body_ty = inst_closure(prims, metas, size, body_ty)?;
             let param_ty = read_back_value(prims, metas, size, param_ty)?;
             let body_ty = read_back_value(prims, metas, size + 1, &body_ty)?;
 
-            Ok(RcTerm::from(Term::FunType(app_mode, param_ty, body_ty)))
+            Ok(RcTerm::from(Term::FunType(
+                app_mode, name_hint, param_ty, body_ty,
+            )))
         },
-        Value::FunIntro(app_mode, body) => {
+        Value::FunIntro(app_mode, name_hint, body) => {
             let app_mode = app_mode.clone();
+            let name_hint = name_hint.clone();
             let body = inst_closure(prims, metas, size, body)?;
             let body = read_back_value(prims, metas, size + 1, &body)?;
 
-            Ok(RcTerm::from(Term::FunIntro(app_mode, body)))
+            Ok(RcTerm::from(Term::FunIntro(app_mode, name_hint, body)))
         },
 
         // Records
-        Value::RecordTypeExtend(doc, label, term_ty, rest_ty) => {
+        Value::RecordTypeExtend(doc, label, name_hint, term_ty, rest_ty) => {
             let mut size = size;
 
             let term_ty = read_back_value(prims, metas, size, term_ty)?;
 
             let mut rest_ty = inst_closure(prims, metas, size, rest_ty)?;
-            let mut field_tys = vec![(doc.clone(), label.clone(), term_ty)];
+            let mut field_tys = vec![(doc.clone(), label.clone(), name_hint.clone(), term_ty)];
 
-            while let Value::RecordTypeExtend(next_doc, next_label, next_term_ty, next_rest_ty) =
+            while let Value::RecordTypeExtend(doc, label, name_hint, next_term_ty, next_rest_ty) =
                 rest_ty.as_ref()
             {
                 size += 1;
                 let next_term_ty = read_back_value(prims, metas, size, next_term_ty)?;
-                field_tys.push((next_doc.clone(), next_label.clone(), next_term_ty));
+                field_tys.push((doc.clone(), label.clone(), name_hint.clone(), next_term_ty));
                 rest_ty = inst_closure(prims, metas, size, next_rest_ty)?;
             }
 
@@ -399,8 +410,8 @@ pub fn check_subtype(
             Ok(literal_ty1 == literal_ty2)
         },
         (
-            Value::FunType(app_mode1, param_ty1, body_ty1),
-            Value::FunType(app_mode2, param_ty2, body_ty2),
+            Value::FunType(app_mode1, _, param_ty1, body_ty1),
+            Value::FunType(app_mode2, _, param_ty2, body_ty2),
         ) if app_mode1 == app_mode2 => Ok(check_subtype(prims, metas, size, param_ty2, param_ty1)?
             && {
                 let body_ty1 = inst_closure(prims, metas, size, body_ty1)?;
@@ -408,8 +419,8 @@ pub fn check_subtype(
                 check_subtype(prims, metas, size + 1, &body_ty1, &body_ty2)?
             }),
         (
-            Value::RecordTypeExtend(_, label1, term_ty1, rest_ty1),
-            Value::RecordTypeExtend(_, label2, term_ty2, rest_ty2),
+            Value::RecordTypeExtend(_, label1, _, term_ty1, rest_ty1),
+            Value::RecordTypeExtend(_, label2, _, term_ty2, rest_ty2),
         ) if label1 == label2 => Ok(check_subtype(prims, metas, size, term_ty1, term_ty2)? && {
             let rest_ty1 = inst_closure(prims, metas, size, rest_ty1)?;
             let rest_ty2 = inst_closure(prims, metas, size, rest_ty2)?;

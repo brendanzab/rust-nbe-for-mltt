@@ -89,12 +89,12 @@ fn check_solution(
             Ok(())
         },
 
-        syntax::Term::FunType(_, param_ty, body_ty) => {
+        syntax::Term::FunType(_, _, param_ty, body_ty) => {
             check_solution(env_size, span, head, bound_levels, param_ty)?;
             check_solution(env_size + 1, span, head, bound_levels, body_ty)?;
             Ok(())
         },
-        syntax::Term::FunIntro(_, body) => {
+        syntax::Term::FunIntro(_, _, body) => {
             check_solution(env_size + 1, span, head, bound_levels, body)?;
             Ok(())
         },
@@ -105,7 +105,7 @@ fn check_solution(
         },
 
         syntax::Term::RecordType(ty_fields) => {
-            for (i, (_, _, term)) in ty_fields.iter().enumerate() {
+            for (i, (_, _, _, term)) in ty_fields.iter().enumerate() {
                 check_solution(env_size + i as u32, span, head, bound_levels, term)?;
             }
             Ok(())
@@ -141,7 +141,7 @@ fn solve_neutral(
     check_solution(values.size(), span, head, &bound_levels, &rhs)?;
 
     let rhs = bound_levels.iter().rev().fold(rhs, |acc, _| {
-        syntax::RcTerm::from(syntax::Term::FunIntro(AppMode::Explicit, acc))
+        syntax::RcTerm::from(syntax::Term::FunIntro(AppMode::Explicit, None, acc))
     });
 
     let rhs_value = nbe::eval_term(prims, metas, &var::Env::new(), None, &rhs)?;
@@ -227,8 +227,8 @@ pub fn unify_values(
         },
 
         (
-            domain::Value::FunType(app_mode1, param_ty1, body_ty1),
-            domain::Value::FunType(app_mode2, param_ty2, body_ty2),
+            domain::Value::FunType(app_mode1, _, param_ty1, body_ty1),
+            domain::Value::FunType(app_mode2, _, param_ty2, body_ty2),
         ) if app_mode1 == app_mode2 => {
             unify_values(prims, metas, values, span, param_ty1, param_ty2)?;
 
@@ -240,9 +240,10 @@ pub fn unify_values(
 
             Ok(())
         },
-        (domain::Value::FunIntro(app_mode1, body1), domain::Value::FunIntro(app_mode2, body2))
-            if app_mode1 == app_mode2 =>
-        {
+        (
+            domain::Value::FunIntro(app_mode1, _, body1),
+            domain::Value::FunIntro(app_mode2, _, body2),
+        ) if app_mode1 == app_mode2 => {
             let (param, values) = instantiate_value(values);
             let body1 = nbe::app_closure(prims, metas, body1, param.clone())?;
             let body2 = nbe::app_closure(prims, metas, body2, param.clone())?;
@@ -250,7 +251,7 @@ pub fn unify_values(
             unify_values(prims, metas, &values, span, &body1, &body2)?;
 
             Ok(())
-        }
+        },
 
         // Eta conversion (η-conversion) for functions:
         //
@@ -262,7 +263,7 @@ pub fn unify_values(
         //
         // - https://ncatlab.org/nlab/show/eta-conversion
         // - https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
-        (domain::Value::FunIntro(app_mode1, body1), _) => {
+        (domain::Value::FunIntro(app_mode1, _, body1), _) => {
             let (param, values) = instantiate_value(values);
             let body1 = nbe::app_closure(prims, metas, body1, param.clone())?;
             let body2 = nbe::eval_fun_elim(prims, metas, value2.clone(), app_mode1, param)?;
@@ -271,7 +272,7 @@ pub fn unify_values(
 
             Ok(())
         },
-        (_, domain::Value::FunIntro(app_mode2, body2)) => {
+        (_, domain::Value::FunIntro(app_mode2, _, body2)) => {
             let (param, values) = instantiate_value(values);
             let body2 = nbe::app_closure(prims, metas, body2, param.clone())?;
             let body1 = nbe::eval_fun_elim(prims, metas, value1.clone(), app_mode2, param)?;
@@ -282,8 +283,8 @@ pub fn unify_values(
         },
 
         (
-            domain::Value::RecordTypeExtend(_, label1, value_ty1, rest_ty1),
-            domain::Value::RecordTypeExtend(_, label2, value_ty2, rest_ty2),
+            domain::Value::RecordTypeExtend(_, label1, _, value_ty1, rest_ty1),
+            domain::Value::RecordTypeExtend(_, label2, _, value_ty2, rest_ty2),
         ) if label1 == label2 => {
             unify_values(prims, metas, values, span, value_ty1, value_ty2)?;
 

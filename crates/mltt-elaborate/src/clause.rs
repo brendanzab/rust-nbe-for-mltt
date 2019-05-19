@@ -48,18 +48,21 @@ pub fn check_clause(
     expected_ty: &domain::RcType,
 ) -> Result<syntax::RcTerm, Diagnostic<FileSpan>> {
     let mut context = context.clone();
-    let mut param_app_modes = Vec::new();
+    let mut params = Vec::new();
     let mut expected_ty = expected_ty.clone();
 
     while let (Some((app_mode, param_ty, next_body_ty)), Some((head_param, rest_params))) = (
         next_expected_param(&expected_ty),
         clause.params.split_first(),
     ) {
-        let param_var = match check_param_app_mode(head_param, &app_mode)? {
-            CheckedPattern::Var(None) => context.add_fresh_param(param_ty),
+        let (param_var, name_hint) = match check_param_app_mode(head_param, &app_mode)? {
+            CheckedPattern::Var(None) => (context.add_fresh_param(param_ty), None),
             CheckedPattern::Var(Some(var_name)) => {
                 clause.params = rest_params;
-                context.add_param(var_name, param_ty)
+                (
+                    context.add_param(var_name, param_ty),
+                    Some(var_name.to_string()),
+                )
             },
             CheckedPattern::LiteralIntro(_, literal) => {
                 return Err(Diagnostic::new_error("non-exhaustive patterns").with_label(
@@ -69,13 +72,13 @@ pub fn check_clause(
             },
         };
 
-        param_app_modes.push(app_mode);
+        params.push((app_mode, name_hint));
         expected_ty = context.app_closure(metas, next_body_ty, param_var)?;
     }
 
     let body = check_clause_body(&context, metas, &clause, &expected_ty)?;
 
-    Ok(done(Vec::new(), param_app_modes, body))
+    Ok(done(Vec::new(), params, body))
 }
 
 /// The state of a pattern clause, part-way through evaluation
@@ -207,7 +210,7 @@ fn next_expected_param<'ty>(
     expected_ty: &'ty domain::RcType,
 ) -> Option<(AppMode, domain::RcValue, &'ty domain::AppClosure)> {
     match expected_ty.as_ref() {
-        domain::Value::FunType(app_mode, param_ty, body_ty) => {
+        domain::Value::FunType(app_mode, _, param_ty, body_ty) => {
             Some((app_mode.clone(), param_ty.clone(), body_ty))
         },
         _ => None,
@@ -299,7 +302,7 @@ fn synth_clause_body(
 /// Finish elaborating the patterns into a case tree.
 fn done(
     scrutinees: Vec<(syntax::RcTerm, Option<syntax::RcTerm>)>,
-    param_app_modes: Vec<AppMode>,
+    params: Vec<(AppMode, Option<String>)>,
     body: syntax::RcTerm,
 ) -> syntax::RcTerm {
     use mltt_core::syntax::Item::{Declaration, Definition};
@@ -315,11 +318,11 @@ fn done(
         items.push(Definition(doc, label, scrutinee));
     }
 
-    let body = param_app_modes
+    let body = params
         .into_iter()
         .rev()
-        .fold(body, |acc, app_mode| {
-            syntax::RcTerm::from(syntax::Term::FunIntro(app_mode, acc))
+        .fold(body, |acc, (app_mode, name_hint)| {
+            syntax::RcTerm::from(syntax::Term::FunIntro(app_mode, name_hint, acc))
         });
 
     if items.is_empty() {
