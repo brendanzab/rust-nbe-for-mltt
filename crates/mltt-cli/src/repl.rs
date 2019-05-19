@@ -57,7 +57,7 @@ pub fn run(options: Options) -> Result<(), Box<dyn Error>> {
                         );
 
                         let width = pretty_width(&mut editor);
-                        write!(writer, "{}", output.pretty(width))?;
+                        writeln!(writer, "{}", output.pretty(width))?;
                     },
                     Err(diagnostic) => {
                         let config = language_reporting::DefaultConfig;
