@@ -10,6 +10,22 @@ use crate::domain::{AppClosure, Elim, Head, LiteralClosure, RcType, RcValue, Spi
 use crate::syntax::{Item, RcTerm, Term};
 use crate::{meta, prim, var, AppMode, Label};
 
+/// Evaluate a primitive.
+pub fn eval_prim<'spine>(
+    prims: &prim::Env,
+    prim_name: &prim::Name,
+    spine: &'spine [Elim],
+) -> Result<(RcValue, &'spine [Elim]), String> {
+    let prim = prims
+        .lookup_entry(prim_name)
+        .ok_or_else(|| format!("eval: primitive not found: {:?}", prim_name))?;
+
+    match prim.interpret(spine) {
+        Some(result) => result,
+        None => Ok((RcValue::prim(prim_name.clone()), spine)),
+    }
+}
+
 /// Evaluate an eliminator.
 pub fn eval_elim(
     prims: &prim::Env,
@@ -141,16 +157,7 @@ pub fn eval_term(
             Some((_, meta::Solution::Unsolved, _)) => Ok(RcValue::meta(*meta_level)),
             None => Err("eval: metavariable not found".to_owned()),
         },
-        Term::Prim(prim_name) => {
-            let prim = prims
-                .lookup_entry(prim_name)
-                .ok_or_else(|| format!("eval: primitive not found: {:?}", prim_name.0))?;
-
-            match prim.interpret(&[]) {
-                Some(result) => Ok(result?.0),
-                None => Ok(RcValue::prim(prim_name.clone())),
-            }
-        },
+        Term::Prim(prim_name) => Ok(eval_prim(prims, prim_name, &[])?.0),
 
         Term::Ann(term, _) => eval_term(prims, metas, values, term),
         Term::Let(items, body) => {
@@ -303,20 +310,11 @@ pub fn read_back_neutral(
     spine: &Spine,
 ) -> Result<RcTerm, String> {
     let (head, spine) = match head {
-        Head::Var(var_level) => (RcTerm::var(size.index(*var_level)), spine.as_slice()),
-        Head::Meta(meta_index) => (RcTerm::meta(*meta_index), spine.as_slice()),
-        Head::Prim(name) => {
-            let prim = prims
-                .lookup_entry(name)
-                .ok_or_else(|| format!("eval: primitive not found: {:?}", name))?;
-
-            match prim.interpret(spine) {
-                Some(result) => {
-                    let (value, rest_spine) = result?;
-                    (read_back_value(prims, metas, size, &value)?, rest_spine)
-                },
-                None => (RcTerm::prim(name.clone()), spine.as_slice()),
-            }
+        Head::Var(var_level) => (RcTerm::var(size.index(*var_level)), &spine[..]),
+        Head::Meta(meta_index) => (RcTerm::meta(*meta_index), &spine[..]),
+        Head::Prim(prim_name) => {
+            let (value, spine) = eval_prim(prims, prim_name, &spine)?;
+            (read_back_value(prims, metas, size, &value)?, spine)
         },
     };
 
