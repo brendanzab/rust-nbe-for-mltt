@@ -393,11 +393,12 @@ pub fn force_value(
     }
 }
 
-/// Check whether a semantic type is a subtype of another.
-pub fn check_subtype(
+/// Check whether a type is a subtype of another type.
+pub fn check_ty(
     prims: &prim::Env,
     metas: &meta::Env,
     size: var::Size,
+    subtype: bool,
     ty1: &Rc<Type>,
     ty2: &Rc<Type>,
 ) -> Result<bool, String> {
@@ -417,22 +418,25 @@ pub fn check_subtype(
         (
             Value::FunType(app_mode1, _, param_ty1, body_ty1),
             Value::FunType(app_mode2, _, param_ty2, body_ty2),
-        ) if app_mode1 == app_mode2 => Ok(check_subtype(prims, metas, size, param_ty2, param_ty1)?
-            && {
-                let body_ty1 = inst_closure(prims, metas, size, body_ty1)?;
-                let body_ty2 = inst_closure(prims, metas, size, body_ty2)?;
-                check_subtype(prims, metas, size + 1, &body_ty1, &body_ty2)?
-            }),
+        ) if app_mode1 == app_mode2 => Ok(check_ty(
+            prims, metas, size, subtype, param_ty2, param_ty1,
+        )? && {
+            let body_ty1 = inst_closure(prims, metas, size, body_ty1)?;
+            let body_ty2 = inst_closure(prims, metas, size, body_ty2)?;
+            check_ty(prims, metas, size + 1, subtype, &body_ty1, &body_ty2)?
+        }),
         (
             Value::RecordTypeExtend(_, label1, _, term_ty1, rest_ty1),
             Value::RecordTypeExtend(_, label2, _, term_ty2, rest_ty2),
-        ) if label1 == label2 => Ok(check_subtype(prims, metas, size, term_ty1, term_ty2)? && {
-            let rest_ty1 = inst_closure(prims, metas, size, rest_ty1)?;
-            let rest_ty2 = inst_closure(prims, metas, size, rest_ty2)?;
-            check_subtype(prims, metas, size + 1, &rest_ty1, &rest_ty2)?
-        }),
+        ) if label1 == label2 => Ok(check_ty(prims, metas, size, subtype, term_ty1, term_ty2)?
+            && {
+                let rest_ty1 = inst_closure(prims, metas, size, rest_ty1)?;
+                let rest_ty2 = inst_closure(prims, metas, size, rest_ty2)?;
+                check_ty(prims, metas, size + 1, subtype, &rest_ty1, &rest_ty2)?
+            }),
         (Value::RecordTypeEmpty, Value::RecordTypeEmpty) => Ok(true),
-        (Value::Universe(level1), Value::Universe(level2)) => Ok(level1 <= level2),
+        (Value::Universe(level1), Value::Universe(level2)) if subtype => Ok(level1 <= level2),
+        (Value::Universe(level1), Value::Universe(level2)) => Ok(level1 == level2),
         _ => Ok(false),
     }
 }

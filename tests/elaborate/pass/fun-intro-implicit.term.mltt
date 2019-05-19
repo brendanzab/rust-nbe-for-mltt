@@ -1,0 +1,1 @@
+(fun {A} => A) : Fun {A : Type} -> Type

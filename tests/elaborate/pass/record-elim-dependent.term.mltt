@@ -1,0 +1,9 @@
+(
+    record {
+        Unit = Record {};
+        unit = record {};
+    } : Record {
+        Unit : Type;
+        unit : Unit;
+    }
+).unit

@@ -171,7 +171,7 @@ fn check_items(
 
 /// Ensures that the given term is a universe, returning the level of that
 /// universe and its elaborated form.
-fn synth_universe(
+pub fn synth_universe(
     context: &Context,
     metas: &mut meta::Env,
     concrete_term: &Term<'_>,

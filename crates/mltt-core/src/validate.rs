@@ -92,7 +92,7 @@ impl Context {
         ty1: &Rc<Type>,
         ty2: &Rc<Type>,
     ) -> Result<(), TypeError> {
-        if nbe::check_subtype(self.prims(), metas, self.values().size(), ty1, ty2)
+        if nbe::check_ty(self.prims(), metas, self.values().size(), true, ty1, ty2)
             .map_err(TypeError::Nbe)?
         {
             Ok(())

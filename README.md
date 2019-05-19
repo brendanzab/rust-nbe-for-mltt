@@ -60,10 +60,10 @@ DeBruijn levels in the syntax of the semantic domain.
 - [ ] Integration tests
   - [ ] Parse (pass)
   - [ ] Parse (fail)
-  - [ ] Type checking (pass)
-  - [ ] Type checking (fail)
+  - [x] Elaboration (pass)
+  - [ ] Elaboration (fail)
   - [ ] Normalization tests
-  - [x] High level sample modules
+  - [x] Sample modules
 - [ ] Error recovery in:
   - [x] Lexer
   - [ ] Parser

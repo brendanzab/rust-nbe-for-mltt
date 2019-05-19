@@ -1,0 +1,1 @@
+Fun (A : Type) (B : Type) -> Type
