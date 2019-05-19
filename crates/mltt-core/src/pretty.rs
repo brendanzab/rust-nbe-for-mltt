@@ -102,28 +102,64 @@ pub fn universe<'doc, A>(
 /// An environment that can assist in pretty printing terms with pretty names.
 #[derive(Debug, Clone)]
 pub struct Env {
-    counter: usize,
+    /// An environment of pretty names that can be looked up by a variable index.
     names: var::Env<String>,
+    /// A map of names to the number of times they have been used.
+    names_to_counts: im::HashMap<String, usize>,
 }
 
 impl Env {
+    pub fn empty() -> Env {
+        Env {
+            names: var::Env::new(),
+            names_to_counts: im::HashMap::new(),
+        }
+    }
+
     pub fn new(names: var::Env<String>) -> Env {
-        Env { counter: 0, names }
+        Env {
+            names_to_counts: names
+                .entries()
+                .iter()
+                .map(|name| (name.clone(), 0))
+                .collect(),
+            names,
+        }
     }
 
     fn lookup_name(&self, var_index: var::Index) -> Cow<'_, str> {
         match self.names.lookup_entry(var_index) {
             Some(name) => Cow::from(name),
-            None => Cow::from(format!("free{}", var_index)),
+            None => Cow::from(format!("free{}", var_index)), // FIXME: Add to globals?
         }
     }
 
-    fn fresh_name(&mut self, _name_hint: Option<&str>) -> String {
-        // TODO: use name hint to improve variable names
-        let name = format!("x{}", self.counter);
-        self.counter += 1;
-        self.names.add_entry(name.clone());
-        name
+    /// Generate a fresh name based on the names that have already been
+    /// used in the environment. We try to get close to the `name_hint`,
+    /// adding a number if necessary.
+    fn fresh_name(&mut self, name_hint: Option<&str>) -> String {
+        // Use `x` as our default name, for lack of anything better...
+        const DEFAULT_NAME: &str = "x";
+
+        match name_hint {
+            None => self.fresh_name(Some(DEFAULT_NAME)),
+            Some(name_hint) => {
+                // Check to see if the hinted name was already used.
+                let name = match self.names_to_counts.get_mut(name_hint) {
+                    Some(count) => {
+                        *count += 1; // Bump the count if it's been used!
+                        format!("{}{}", name_hint, count)
+                    },
+                    None => name_hint.to_owned(),
+                };
+                // Allow the name to be found by future variable usages.
+                self.names.add_entry(name.clone());
+                // Add the name to the usage count map to ensure that we don't
+                // collide with it again.
+                self.names_to_counts.insert(name.clone(), 0);
+                name
+            },
+        }
     }
 }
 
@@ -760,5 +796,44 @@ impl syntax::Term {
             | syntax::Term::Universe(_) => self.to_display_doc(env),
             _ => parens(self.to_display_doc(env)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_fresh_name() {
+        let mut env = Env::empty();
+
+        assert_eq!(env.fresh_name(Some("A")), "A");
+        assert_eq!(env.fresh_name(Some("A")), "A1");
+        assert_eq!(env.fresh_name(Some("A1")), "A11");
+        assert_eq!(env.fresh_name(Some("A1")), "A12");
+        assert_eq!(env.fresh_name(Some("A")), "A2");
+        assert_eq!(env.fresh_name(Some("A2")), "A21");
+        assert_eq!(env.fresh_name(Some("A2")), "A22");
+    }
+
+    #[test]
+    fn env_fresh_name_default() {
+        let mut env = Env::empty();
+
+        assert_eq!(env.fresh_name(None), "x");
+        assert_eq!(env.fresh_name(None), "x1");
+        assert_eq!(env.fresh_name(None), "x2");
+
+        assert_eq!(env.fresh_name(Some("x")), "x3");
+        assert_eq!(env.fresh_name(Some("x1")), "x11");
+        assert_eq!(env.fresh_name(Some("x2")), "x21");
+    }
+
+    #[test]
+    fn env_fresh_name_default_rev() {
+        let mut env = Env::empty();
+
+        assert_eq!(env.fresh_name(Some("x")), "x");
+        assert_eq!(env.fresh_name(None), "x1");
     }
 }

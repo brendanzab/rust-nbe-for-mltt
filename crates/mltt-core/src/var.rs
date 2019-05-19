@@ -33,6 +33,10 @@ impl<Entry: Clone> Env<Entry> {
     pub fn add_entry(&mut self, entry: Entry) {
         self.entries.push_front(entry);
     }
+
+    pub fn entries(&self) -> &im::Vector<Entry> {
+        &self.entries
+    }
 }
 
 /// The size of the environment.
