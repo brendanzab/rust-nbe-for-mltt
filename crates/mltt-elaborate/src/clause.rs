@@ -272,11 +272,12 @@ fn check_clause_body(
         Some(body_ty) => {
             let body_ty_span = body_ty.span();
             let (body_ty, _) = synth_universe(&context, metas, body_ty)?;
-            let body_ty = context.eval_term(metas, body_ty_span, &body_ty)?;
-            let body = check_term(&context, metas, clause.body, &body_ty)?;
+            let body_ty_value = context.eval_term(metas, body_ty_span, &body_ty)?;
+            let body = check_term(&context, metas, clause.body, &body_ty_value)?;
             // TODO: Ensure that this is respecting variance correctly!
-            context.unify_values(metas, clause.body.span(), &body_ty, &expected_body_ty)?;
-            Ok(body)
+            context.unify_values(metas, clause.body.span(), &body_ty_value, &expected_body_ty)?;
+
+            Ok(syntax::RcTerm::ann(body, body_ty))
         },
     }
 }
@@ -292,9 +293,10 @@ fn synth_clause_body(
         Some(body_ty) => {
             let body_ty_span = body_ty.span();
             let (body_ty, _) = synth_universe(context, metas, body_ty)?;
-            let body_ty = context.eval_term(metas, body_ty_span, &body_ty)?;
-            let body = check_term(context, metas, clause.body, &body_ty)?;
-            Ok((body, body_ty))
+            let body_ty_value = context.eval_term(metas, body_ty_span, &body_ty)?;
+            let body = check_term(context, metas, clause.body, &body_ty_value)?;
+
+            Ok((syntax::RcTerm::ann(body, body_ty), body_ty_value))
         },
     }
 }
