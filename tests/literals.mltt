@@ -11,7 +11,7 @@ test-string-escape-single-quote : String = "\'";
 test-string-escape-double-quote : String = "\"";
 test-string-escape-back-slash : String = "\\";
 test-string-escape-new-line : String = "\n";
-test-string-escape-carriage-return  : String = "\r";
+test-string-escape-carriage-return : String = "\r";
 test-string-escape-tab : String = "\t";
 test-string-escape-null : String = "\0";
 
@@ -26,7 +26,7 @@ test-char-escape-single-quote : Char = '\'';
 test-char-escape-double-quote : Char = '\"';
 test-char-escape-back-slash : Char = '\\';
 test-char-escape-new-line : Char = '\n';
-test-char-escape-carriage-return  : Char = '\r';
+test-char-escape-carriage-return : Char = '\r';
 test-char-escape-tab : Char = '\t';
 test-char-escape-null : Char = '\0';
 
