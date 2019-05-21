@@ -3,7 +3,7 @@
 use pretty::{BoxDoc, Doc};
 use std::borrow::Cow;
 
-use super::{syntax, var, AppMode};
+use super::{syntax, var, AppMode, UniverseLevel};
 
 pub fn parens<'doc, A>(
     inner: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
@@ -93,10 +93,14 @@ pub fn record_elim<'doc, A>(
         .append(label.into())
 }
 
+pub fn universe0<'doc, A>() -> Doc<'doc, BoxDoc<'doc, A>, A> {
+    Doc::text("Type")
+}
+
 pub fn universe<'doc, A>(
     level: impl Into<Doc<'doc, BoxDoc<'doc, A>, A>>,
 ) -> Doc<'doc, BoxDoc<'doc, A>, A> {
-    Doc::nil().append("Type^").append(level.into())
+    Doc::text("Type^").append(level.into())
 }
 
 /// An environment that can assist in pretty printing terms with pretty names.
@@ -804,6 +808,7 @@ impl syntax::Term {
                 record_elim(record.to_display_doc(env), Doc::as_string(label))
             },
 
+            syntax::Term::Universe(UniverseLevel(0)) => universe0(),
             syntax::Term::Universe(level) => universe(Doc::as_string(level)),
         }
     }
