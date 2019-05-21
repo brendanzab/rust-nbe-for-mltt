@@ -147,6 +147,20 @@ impl Default for Env {
         }
 
         macro_rules! prim {
+            (|| $body:expr) => {
+                Entry {
+                    arity: 0,
+                    interpretation: {
+                        fn interpretation(params: Vec<Rc<Value>>) -> Option<Result<Rc<Value>, String>> {
+                            match params.as_slice() {
+                                [] => Some($body),
+                                _ => None,
+                            }
+                        }
+                        interpretation
+                    }
+                }
+            };
             (|$($param_name:ident : $PType:ty),*| $body:expr) => {
                 Entry {
                     arity: count!($($param_name)*),
@@ -156,7 +170,7 @@ impl Default for Env {
                                 [$(ref $param_name),*] => {
                                     $(let $param_name = <$PType>::try_from_value($param_name)?;)*
                                     Some($body)
-                                }
+                                },
                                 _ => None,
                             }
                         }
@@ -310,6 +324,33 @@ impl Default for Env {
                 Name::from("s64-to-string") => prim!(|value: i64| Ok(Rc::from(Value::literal_intro(value.to_string())))),
                 Name::from("f32-to-string") => prim!(|value: f32| Ok(Rc::from(Value::literal_intro(value.to_string())))),
                 Name::from("f64-to-string") => prim!(|value: f64| Ok(Rc::from(Value::literal_intro(value.to_string())))),
+
+                Name::from("u8-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u8::MIN)))),
+                Name::from("u16-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u16::MIN)))),
+                Name::from("u32-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u32::MIN)))),
+                Name::from("u64-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u64::MIN)))),
+                Name::from("s8-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i8::MIN)))),
+                Name::from("s16-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i16::MIN)))),
+                Name::from("s32-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i32::MIN)))),
+                Name::from("s64-min") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i64::MIN)))),
+
+                Name::from("u8-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u8::MAX)))),
+                Name::from("u16-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u16::MAX)))),
+                Name::from("u32-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u32::MAX)))),
+                Name::from("u64-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::u64::MAX)))),
+                Name::from("s8-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i8::MAX)))),
+                Name::from("s16-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i16::MAX)))),
+                Name::from("s32-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i32::MAX)))),
+                Name::from("s64-max") => prim!(|| Ok(Rc::from(Value::literal_intro(std::i64::MAX)))),
+
+                Name::from("f32-nan") => prim!(|| Ok(Rc::from(Value::literal_intro(std::f32::NAN)))),
+                Name::from("f64-nan") => prim!(|| Ok(Rc::from(Value::literal_intro(std::f64::NAN)))),
+
+                Name::from("f32-infinity") => prim!(|| Ok(Rc::from(Value::literal_intro(std::f32::INFINITY)))),
+                Name::from("f64-infinity") => prim!(|| Ok(Rc::from(Value::literal_intro(std::f64::INFINITY)))),
+
+                Name::from("f32-neg-infinity") => prim!(|| Ok(Rc::from(Value::literal_intro(std::f32::NEG_INFINITY)))),
+                Name::from("f64-neg-infinity") => prim!(|| Ok(Rc::from(Value::literal_intro(std::f64::NEG_INFINITY)))),
             },
         }
     }

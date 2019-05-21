@@ -141,3 +141,30 @@ s32-to-string = primitive "s32-to-string" : S32 -> String;
 s64-to-string = primitive "s64-to-string" : S64 -> String;
 f32-to-string = primitive "f32-to-string" : F32 -> String;
 f64-to-string = primitive "f64-to-string" : F64 -> String;
+
+u8-min = primitive "u8-min" : U8;
+u16-min = primitive "u16-min" : U16;
+u32-min = primitive "u32-min" : U32;
+u64-min = primitive "u64-min" : U64;
+s8-min = primitive "s8-min" : S8;
+s16-min = primitive "s16-min" : S16;
+s32-min = primitive "s32-min" : S32;
+s64-min = primitive "s64-min" : S64;
+
+u8-max = primitive "u8-max" : U8;
+u16-max = primitive "u16-max" : U16;
+u32-max = primitive "u32-max" : U32;
+u64-max = primitive "u64-max" : U64;
+s8-max = primitive "s8-max" : S8;
+s16-max = primitive "s16-max" : S16;
+s32-max = primitive "s32-max" : S32;
+s64-max = primitive "s64-max" : S64;
+
+f32-nan = primitive "f32-nan" : F32;
+f64-nan = primitive "f64-nan" : F64;
+
+f32-infinity = primitive "f32-infinity" : F32;
+f64-infinity = primitive "f64-infinity" : F64;
+
+f32-neg-infinity = primitive "f32-neg-infinity" : F32;
+f64-neg-infinity = primitive "f64-neg-infinity" : F64;
