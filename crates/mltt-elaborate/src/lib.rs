@@ -653,15 +653,20 @@ pub fn synth_term(
                 .with_label(DiagnosticLabel::new_primary(label.span())))
         },
 
-        Term::Universe(_, level) => {
-            let level = match level {
-                None => UniverseLevel(0),
-                Some(level) => UniverseLevel(literal::parse_int(level)?),
-            };
+        Term::Universe(span, level) => {
+            let level = UniverseLevel(level.as_ref().map_or(Ok(0), literal::parse_int)?);
+            let ty_level = level.shift(1).ok_or_else(|| {
+                Diagnostic::new_error("maximum universe level reached").with_label(
+                    DiagnosticLabel::new_primary(*span).with_message(format!(
+                        "cannot represent universes greater than `{}`",
+                        UniverseLevel::MAX,
+                    )),
+                )
+            })?;
 
             Ok((
                 Rc::from(syntax::Term::universe(level)),
-                Rc::from(domain::Value::universe(level + 1)),
+                Rc::from(domain::Value::universe(ty_level)),
             ))
         },
     }

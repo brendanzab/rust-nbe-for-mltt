@@ -3,8 +3,8 @@
 #![warn(rust_2018_idioms)]
 
 use std::fmt;
-use std::ops;
 use std::rc::Rc;
+use std::u16;
 
 pub mod meta;
 pub mod var;
@@ -54,27 +54,26 @@ impl fmt::Display for AppMode {
 }
 
 /// The level of a universe.
+///
+/// We allow room for `65535` levels, which should be more than enough for most
+/// sane purposes!
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniverseLevel(pub u32);
+pub struct UniverseLevel(pub u16);
 
-impl From<u32> for UniverseLevel {
-    fn from(src: u32) -> UniverseLevel {
+impl UniverseLevel {
+    /// The maximum universe level that can be represented.
+    pub const MAX: UniverseLevel = UniverseLevel(u16::MAX);
+
+    /// Shift the by the given amount, returning an error if maximum universe
+    /// level has been reached.
+    pub fn shift(self, shift: u16) -> Option<UniverseLevel> {
+        Some(UniverseLevel(self.0.checked_add(shift)?))
+    }
+}
+
+impl From<u16> for UniverseLevel {
+    fn from(src: u16) -> UniverseLevel {
         UniverseLevel(src)
-    }
-}
-
-impl ops::AddAssign<u32> for UniverseLevel {
-    fn add_assign(&mut self, other: u32) {
-        self.0 += other;
-    }
-}
-
-impl ops::Add<u32> for UniverseLevel {
-    type Output = UniverseLevel;
-
-    fn add(mut self, other: u32) -> UniverseLevel {
-        self += other;
-        self
     }
 }
 

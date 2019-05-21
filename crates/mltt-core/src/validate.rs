@@ -122,6 +122,7 @@ pub enum TypeError {
     UnexpectedAppMode { found: AppMode, expected: AppMode },
     TooManyFieldsFound,
     NotEnoughFieldsProvided,
+    OverflowingUniverseLevel,
     Nbe(String),
 }
 
@@ -159,6 +160,11 @@ impl fmt::Display for TypeError {
             ),
             TypeError::TooManyFieldsFound => write!(f, "too many fields found"),
             TypeError::NotEnoughFieldsProvided => write!(f, "not enough fields provided"),
+            TypeError::OverflowingUniverseLevel => write!(
+                f,
+                "cannot represent universes greater than `{}`",
+                UniverseLevel::MAX,
+            ),
             TypeError::Nbe(err) => err.fmt(f),
         }
     }
@@ -499,7 +505,10 @@ pub fn synth_term(
             Err(TypeError::NoFieldInType(label.clone()))
         },
 
-        Term::Universe(level) => Ok(Rc::from(Value::universe(*level + 1))),
+        Term::Universe(level) => match level.shift(1) {
+            None => Err(TypeError::OverflowingUniverseLevel),
+            Some(level) => Ok(Rc::from(Value::universe(level))),
+        },
     }
 }
 
