@@ -14,6 +14,7 @@ use mltt_concrete::{LiteralKind, SpannedString};
 use mltt_core::literal::LiteralIntro;
 use mltt_core::{domain, meta};
 use mltt_span::FileSpan;
+use std::fmt;
 use std::rc::Rc;
 
 use super::Context;
@@ -186,7 +187,9 @@ fn parse_escape(
 }
 
 /// Helper trait for defining `parse_int`.
-pub trait ParseIntLiteral: Sized {
+pub trait ParseIntLiteral: Sized + fmt::Display + fmt::Binary + fmt::Octal + fmt::LowerHex {
+    const MIN: Self;
+    const MAX: Self;
     fn from_u8(num: u8) -> Self;
     fn checked_neg(self) -> Option<Self>;
     fn checked_add(self, other: Self) -> Option<Self>;
@@ -196,6 +199,9 @@ pub trait ParseIntLiteral: Sized {
 macro_rules! impl_parse_int_literal {
     ($T:ident) => {
         impl ParseIntLiteral for $T {
+            const MIN: $T = std::$T::MIN;
+            const MAX: $T = std::$T::MAX;
+
             fn from_u8(num: u8) -> $T {
                 num as $T
             }
@@ -223,6 +229,27 @@ impl_parse_int_literal!(i8);
 impl_parse_int_literal!(i16);
 impl_parse_int_literal!(i32);
 impl_parse_int_literal!(i64);
+
+fn int_range_message<T: ParseIntLiteral>(radix: u8) -> String {
+    match radix {
+        2 => format!(
+            "expected an integer from `{:#b}` to `{:#b}`",
+            T::MIN,
+            T::MAX,
+        ),
+        8 => format!(
+            "expected an integer from `{:#o}` to `{:#o}`",
+            T::MIN,
+            T::MAX,
+        ),
+        16 => format!(
+            "expected an integer from `{:#x}` to `{:#x}`",
+            T::MIN,
+            T::MAX,
+        ),
+        _ => format!("expected an integer from `{}` to `{}`", T::MIN, T::MAX),
+    }
+}
 
 pub fn parse_int<T: ParseIntLiteral>(src: &SpannedString<'_>) -> Result<T, Diagnostic<FileSpan>> {
     let span = src.span();
@@ -260,8 +287,9 @@ pub fn parse_int<T: ParseIntLiteral>(src: &SpannedString<'_>) -> Result<T, Diagn
 
         if is_neg {
             number.checked_neg().ok_or_else(|| {
-                Diagnostic::new_error("overflowing literal")
-                    .with_label(DiagnosticLabel::new_primary(span))
+                Diagnostic::new_error("underflowing literal").with_label(
+                    DiagnosticLabel::new_primary(span).with_message(int_range_message::<T>(base)),
+                )
             })
         } else {
             Ok(number)
@@ -273,15 +301,19 @@ pub fn parse_int<T: ParseIntLiteral>(src: &SpannedString<'_>) -> Result<T, Diagn
             prev.checked_mul(T::from_u8(base))
                 .and_then(|prev| prev.checked_add(inc))
                 .ok_or_else(|| {
-                    Diagnostic::new_error("underflowing literal")
-                        .with_label(DiagnosticLabel::new_primary(span))
+                    Diagnostic::new_error("underflowing literal").with_label(
+                        DiagnosticLabel::new_primary(span)
+                            .with_message(int_range_message::<T>(base)),
+                    )
                 })
         } else {
             prev.checked_mul(T::from_u8(base))
                 .and_then(|prev| prev.checked_add(inc))
                 .ok_or_else(|| {
-                    Diagnostic::new_error("overflowing literal")
-                        .with_label(DiagnosticLabel::new_primary(span))
+                    Diagnostic::new_error("overflowing literal").with_label(
+                        DiagnosticLabel::new_primary(span)
+                            .with_message(int_range_message::<T>(base)),
+                    )
                 })
         }
     };
