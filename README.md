@@ -36,7 +36,11 @@ DeBruijn levels in the syntax of the semantic domain.
 - [x] Add a parser for the concrete syntax
 - [x] Desugaring of concrete syntax to core syntax
 - [x] Resugaring of core syntax to concrete syntax
-- [x] Pretty printing
+- [ ] Pretty printing
+    - [x] Basic pretty printing
+    - [x] Preserve pretty names through type checking and normalization
+    - [ ] Unfold metavariables when pretty printing values
+    - [ ] Attempt to avoid unfolding variables when pretty printing values
 - [x] Add a REPL
 - [x] Add span information to ASTs to improve diagnostics
 - [ ] Pattern matching elaboration
@@ -56,13 +60,12 @@ DeBruijn levels in the syntax of the semantic domain.
 - [ ] Integration tests
   - [ ] Parse (pass)
   - [ ] Parse (fail)
-  - [x] Type checking (pass)
+  - [ ] Type checking (pass)
   - [ ] Type checking (fail)
   - [ ] Normalization tests
+  - [x] High level sample modules
 - [ ] Error recovery in:
   - [x] Lexer
   - [ ] Parser
   - [ ] Elaborator
   - [ ] Validator
-- [x] Preserve pretty names through type checking and normalization
-- [ ] Use arena allocation rather than reference counting
