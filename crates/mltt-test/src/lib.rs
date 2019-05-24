@@ -149,7 +149,6 @@ macro_rules! test_elaborate_pass {
 
 #[cfg(test)]
 mod samples {
-    test_sample!(case_expressions, "case-expressions");
     test_sample!(categories, "categories");
     test_sample!(combinators, "combinators");
     test_sample!(connectives, "connectives");
@@ -166,6 +165,10 @@ mod samples {
 #[cfg(test)]
 mod elaborate {
     mod pass {
+        test_elaborate_pass!(case_default_bind, "case-default-bind");
+        test_elaborate_pass!(case_default, "case-default");
+        test_elaborate_pass!(case_overlapping, "case-overlapping");
+        test_elaborate_pass!(case_simple, "case-simple");
         test_elaborate_pass!(fun_elim_implicit, "fun-elim-implicit");
         test_elaborate_pass!(fun_elim, "fun-elim");
         test_elaborate_pass!(fun_intro_implicit, "fun-intro-implicit");

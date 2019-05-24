@@ -1,0 +1,6 @@
+(
+    fun value => case value {
+        "hi" => "bye";
+        other => other;
+    }
+) : String -> String
