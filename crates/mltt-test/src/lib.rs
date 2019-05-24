@@ -1,5 +1,7 @@
 //! Integration tests for the MLTT language.
 
+#![cfg(test)]
+
 use language_reporting::termcolor::{ColorChoice, StandardStream};
 use mltt_core::{nbe, validate};
 use mltt_elaborate::MetaInsertion;
@@ -11,7 +13,7 @@ use std::fs;
 const TESTS_DIR: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests");
 const REPORTING_CONFIG: language_reporting::DefaultConfig = language_reporting::DefaultConfig;
 
-pub fn run_sample(name: &str) {
+fn run_sample(name: &str) {
     let _ = pretty_env_logger::try_init();
     let writer = StandardStream::stdout(ColorChoice::Always);
 
@@ -48,7 +50,7 @@ pub fn run_sample(name: &str) {
         .unwrap_or_else(|error| panic!("{}", error));
 }
 
-pub fn run_elaborate_pass(name: &str) {
+fn run_elaborate_pass(name: &str) {
     let _ = pretty_env_logger::try_init();
     let writer = StandardStream::stdout(ColorChoice::Always);
 
@@ -127,7 +129,6 @@ pub fn run_elaborate_pass(name: &str) {
     }
 }
 
-#[cfg(test)]
 mod samples {
     macro_rules! test {
         ($test_name:ident, $file_name:literal) => {
@@ -151,7 +152,6 @@ mod samples {
     test!(records, "records");
 }
 
-#[cfg(test)]
 mod elaborate {
     mod pass {
         macro_rules! test {
