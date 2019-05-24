@@ -128,91 +128,89 @@ pub fn run_elaborate_pass(name: &str) {
 }
 
 #[cfg(test)]
-macro_rules! test_sample {
-    ($test_name:ident, $file_name:literal) => {
-        #[test]
-        fn $test_name() {
-            $crate::run_sample($file_name);
-        }
-    };
-}
-
-#[cfg(test)]
-macro_rules! test_elaborate_pass {
-    ($test_name:ident, $file_name:literal) => {
-        #[test]
-        fn $test_name() {
-            $crate::run_elaborate_pass($file_name);
-        }
-    };
-}
-
-#[cfg(test)]
 mod samples {
-    test_sample!(categories, "categories");
-    test_sample!(combinators, "combinators");
-    test_sample!(connectives, "connectives");
-    test_sample!(cumulativity, "cumulativity");
-    test_sample!(empty, "empty");
-    test_sample!(forward_declarations, "forward-declarations");
-    test_sample!(if_expressions, "if-expressions");
-    test_sample!(literals, "literals");
-    test_sample!(let_expressions, "let-expressions");
-    test_sample!(primitives, "primitives");
-    test_sample!(records, "records");
+    macro_rules! test {
+        ($test_name:ident, $file_name:literal) => {
+            #[test]
+            fn $test_name() {
+                $crate::run_sample($file_name);
+            }
+        };
+    }
+
+    test!(categories, "categories");
+    test!(combinators, "combinators");
+    test!(connectives, "connectives");
+    test!(cumulativity, "cumulativity");
+    test!(empty, "empty");
+    test!(forward_declarations, "forward-declarations");
+    test!(if_expressions, "if-expressions");
+    test!(literals, "literals");
+    test!(let_expressions, "let-expressions");
+    test!(primitives, "primitives");
+    test!(records, "records");
 }
 
 #[cfg(test)]
 mod elaborate {
     mod pass {
-        test_elaborate_pass!(case_default_bind, "case-default-bind");
-        test_elaborate_pass!(case_default, "case-default");
-        test_elaborate_pass!(case_overlapping, "case-overlapping");
-        test_elaborate_pass!(case_simple, "case-simple");
-        test_elaborate_pass!(fun_elim_implicit, "fun-elim-implicit");
-        test_elaborate_pass!(fun_elim, "fun-elim");
-        test_elaborate_pass!(fun_intro_implicit, "fun-intro-implicit");
-        test_elaborate_pass!(fun_intro, "fun-intro");
-        test_elaborate_pass!(fun_type_param_group_1, "fun-type-param-group-1");
-        test_elaborate_pass!(fun_type_param_group_2, "fun-type-param-group-2");
-        test_elaborate_pass!(fun_type_term_term, "fun-type-term-term");
-        test_elaborate_pass!(fun_type_term_type, "fun-type-term-type");
-        test_elaborate_pass!(fun_type_term_type1, "fun-type-term-type1");
-        test_elaborate_pass!(fun_type_type_term, "fun-type-type-term");
-        test_elaborate_pass!(fun_type_type_type, "fun-type-type-type");
-        test_elaborate_pass!(fun_type_type1_term, "fun-type-type1-term");
-        test_elaborate_pass!(if_, "if");
-        test_elaborate_pass!(literal_intro_bool_false, "literal-intro-bool-false");
-        test_elaborate_pass!(literal_intro_bool_true, "literal-intro-bool-true");
-        test_elaborate_pass!(literal_intro_string, "literal-intro-string");
-        test_elaborate_pass!(literal_intro_u8_dec_min, "literal-intro-u8-dec-min");
-        test_elaborate_pass!(literal_intro_u8_dec_max, "literal-intro-u8-dec-max");
-        test_elaborate_pass!(literal_type_bool, "literal-type-bool");
-        test_elaborate_pass!(literal_type_char, "literal-type-char");
-        test_elaborate_pass!(literal_type_f32, "literal-type-f32");
-        test_elaborate_pass!(literal_type_f64, "literal-type-f64");
-        test_elaborate_pass!(literal_type_s8, "literal-type-s8");
-        test_elaborate_pass!(literal_type_s16, "literal-type-s16");
-        test_elaborate_pass!(literal_type_s32, "literal-type-s32");
-        test_elaborate_pass!(literal_type_s64, "literal-type-s64");
-        test_elaborate_pass!(literal_type_string, "literal-type-string");
-        test_elaborate_pass!(literal_type_u8, "literal-type-u8");
-        test_elaborate_pass!(literal_type_u16, "literal-type-u16");
-        test_elaborate_pass!(literal_type_u32, "literal-type-u32");
-        test_elaborate_pass!(literal_type_u64, "literal-type-u64");
-        test_elaborate_pass!(parens, "parens");
-        test_elaborate_pass!(prim, "prim");
-        test_elaborate_pass!(record_elim_dependent, "record-elim-dependent");
-        test_elaborate_pass!(record_elim_singleton, "record-elim-singleton");
-        test_elaborate_pass!(record_intro_empty, "record-intro-empty");
-        test_elaborate_pass!(record_intro_singleton, "record-intro-singleton");
-        test_elaborate_pass!(record_intro_singleton1, "record-intro-singleton1");
-        test_elaborate_pass!(record_dependent, "record-type-dependent");
-        test_elaborate_pass!(record_type_empty, "record-type-empty");
-        test_elaborate_pass!(record_type_singleton, "record-type-singleton");
-        test_elaborate_pass!(record_type_singleton1, "record-type-singleton1");
-        test_elaborate_pass!(type_, "type");
-        test_elaborate_pass!(type0, "type0");
-        test_elaborate_pass!(type1, "type1");
+        macro_rules! test {
+            ($test_name:ident, $file_name:literal) => {
+                #[test]
+                fn $test_name() {
+                    $crate::run_elaborate_pass($file_name);
+                }
+            };
+        }
+
+        test!(case_default_bind, "case-default-bind");
+        test!(case_default, "case-default");
+        test!(case_overlapping, "case-overlapping");
+        test!(case_simple, "case-simple");
+        test!(fun_elim_implicit, "fun-elim-implicit");
+        test!(fun_elim, "fun-elim");
+        test!(fun_intro_implicit, "fun-intro-implicit");
+        test!(fun_intro, "fun-intro");
+        test!(fun_type_param_group_1, "fun-type-param-group-1");
+        test!(fun_type_param_group_2, "fun-type-param-group-2");
+        test!(fun_type_term_term, "fun-type-term-term");
+        test!(fun_type_term_type, "fun-type-term-type");
+        test!(fun_type_term_type1, "fun-type-term-type1");
+        test!(fun_type_type_term, "fun-type-type-term");
+        test!(fun_type_type_type, "fun-type-type-type");
+        test!(fun_type_type1_term, "fun-type-type1-term");
+        test!(if_, "if");
+        test!(literal_intro_bool_false, "literal-intro-bool-false");
+        test!(literal_intro_bool_true, "literal-intro-bool-true");
+        test!(literal_intro_string, "literal-intro-string");
+        test!(literal_intro_u8_dec_min, "literal-intro-u8-dec-min");
+        test!(literal_intro_u8_dec_max, "literal-intro-u8-dec-max");
+        test!(literal_type_bool, "literal-type-bool");
+        test!(literal_type_char, "literal-type-char");
+        test!(literal_type_f32, "literal-type-f32");
+        test!(literal_type_f64, "literal-type-f64");
+        test!(literal_type_s8, "literal-type-s8");
+        test!(literal_type_s16, "literal-type-s16");
+        test!(literal_type_s32, "literal-type-s32");
+        test!(literal_type_s64, "literal-type-s64");
+        test!(literal_type_string, "literal-type-string");
+        test!(literal_type_u8, "literal-type-u8");
+        test!(literal_type_u16, "literal-type-u16");
+        test!(literal_type_u32, "literal-type-u32");
+        test!(literal_type_u64, "literal-type-u64");
+        test!(parens, "parens");
+        test!(prim, "prim");
+        test!(record_elim_dependent, "record-elim-dependent");
+        test!(record_elim_singleton, "record-elim-singleton");
+        test!(record_intro_empty, "record-intro-empty");
+        test!(record_intro_singleton, "record-intro-singleton");
+        test!(record_intro_singleton1, "record-intro-singleton1");
+        test!(record_dependent, "record-type-dependent");
+        test!(record_type_empty, "record-type-empty");
+        test!(record_type_singleton, "record-type-singleton");
+        test!(record_type_singleton1, "record-type-singleton1");
+        test!(type_, "type");
+        test!(type0, "type0");
+        test!(type1, "type1");
     }
 }
