@@ -18,7 +18,7 @@ impl<Source: Copy> Span<Source> {
         let start = start.into();
         let end = end.into();
 
-        assert!(end >= start);
+        assert!(start <= end);
 
         Span { source, start, end }
     }

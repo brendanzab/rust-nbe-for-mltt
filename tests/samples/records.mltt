@@ -1,29 +1,26 @@
-||| Module for defining equality between two terms
-Eq : Type -> Type;
-Eq A = Record {
+let
+    ||| Module for defining equality between two terms
+    Eq : Type -> Type;
+    Eq A = Record {
+        ||| Compare two terms for equality
+        eq : A -> A -> Bool;
+    };
+
     ||| Compare two terms for equality
-    eq : A -> A -> Bool;
-};
+    eq : Fun {A : Type} {{eq-A : Eq A}} -> A -> A -> Bool;
+    eq {{eq-A}} a1 a2 = eq-A.eq a1 a2;
 
-||| Compare two terms for equality
-eq : Fun {A : Type} {{eq-A : Eq A}} -> A -> A -> Bool;
-eq {{eq-A}} a1 a2 = eq-A.eq a1 a2;
-
-bool-eq : Eq Bool;
-bool-eq = record {
-    eq lhs rhs =
-        if lhs then
-            rhs
-        else
-            if rhs then false else true;
-};
-
-
-Map = Record {
-    Key : Type;
-    Map : Type -> Type;
-
-    empty : Fun {A : Type} -> Map A;
-    add : Fun {A : Type} -> A -> Map A -> Map A;
-    lookup : Fun {A : Type} -> Key -> A -> Map A -> A; -- TODO: return `Option A`
-};
+    bool-eq : Eq Bool;
+    bool-eq = record {
+        eq lhs rhs =
+            if lhs then
+                rhs
+            else
+                if rhs then false else true;
+    };
+in
+    record {
+        Eq = Eq;
+        eq = eq;
+        bool-eq = bool-eq;
+    }

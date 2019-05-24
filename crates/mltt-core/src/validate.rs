@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, Type, Value};
-use crate::syntax::{Item, Module, Term};
+use crate::syntax::{Item, Term};
 use crate::{meta, nbe, prim, var, AppMode, Label, UniverseLevel};
 
 /// Local type checking context.
@@ -168,17 +168,6 @@ impl fmt::Display for TypeError {
             TypeError::Nbe(err) => err.fmt(f),
         }
     }
-}
-
-/// Check that this is a valid module.
-pub fn check_module(
-    context: &Context,
-    metas: &meta::Env,
-    module: &Module,
-) -> Result<(), TypeError> {
-    let mut context = context.clone();
-    check_items(&mut context, metas, &module.items)?;
-    Ok(())
 }
 
 /// Check the given items and add them to the context.

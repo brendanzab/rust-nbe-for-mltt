@@ -1,0 +1,8 @@
+Record {
+    Key : Type;
+    Map : Type -> Type;
+
+    empty : Fun {A : Type} -> Map A;
+    add : Fun {A : Type} -> A -> Map A -> Map A;
+    lookup : Fun {A : Type} -> Key -> A -> Map A -> A; -- TODO: return `Option A`
+}

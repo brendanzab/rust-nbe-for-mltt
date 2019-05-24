@@ -6,19 +6,6 @@ use std::rc::Rc;
 use super::literal::{LiteralIntro, LiteralType};
 use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 
-/// Top-level module.
-#[derive(Clone, PartialEq)]
-pub struct Module {
-    pub items: Vec<Item>,
-}
-
-impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let doc = self.to_debug_doc().group();
-        fmt::Display::fmt(&doc.pretty(1_000_000_000), f)
-    }
-}
-
 /// Top-level item.
 #[derive(Clone, PartialEq)]
 pub enum Item {

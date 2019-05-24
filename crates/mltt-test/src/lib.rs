@@ -18,7 +18,7 @@ mod samples {
     test!(combinators, "combinators");
     test!(connectives, "connectives");
     test!(cumulativity, "cumulativity");
-    test!(empty, "empty");
+    test!(map, "map");
     test!(primitives, "primitives");
     test!(records, "records");
 }

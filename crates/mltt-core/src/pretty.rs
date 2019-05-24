@@ -167,21 +167,6 @@ impl Env {
     }
 }
 
-impl syntax::Module {
-    pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
-        Doc::concat(self.items.iter().map(|item| {
-            item.to_debug_doc()
-                .append(Doc::newline())
-                .append(Doc::newline())
-        }))
-    }
-
-    pub fn to_display_doc(&self, env: &Env) -> Doc<'static, BoxDoc<'static, ()>> {
-        let mut env = env.clone();
-        items_to_display_doc(&self.items, &mut env)
-    }
-}
-
 impl syntax::Item {
     pub fn to_debug_doc(&self) -> Doc<'static, BoxDoc<'static, ()>> {
         match self {

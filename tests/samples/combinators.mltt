@@ -1,109 +1,123 @@
-||| The unit type
-|||
-||| This is named 'unit' because it only has one possible inhabitant, `unit`.
-Unit : Type;
-Unit = Record {};
+let
+    ||| The unit type
+    |||
+    ||| This is named 'unit' because it only has one possible inhabitant, `unit`.
+    Unit : Type;
+    Unit = Record {};
 
-||| Construct a value of the unit type.
-unit : Unit;
-unit = record {};
-
-
-||| The polymorphic identity function
-id : Fun {A : Type} -> A -> A;
-id a = a;
-
-test-id : Unit;
-test-id = id {A = Unit} unit;
-
-test-id-holes : Unit;
-test-id-holes = id {A = ?} unit;
-
-test-id-implicit : Unit;
-test-id-implicit = id unit;
+    ||| Construct a value of the unit type.
+    unit : Unit;
+    unit = record {};
 
 
-||| Creates a function that always returns the same value.
-|||
-||| Also known at the 'K Combinator' in the [SKI combinator calculus][ski-wiki].
-|||
-||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
-const : Fun {A B : Type} -> A -> B -> A;
-const a =
-    fun b => a;
+    ||| The polymorphic identity function
+    id : Fun {A : Type} -> A -> A;
+    id a = a;
 
-test-const : Unit;
-test-const = const {A = Unit} {B = String -> String} unit (id {A = String});
+    test-id : Unit;
+    test-id = id {A = Unit} unit;
 
-test-const-holes : Unit;
-test-const-holes = const {A = ?} {B = ?} unit (id {A = String});
+    test-id-holes : Unit;
+    test-id-holes = id {A = ?} unit;
 
-test-const-implicit : Unit;
-test-const-implicit = const unit (id {A = String});
+    test-id-implicit : Unit;
+    test-id-implicit = id unit;
 
 
-||| Dependent substitution.
-|||
-||| Takes three arguments and then returns the first argument applied to the
-||| third, which is then applied to the result of the second argument applied to
-||| the third.
-|||
-||| Also known as the 'S Combinator' in the [SKI combinator calculus][ski-wiki].
-|||
-||| # References
-|||
-||| - [Outrageous but Meaningful Coincidences: Dependent type-safe syntax and evaluation][dep-rep]
-|||   (Described in Section 5 as an infix `_ˢ_` operator)
-|||
-||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
-||| [dep-rep]: https://personal.cis.strath.ac.uk/conor.mcbride/pub/DepRep/DepRep.pdf
-d-subst :
-    Fun {A : Type} {B : A -> Type} {C : Fun (a : A) -> B a -> Type}
-        (f : Fun (a : A) (b : B a) -> C a b)
-        (g : Fun (a : A) -> B a) ->
-        (Fun (a : A) -> C a (g a));
-d-subst f g =
-    fun a => f a (g a);
+    ||| Creates a function that always returns the same value.
+    |||
+    ||| Also known at the 'K Combinator' in the [SKI combinator calculus][ski-wiki].
+    |||
+    ||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
+    const : Fun {A B : Type} -> A -> B -> A;
+    const a =
+        fun b => a;
 
-||| Substitution
-subst : Fun {A B C : Type} -> (A -> B -> C) -> (A -> B) -> (A -> C);
-subst {A} {B} {C} f g =
-    d-subst {A} {B = fun a => B} {C = fun a b => C} f g;
+    test-const : Unit;
+    test-const = const {A = Unit} {B = String -> String} unit (id {A = String});
+
+    test-const-holes : Unit;
+    test-const-holes = const {A = ?} {B = ?} unit (id {A = String});
+
+    test-const-implicit : Unit;
+    test-const-implicit = const unit (id {A = String});
 
 
-||| Dependent function composition
-d-compose :
-    Fun {A : Type} {B : A -> Type} {C : Fun {a : A} -> B a -> Type}
-        (f : Fun {a : A} (b : B a) -> C {a} b)
-        (g : Fun (a : A) -> B a) ->
-        (Fun (a : A) -> C {a} (g a));
-d-compose f g =
-    fun a => f {a} (g a);
+    ||| Dependent substitution.
+    |||
+    ||| Takes three arguments and then returns the first argument applied to the
+    ||| third, which is then applied to the result of the second argument applied to
+    ||| the third.
+    |||
+    ||| Also known as the 'S Combinator' in the [SKI combinator calculus][ski-wiki].
+    |||
+    ||| # References
+    |||
+    ||| - [Outrageous but Meaningful Coincidences: Dependent type-safe syntax and evaluation][dep-rep]
+    |||   (Described in Section 5 as an infix `_ˢ_` operator)
+    |||
+    ||| [ski-wiki]: https://en.wikipedia.org/wiki/SKI_combinator_calculus
+    ||| [dep-rep]: https://personal.cis.strath.ac.uk/conor.mcbride/pub/DepRep/DepRep.pdf
+    d-subst :
+        Fun {A : Type} {B : A -> Type} {C : Fun (a : A) -> B a -> Type}
+            (f : Fun (a : A) (b : B a) -> C a b)
+            (g : Fun (a : A) -> B a) ->
+            (Fun (a : A) -> C a (g a));
+    d-subst f g =
+        fun a => f a (g a);
 
-||| Function composition
-compose : Fun {A B C : Type} -> (B -> C) -> (A -> B) -> (A -> C);
-compose {A} {B} {C} f g =
-    d-compose {A} {B = fun a => B} {C = fun {a} b => C} (fun {a} b => f b) g;
+    ||| Substitution
+    subst : Fun {A B C : Type} -> (A -> B -> C) -> (A -> B) -> (A -> C);
+    subst {A} {B} {C} f g =
+        d-subst {A} {B = fun a => B} {C = fun a b => C} f g;
 
 
-||| Flip the order of the first two arguments to a dependent function
-d-flip :
-    Fun {A B : Type} {C : A -> B -> Type} ->
-        (Fun (a : A) (b : B) -> C a b) ->
-        (Fun (b : B) (a : A) -> C a b);
-d-flip f =
-    fun a b => f b a;
+    ||| Dependent function composition
+    d-compose :
+        Fun {A : Type} {B : A -> Type} {C : Fun {a : A} -> B a -> Type}
+            (f : Fun {a : A} (b : B a) -> C {a} b)
+            (g : Fun (a : A) -> B a) ->
+            (Fun (a : A) -> C {a} (g a));
+    d-compose f g =
+        fun a => f {a} (g a);
 
-||| Flip the order of the first two arguments to a function
-flip : Fun {A B C : Type} -> (A -> B -> C) -> (B -> A -> C);
-flip {A} {B} {C} f =
-    d-flip {A = A} {B = B} {C = fun a b => C} f;
+    ||| Function composition
+    compose : Fun {A B C : Type} -> (B -> C) -> (A -> B) -> (A -> C);
+    compose {A} {B} {C} f g =
+        d-compose {A} {B = fun a => B} {C = fun {a} b => C} (fun {a} b => f b) g;
 
-test-flip : (Unit -> Unit) -> Unit -> Unit;
-test-flip = flip {A = Unit} {B = Unit -> Unit} {C = Unit} (const {A = Unit} {B = Unit -> Unit});
 
-test-flip-holes : (Unit -> Unit) -> Unit -> Unit;
-test-flip-holes = flip {A = ?} {B = ?} {C = ?} (const {A = ?} {B = ?});
+    ||| Flip the order of the first two arguments to a dependent function
+    d-flip :
+        Fun {A B : Type} {C : A -> B -> Type} ->
+            (Fun (a : A) (b : B) -> C a b) ->
+            (Fun (b : B) (a : A) -> C a b);
+    d-flip f =
+        fun a b => f b a;
 
-test-flip-implicit : (Unit -> Unit) -> Unit -> Unit;
-test-flip-implicit = flip const;
+    ||| Flip the order of the first two arguments to a function
+    flip : Fun {A B C : Type} -> (A -> B -> C) -> (B -> A -> C);
+    flip {A} {B} {C} f =
+        d-flip {A = A} {B = B} {C = fun a b => C} f;
+
+    test-flip : (Unit -> Unit) -> Unit -> Unit;
+    test-flip = flip {A = Unit} {B = Unit -> Unit} {C = Unit} (const {A = Unit} {B = Unit -> Unit});
+
+    test-flip-holes : (Unit -> Unit) -> Unit -> Unit;
+    test-flip-holes = flip {A = ?} {B = ?} {C = ?} (const {A = ?} {B = ?});
+
+    test-flip-implicit : (Unit -> Unit) -> Unit -> Unit;
+    test-flip-implicit = flip const;
+in
+    record {
+        Unit = Unit;
+        unit = unit;
+        id = id;
+        const = const;
+        d-subst = d-subst;
+        subst = subst;
+        d-compose = d-compose;
+        compose = compose;
+        d-flip = d-flip;
+        flip = flip;
+    }

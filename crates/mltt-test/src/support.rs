@@ -111,13 +111,15 @@ pub fn run_sample(name: &str) {
     let module_file_id = load_file(&mut files, module_path);
 
     let lexer = Lexer::new(&files[module_file_id]);
-    let concrete_module =
-        parser::parse_module(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
+    let concrete_term = parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
     // FIXME: check lexer for errors
 
-    let module = mltt_elaborate::check_module(&context, &mut metas, &concrete_module)
-        .unwrap_or_else(emit_diagnostic(&writer, &files));
-    validate::check_module(&context.validation_context(), &metas, &module)
+    let (term, term_ty) =
+        mltt_elaborate::synth_term(MetaInsertion::Yes, &context, &mut metas, &concrete_term)
+            .unwrap_or_else(emit_diagnostic(&writer, &files));
+    validate::synth_term(&context.validation_context(), &metas, &term)
+        .unwrap_or_else(|error| panic!("{}", error));
+    validate::check_term(&context.validation_context(), &metas, &term, &term_ty)
         .unwrap_or_else(|error| panic!("{}", error));
 }
 

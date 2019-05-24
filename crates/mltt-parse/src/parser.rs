@@ -5,8 +5,6 @@
 //! The language follows the following [BNF]-style grammar:
 //!
 //! ```text
-//! module  ::= item* EOF
-//!
 //! item    ::= DOC_COMMENT* IDENTIFIER ":" term ";"
 //!           | DOC_COMMENT* IDENTIFIER intro-param* (":" term)? "=" term ";"
 //!
@@ -68,24 +66,6 @@ use mltt_concrete::{
 use mltt_span::FileSpan;
 
 use crate::token::{DelimKind, Token, TokenKind};
-
-pub fn parse_module<'file>(
-    tokens: impl Iterator<Item = Token<'file>> + 'file,
-) -> Result<Vec<Item<'file>>, Diagnostic<FileSpan>> {
-    let mut parser = Parser::new(tokens);
-    let module = parser.parse_module()?;
-    parser.expect_eof()?;
-    Ok(module)
-}
-
-pub fn parse_item<'file>(
-    tokens: impl Iterator<Item = Token<'file>> + 'file,
-) -> Result<Item<'file>, Diagnostic<FileSpan>> {
-    let mut parser = Parser::new(tokens);
-    let item = parser.parse_item()?;
-    parser.expect_eof()?;
-    Ok(item)
-}
 
 pub fn parse_term<'file>(
     tokens: impl Iterator<Item = Token<'file>> + 'file,
@@ -277,19 +257,6 @@ where
             docs.push(doc_token.src);
         }
         docs
-    }
-
-    /// Parse a module.
-    ///
-    /// ```text
-    /// module ::= item*
-    /// ```
-    fn parse_module(&mut self) -> Result<Vec<Item<'file>>, Diagnostic<FileSpan>> {
-        let mut items = Vec::new();
-        while self.peek().is_some() {
-            items.push(self.parse_item()?);
-        }
-        Ok(items)
     }
 
     /// Parse an item.

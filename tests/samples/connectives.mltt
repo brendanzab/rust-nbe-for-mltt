@@ -1,10 +1,16 @@
-||| Dependent products
-Prod : Fun (A : Type) (B : A -> Type) -> Type;
-Prod A B = Fun (a : A) -> B a;
+let
+    ||| Dependent products
+    Prod : Fun (A : Type) (B : A -> Type) -> Type;
+    Prod A B = Fun (a : A) -> B a;
 
-||| Dependent sums (subtypes)
-Sum : Fun (A : Type) (B : A -> Type) -> Type;
-Sum A B = Record {
-    val : A;
-    proof : B val;
-};
+    ||| Dependent sums (subtypes)
+    Sum : Fun (A : Type) (B : A -> Type) -> Type;
+    Sum A B = Record {
+        val : A;
+        proof : B val;
+    };
+in
+    record {
+        Prod = Prod;
+        Sum = Sum;
+    }

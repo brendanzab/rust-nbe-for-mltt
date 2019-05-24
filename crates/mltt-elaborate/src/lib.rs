@@ -26,21 +26,6 @@ mod literal;
 mod nbe;
 mod unify;
 
-/// Check that this is a valid module.
-///
-/// Returns the elaborated module.
-pub fn check_module(
-    context: &Context,
-    metas: &mut meta::Env,
-    concrete_items: &[Item<'_>],
-) -> Result<syntax::Module, Diagnostic<FileSpan>> {
-    // The local elaboration context
-    let mut context = context.clone();
-    let items = check_items(&mut context, metas, concrete_items)?;
-
-    Ok(syntax::Module { items })
-}
-
 /// Concatenate a bunch of lines of documentation into a single string, removing
 /// comment prefixes if they are found.
 fn concat_docs(doc_lines: &[SpannedString<'_>]) -> DocString {
