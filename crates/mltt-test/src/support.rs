@@ -84,6 +84,7 @@ fn synth_term(
     validate::synth_term(&context.validation_context(), &metas, &term)
         .unwrap_or_else(|error| panic!("{}", error));
 
+    // Verify that we got the expected type (sans subtyping)
     let prims = context.prims();
     let size = context.values().size();
     if !nbe::check_ty(&prims, &metas, size, false, &term_ty, &expected_ty)
@@ -91,6 +92,11 @@ fn synth_term(
     {
         panic!("unequal types");
     }
+
+    // Ensure that the checking also works
+    let term2 = mltt_elaborate::check_term(context, metas, &concrete_term, expected_ty)?;
+    validate::check_term(&context.validation_context(), &metas, &term2, &expected_ty)
+        .unwrap_or_else(|error| panic!("{}", error));
 
     Ok((term, term_ty))
 }
