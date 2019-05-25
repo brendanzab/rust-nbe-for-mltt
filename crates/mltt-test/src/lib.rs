@@ -138,6 +138,7 @@ mod elaborate {
                 test!(escape_simple_tab, "literal-intro/string/escape-simple-tab");
                 test!(escape_unicode_lower_max, "literal-intro/string/escape-unicode-lower-max");
                 test!(escape_unicode_upper_max, "literal-intro/string/escape-unicode-upper-max");
+                test!(escapes, "literal-intro/string/escapes");
             }
         }
 

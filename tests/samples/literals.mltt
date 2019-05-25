@@ -1,38 +1,3 @@
-test-synth-string = "Hello world!";
-test-check-string = "Hello world!" : String;
-
-test-string-escapes : String = "\x7f\x7F\u{7fff}\u{7FFF}\'\"\\\n\r\t\0";
-
-test-string-escape-ascii-lower : String = "\x7f";
-test-string-escape-ascii-upper : String = "\x7F";
-test-string-escape-unicode-lower : String = "\u{7fff}";
-test-string-escape-unicode-upper : String = "\u{7FFF}";
-test-string-escape-single-quote : String = "\'";
-test-string-escape-double-quote : String = "\"";
-test-string-escape-back-slash : String = "\\";
-test-string-escape-new-line : String = "\n";
-test-string-escape-carriage-return : String = "\r";
-test-string-escape-tab : String = "\t";
-test-string-escape-null : String = "\0";
-
-test-synth-char = 'a';
-test-check-char = 'a' : Char;
-
-test-char-escape-upper : Char = '\x7f';
-test-char-escape-ascii : Char = '\x7F';
-test-char-escape-unicode-lower : Char = '\u{7fff}';
-test-char-escape-unicode-upper : Char = '\u{7FFF}';
-test-char-escape-single-quote : Char = '\'';
-test-char-escape-double-quote : Char = '\"';
-test-char-escape-back-slash : Char = '\\';
-test-char-escape-new-line : Char = '\n';
-test-char-escape-carriage-return : Char = '\r';
-test-char-escape-tab : Char = '\t';
-test-char-escape-null : Char = '\0';
-
-test-bool-true : Bool = true;
-test-bool-false : Bool = false;
-
 test-u8-bin-0 : U8 = 0b0;
 test-u8-bin-1 : U8 = 0b1;
 test-u8-bin-11 : U8 = 0b11;
