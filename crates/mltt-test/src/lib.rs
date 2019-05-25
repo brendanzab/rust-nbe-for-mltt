@@ -47,8 +47,9 @@ mod elaborate {
         }
 
         mod fun_intro {
-            test!(implicit, "fun-intro/implicit");
             test!(explicit, "fun-intro/explicit");
+            test!(implicit, "fun-intro/implicit");
+            test!(instance, "fun-intro/instance");
         }
 
         mod literal_intro {
@@ -77,8 +78,9 @@ mod elaborate {
         test!(parens, "parens");
 
         mod fun_elim {
-            test!(implicit, "fun-elim/implicit");
             test!(explicit, "fun-elim/explicit");
+            test!(implicit, "fun-elim/implicit");
+            test!(instance, "fun-elim/instance");
         }
 
         mod fun_type {
