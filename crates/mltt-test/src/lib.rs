@@ -119,8 +119,20 @@ mod elaborate {
                 test!(escape_unicode_upper_max, "literal-intro/char/escape-unicode-upper-max");
             }
 
+            #[rustfmt::skip]
             mod string {
                 test!(ascii, "literal-intro/string/ascii");
+                test!(escape_ascii_lower_max, "literal-intro/string/escape-ascii-lower-max");
+                test!(escape_ascii_upper_max, "literal-intro/string/escape-ascii-upper-max");
+                test!(escape_simple_back_slash, "literal-intro/string/escape-simple-back-slash");
+                test!(escape_simple_carriage_return, "literal-intro/string/escape-simple-carriage-return");
+                test!(escape_simple_double_quote, "literal-intro/string/escape-simple-double-quote");
+                test!(escape_simple_new_line, "literal-intro/string/escape-simple-new-line");
+                test!(escape_simple_null, "literal-intro/string/escape-simple-null");
+                test!(escape_simple_single_quote, "literal-intro/string/escape-simple-single-quote");
+                test!(escape_simple_tab, "literal-intro/string/escape-simple-tab");
+                test!(escape_unicode_lower_max, "literal-intro/string/escape-unicode-lower-max");
+                test!(escape_unicode_upper_max, "literal-intro/string/escape-unicode-upper-max");
             }
         }
 
