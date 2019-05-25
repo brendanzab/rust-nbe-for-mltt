@@ -51,6 +51,7 @@ mod elaborate {
         test!(record_intro_singleton1, "record-intro-singleton1");
     }
 
+    #[rustfmt::skip]
     mod synth_pass {
         macro_rules! test {
             ($test_name:ident, $file_name:literal) => {
@@ -73,6 +74,18 @@ mod elaborate {
         test!(fun_type_type1_term, "fun-type-type1-term");
         test!(literal_intro_bool_false, "literal-intro-bool-false");
         test!(literal_intro_bool_true, "literal-intro-bool-true");
+        test!(literal_intro_char_escape_ascii_lower_max, "literal-intro-char-escape-ascii-lower-max");
+        test!(literal_intro_char_escape_ascii_upper_max, "literal-intro-char-escape-ascii-upper-max");
+        test!(literal_intro_char_escape_simple_back_slash, "literal-intro-char-escape-simple-back-slash");
+        test!(literal_intro_char_escape_simple_carriage_return, "literal-intro-char-escape-simple-carriage-return");
+        test!(literal_intro_char_escape_simple_double_quote, "literal-intro-char-escape-simple-double-quote");
+        test!(literal_intro_char_escape_simple_new_line, "literal-intro-char-escape-simple-new-line");
+        test!(literal_intro_char_escape_simple_null, "literal-intro-char-escape-simple-null");
+        test!(literal_intro_char_escape_simple_single_quote, "literal-intro-char-escape-simple-single-quote");
+        test!(literal_intro_char_escape_simple_tab, "literal-intro-char-escape-simple-tab");
+        test!(literal_intro_char_escape_unicode_lower_max, "literal-intro-char-escape-unicode-lower-max");
+        test!(literal_intro_char_escape_unicode_upper_max, "literal-intro-char-escape-unicode-upper-max");
+        test!(literal_intro_char, "literal-intro-char");
         test!(literal_intro_string, "literal-intro-string");
         test!(literal_type_bool, "literal-type-bool");
         test!(literal_type_char, "literal-type-char");
