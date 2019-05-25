@@ -37,22 +37,35 @@ mod elaborate {
             };
         }
 
-        test!(case_default_bind, "case-default-bind");
-        test!(case_default, "case-default");
-        test!(case_overlapping, "case-overlapping");
-        test!(case_simple, "case-simple");
-        test!(fun_intro_implicit, "fun-intro-implicit");
-        test!(fun_intro, "fun-intro");
-        test!(literal_intro_u8_dec_min, "literal-intro-u8-dec-min");
-        test!(literal_intro_u8_dec_max, "literal-intro-u8-dec-max");
         test!(if_, "if");
         test!(parens, "parens");
         test!(prim, "prim");
-        test!(record_intro_singleton, "record-intro-singleton");
-        test!(record_intro_singleton1, "record-intro-singleton1");
+
+        mod case {
+            test!(default_bind, "case/default-bind");
+            test!(default, "case/default");
+            test!(overlapping, "case/overlapping");
+            test!(simple, "case/simple");
+        }
+
+        mod fun_intro {
+            test!(implicit, "fun-intro/implicit");
+            test!(explicit, "fun-intro/explicit");
+        }
+
+        mod literal_intro {
+            mod u8 {
+                test!(dec_min, "literal-intro/u8/dec-min");
+                test!(dec_max, "literal-intro/u8/dec-max");
+            }
+        }
+
+        mod record_intro {
+            test!(singleton, "record-intro/singleton");
+            test!(singleton1, "record-intro/singleton1");
+        }
     }
 
-    #[rustfmt::skip]
     mod synth_pass {
         macro_rules! test {
             ($test_name:ident, $file_name:literal) => {
@@ -63,54 +76,90 @@ mod elaborate {
             };
         }
 
-        test!(fun_elim_implicit, "fun-elim-implicit");
-        test!(fun_elim, "fun-elim");
-        test!(fun_type_param_group_1, "fun-type-param-group-1");
-        test!(fun_type_param_group_2, "fun-type-param-group-2");
-        test!(fun_type_term_term, "fun-type-term-term");
-        test!(fun_type_term_type, "fun-type-term-type");
-        test!(fun_type_term_type1, "fun-type-term-type1");
-        test!(fun_type_type_term, "fun-type-type-term");
-        test!(fun_type_type_type, "fun-type-type-type");
-        test!(fun_type_type1_term, "fun-type-type1-term");
-        test!(literal_intro_bool_false, "literal-intro-bool-false");
-        test!(literal_intro_bool_true, "literal-intro-bool-true");
-        test!(literal_intro_char_escape_ascii_lower_max, "literal-intro-char-escape-ascii-lower-max");
-        test!(literal_intro_char_escape_ascii_upper_max, "literal-intro-char-escape-ascii-upper-max");
-        test!(literal_intro_char_escape_simple_back_slash, "literal-intro-char-escape-simple-back-slash");
-        test!(literal_intro_char_escape_simple_carriage_return, "literal-intro-char-escape-simple-carriage-return");
-        test!(literal_intro_char_escape_simple_double_quote, "literal-intro-char-escape-simple-double-quote");
-        test!(literal_intro_char_escape_simple_new_line, "literal-intro-char-escape-simple-new-line");
-        test!(literal_intro_char_escape_simple_null, "literal-intro-char-escape-simple-null");
-        test!(literal_intro_char_escape_simple_single_quote, "literal-intro-char-escape-simple-single-quote");
-        test!(literal_intro_char_escape_simple_tab, "literal-intro-char-escape-simple-tab");
-        test!(literal_intro_char_escape_unicode_lower_max, "literal-intro-char-escape-unicode-lower-max");
-        test!(literal_intro_char_escape_unicode_upper_max, "literal-intro-char-escape-unicode-upper-max");
-        test!(literal_intro_char, "literal-intro-char");
-        test!(literal_intro_string, "literal-intro-string");
-        test!(literal_type_bool, "literal-type-bool");
-        test!(literal_type_char, "literal-type-char");
-        test!(literal_type_f32, "literal-type-f32");
-        test!(literal_type_f64, "literal-type-f64");
-        test!(literal_type_s8, "literal-type-s8");
-        test!(literal_type_s16, "literal-type-s16");
-        test!(literal_type_s32, "literal-type-s32");
-        test!(literal_type_s64, "literal-type-s64");
-        test!(literal_type_string, "literal-type-string");
-        test!(literal_type_u8, "literal-type-u8");
-        test!(literal_type_u16, "literal-type-u16");
-        test!(literal_type_u32, "literal-type-u32");
-        test!(literal_type_u64, "literal-type-u64");
         test!(parens, "parens");
-        test!(record_elim_dependent, "record-elim-dependent");
-        test!(record_elim_singleton, "record-elim-singleton");
-        test!(record_intro_empty, "record-intro-empty");
-        test!(record_dependent, "record-type-dependent");
-        test!(record_type_empty, "record-type-empty");
-        test!(record_type_singleton, "record-type-singleton");
-        test!(record_type_singleton1, "record-type-singleton1");
-        test!(type_, "type");
-        test!(type0, "type0");
-        test!(type1, "type1");
+
+        mod fun_elim {
+            test!(implicit, "fun-elim/implicit");
+            test!(explicit, "fun-elim/explicit");
+        }
+
+        mod fun_type {
+            test!(param_group_1, "fun-type/param-group-1");
+            test!(param_group_2, "fun-type/param-group-2");
+        }
+
+        mod fun_type_arrow {
+            test!(term_term, "fun-type-arrow/term-term");
+            test!(term_type, "fun-type-arrow/term-type");
+            test!(term_type1, "fun-type-arrow/term-type1");
+            test!(type_term, "fun-type-arrow/type-term");
+            test!(type_type, "fun-type-arrow/type-type");
+            test!(type1_term, "fun-type-arrow/type1-term");
+        }
+
+        mod literal_intro {
+            mod bool {
+                test!(false_, "literal-intro/bool/false");
+                test!(true_, "literal-intro/bool/true");
+            }
+
+            #[rustfmt::skip]
+            mod char {
+                test!(ascii, "literal-intro/char/ascii");
+                test!(escape_ascii_lower_max, "literal-intro/char/escape-ascii-lower-max");
+                test!(escape_ascii_upper_max, "literal-intro/char/escape-ascii-upper-max");
+                test!(escape_simple_back_slash, "literal-intro/char/escape-simple-back-slash");
+                test!(escape_simple_carriage_return, "literal-intro/char/escape-simple-carriage-return");
+                test!(escape_simple_double_quote, "literal-intro/char/escape-simple-double-quote");
+                test!(escape_simple_new_line, "literal-intro/char/escape-simple-new-line");
+                test!(escape_simple_null, "literal-intro/char/escape-simple-null");
+                test!(escape_simple_single_quote, "literal-intro/char/escape-simple-single-quote");
+                test!(escape_simple_tab, "literal-intro/char/escape-simple-tab");
+                test!(escape_unicode_lower_max, "literal-intro/char/escape-unicode-lower-max");
+                test!(escape_unicode_upper_max, "literal-intro/char/escape-unicode-upper-max");
+            }
+
+            mod string {
+                test!(ascii, "literal-intro/string/ascii");
+            }
+        }
+
+        mod literal_type {
+            test!(bool, "literal-type/bool");
+            test!(char, "literal-type/char");
+            test!(f32, "literal-type/f32");
+            test!(f64, "literal-type/f64");
+            test!(s8, "literal-type/s8");
+            test!(s16, "literal-type/s16");
+            test!(s32, "literal-type/s32");
+            test!(s64, "literal-type/s64");
+            test!(string, "literal-type/string");
+            test!(u8, "literal-type/u8");
+            test!(u16, "literal-type/u16");
+            test!(u32, "literal-type/u32");
+            test!(u64, "literal-type/u64");
+        }
+
+        mod record_elim {
+            test!(dependent_pair, "record-elim/dependent-pair");
+            test!(singleton, "record-elim/singleton");
+        }
+
+        mod record_intro {
+            test!(empty, "record-intro/empty");
+        }
+
+        mod record_type {
+            test!(dependent_pair, "record-type/dependent-pair");
+            test!(empty, "record-type/empty");
+            test!(singleton, "record-type/singleton");
+            test!(singleton1, "record-type/singleton1");
+        }
+
+        mod universe {
+            test!(type_, "universe/type");
+            test!(type0, "universe/type0");
+            test!(type1, "universe/type1");
+        }
     }
 }
