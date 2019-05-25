@@ -1,22 +1,3 @@
-Silly = Record {
-    A : Type;
-    x : A;
-    y : A;
-};
-
-my-silly : Silly;
-my-silly = record {
-    A = Record {};
-    x = record {};
-    y = record {};
-};
-
-
--- empty record introductions should not need an annotation
-test-synth-empty-record-intro = record {};
-test-synth-empty-record-intro-ty : Record {} = test-synth-empty-record-intro;
-
-
 ||| Module for defining equality between two terms
 Eq : Type -> Type;
 Eq A = Record {
@@ -45,11 +26,4 @@ Map = Record {
     empty : Fun {A : Type} -> Map A;
     add : Fun {A : Type} -> A -> Map A -> Map A;
     lookup : Fun {A : Type} -> Key -> A -> Map A -> A; -- TODO: return `Option A`
-};
-
-
-Shape = Record {
-    T : Type;
-    area : T -> F32;
-    value : T;
 };

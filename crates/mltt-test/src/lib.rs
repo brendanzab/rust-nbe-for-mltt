@@ -145,7 +145,6 @@ mod samples {
     test!(cumulativity, "cumulativity");
     test!(empty, "empty");
     test!(forward_declarations, "forward-declarations");
-    test!(if_expressions, "if-expressions");
     test!(literals, "literals");
     test!(let_expressions, "let-expressions");
     test!(primitives, "primitives");
