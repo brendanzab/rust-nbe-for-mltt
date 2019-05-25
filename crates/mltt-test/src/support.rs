@@ -132,6 +132,25 @@ pub fn run_elaborate_check_pass(name: &str) {
         .unwrap_or_else(emit_diagnostic(&writer, &files));
 }
 
+pub fn run_elaborate_check_fail(name: &str) {
+    let _ = pretty_env_logger::try_init();
+    let writer = StandardStream::stdout(ColorChoice::Always);
+
+    let (mut files, mut metas, context) = setup();
+
+    let term_path = format!("{}/elaborate/check-fail/{}.term.mltt", TESTS_DIR, name);
+    let ty_path = format!("{}/elaborate/check-fail/{}.type.mltt", TESTS_DIR, name);
+    let term_file_id = load_file(&mut files, term_path);
+    let ty_file_id = load_file(&mut files, ty_path);
+
+    let lexer = Lexer::new(&files[term_file_id]);
+    let _concrete_term = parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
+
+    let _expected_ty = synth_universe(&context, &mut metas, &files[ty_file_id])
+        .unwrap_or_else(emit_diagnostic(&writer, &files));
+    // TODO: Check failures
+}
+
 pub fn run_elaborate_synth_pass(name: &str) {
     let _ = pretty_env_logger::try_init();
     let writer = StandardStream::stdout(ColorChoice::Always);
@@ -147,4 +166,19 @@ pub fn run_elaborate_synth_pass(name: &str) {
         .unwrap_or_else(emit_diagnostic(&writer, &files));
     synth_term(&context, &mut metas, &files[term_file_id], &expected_ty)
         .unwrap_or_else(emit_diagnostic(&writer, &files));
+}
+
+pub fn run_elaborate_synth_fail(name: &str) {
+    let _ = pretty_env_logger::try_init();
+    let writer = StandardStream::stdout(ColorChoice::Always);
+
+    let (mut files, mut _metas, _context) = setup();
+
+    let term_path = format!("{}/elaborate/synth-fail/{}.term.mltt", TESTS_DIR, name);
+    let term_file_id = load_file(&mut files, term_path);
+
+    let lexer = Lexer::new(&files[term_file_id]);
+    let _concrete_term = parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
+
+    // TODO: Check failures
 }

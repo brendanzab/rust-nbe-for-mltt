@@ -25,6 +25,34 @@ mod samples {
 }
 
 mod elaborate {
+    mod check_fail {
+        macro_rules! test {
+            ($test_name:ident, $file_name:literal) => {
+                #[test]
+                fn $test_name() {
+                    $crate::support::run_elaborate_check_fail($file_name);
+                }
+            };
+        }
+
+        mod literal_intro {
+            mod u8 {
+                test!(dec_overflow, "literal-intro/u8/dec-overflow");
+                test!(dec_underflow, "literal-intro/u8/dec-underflow");
+            }
+
+            mod u16 {
+                test!(dec_overflow, "literal-intro/u16/dec-overflow");
+                test!(dec_underflow, "literal-intro/u16/dec-underflow");
+            }
+        }
+
+        mod record_intro {
+            test!(superfluous_field, "record-intro/superfluous-field");
+            test!(unexpected_field, "record-intro/unexpected-field");
+        }
+    }
+
     mod check_pass {
         macro_rules! test {
             ($test_name:ident, $file_name:literal) => {
@@ -146,6 +174,56 @@ mod elaborate {
             test!(dependent_pair, "record-intro/dependent-pair");
             test!(singleton, "record-intro/singleton");
             test!(singleton1, "record-intro/singleton1");
+        }
+    }
+
+    mod synth_fail {
+        macro_rules! test {
+            ($test_name:ident, $file_name:literal) => {
+                #[test]
+                fn $test_name() {
+                    $crate::support::run_elaborate_synth_fail($file_name);
+                }
+            };
+        }
+
+        mod fun_intro {
+            test!(ambiguous, "fun-intro/ambiguous");
+        }
+
+        mod hole {
+            test!(ambiguous, "hole/ambiguous");
+        }
+
+        mod let_ {
+            test!(already_defined, "let/already-defined");
+            test!(not_yet_declared, "let/not-yet-declared");
+        }
+
+        mod literal_intro {
+            test!(float_ambiguous, "literal-intro/float-ambiguous");
+            test!(int_ambiguous, "literal-intro/int-ambiguous");
+        }
+
+        mod prim {
+            test!(ambiguous, "prim/ambiguous");
+            test!(unknown, "prim/unknown");
+        }
+
+        mod record_elim {
+            test!(field_not_found, "record-elim/field-not-found");
+        }
+
+        mod record_intro {
+            test!(ambiguous, "record-intro/ambiguous");
+        }
+
+        mod universe {
+            test!(overflow, "universe/overflow");
+        }
+
+        mod var {
+            test!(overflow, "var/unbound");
         }
     }
 
