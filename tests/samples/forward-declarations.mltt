@@ -1,9 +1,0 @@
-Unit : Type;
-Unit = Record {};
-
-foo : Type -> Unit;
-
-unit : Unit;
-unit = record {};
-
-foo A = unit;

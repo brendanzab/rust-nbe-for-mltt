@@ -1,0 +1,5 @@
+let
+    Unit : Type;
+    Unit = Record {};
+in
+    Unit

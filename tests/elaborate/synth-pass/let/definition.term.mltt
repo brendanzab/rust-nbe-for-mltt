@@ -1,0 +1,4 @@
+let
+    Unit = Record {};
+in
+    Unit

@@ -1,0 +1,13 @@
+let
+    Unit : Type;
+
+    foo : Type -> Unit;
+
+    Unit = Record {};
+
+    unit : Unit;
+    unit = record {};
+
+    foo A = unit;
+in
+    foo

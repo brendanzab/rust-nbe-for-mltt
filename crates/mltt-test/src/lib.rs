@@ -19,9 +19,7 @@ mod samples {
     test!(connectives, "connectives");
     test!(cumulativity, "cumulativity");
     test!(empty, "empty");
-    test!(forward_declarations, "forward-declarations");
     test!(literals, "literals");
-    test!(let_expressions, "let-expressions");
     test!(primitives, "primitives");
     test!(records, "records");
 }
@@ -95,6 +93,13 @@ mod elaborate {
             test!(type_term, "fun-type-arrow/type-term");
             test!(type_type, "fun-type-arrow/type-type");
             test!(type1_term, "fun-type-arrow/type1-term");
+        }
+
+        mod let_ {
+            test!(complicated, "let/complicated");
+            test!(definition, "let/definition");
+            test!(declaration_definition, "let/declaration-definition");
+            test!(forward_declarations, "let/forward-declarations");
         }
 
         mod literal_intro {
