@@ -60,6 +60,7 @@ mod elaborate {
         }
 
         mod record_intro {
+            test!(dependent_pair, "record-intro/dependent-pair");
             test!(singleton, "record-intro/singleton");
             test!(singleton1, "record-intro/singleton1");
         }
