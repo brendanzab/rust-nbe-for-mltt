@@ -1,0 +1,5 @@
+fun number => case number {
+    42 => "forty-two";
+    42 => "42";
+    _ => "default";
+}

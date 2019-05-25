@@ -50,7 +50,7 @@ fn run_sample(name: &str) {
         .unwrap_or_else(|error| panic!("{}", error));
 }
 
-fn run_elaborate_pass(name: &str) {
+fn run_elaborate_check_pass(name: &str) {
     let _ = pretty_env_logger::try_init();
     let writer = StandardStream::stdout(ColorChoice::Always);
 
@@ -60,7 +60,79 @@ fn run_elaborate_pass(name: &str) {
     let validation_context = context.validation_context();
 
     let term_file_id = {
-        let path = format!("{}/elaborate/pass/{}.term.mltt", TESTS_DIR, name);
+        let path = format!("{}/elaborate/check-pass/{}.term.mltt", TESTS_DIR, name);
+        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
+        files.add(path, src)
+    };
+
+    let ty_file_id = {
+        let path = format!("{}/elaborate/check-pass/{}.type.mltt", TESTS_DIR, name);
+        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
+        files.add(path, src)
+    };
+
+    let (expected_ty, _level) = {
+        let lexer = Lexer::new(&files[ty_file_id]);
+        let concrete_ty = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
+            let writer = &mut writer.lock();
+            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
+            panic!("error encountered");
+        });
+        // FIXME: check lexer for errors
+
+        mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
+            |diagnostic| {
+                let writer = &mut writer.lock();
+                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
+                panic!("error encountered");
+            },
+        )
+    };
+
+    validate::synth_universe(&validation_context, &metas, &expected_ty)
+        .unwrap_or_else(|error| panic!("{}", error));
+
+    let expected_ty = nbe::eval_term(context.prims(), &metas, context.values(), &expected_ty)
+        .unwrap_or_else(|error| panic!("{}", error));
+
+    let term = {
+        let lexer = Lexer::new(&files[term_file_id]);
+        let concrete_term = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
+            let writer = &mut writer.lock();
+            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
+            panic!("error encountered");
+        });
+        // FIXME: check lexer for errors
+
+        mltt_elaborate::check_term(&context, &mut metas, &concrete_term, &expected_ty)
+            .unwrap_or_else(|diagnostic| {
+                let writer = &mut writer.lock();
+                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
+                panic!("error encountered");
+            })
+    };
+
+    validate::check_term(&validation_context, &metas, &term, &expected_ty)
+        .unwrap_or_else(|error| panic!("{}", error));
+}
+
+fn run_elaborate_synth_pass(name: &str) {
+    let _ = pretty_env_logger::try_init();
+    let writer = StandardStream::stdout(ColorChoice::Always);
+
+    let mut files = Files::new();
+    let mut metas = mltt_core::meta::Env::new();
+    let context = mltt_elaborate::Context::default();
+    let validation_context = context.validation_context();
+
+    let term_file_id = {
+        let path = format!("{}/elaborate/synth-pass/{}.term.mltt", TESTS_DIR, name);
+        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
+        files.add(path, src)
+    };
+
+    let ty_file_id = {
+        let path = format!("{}/elaborate/synth-pass/{}.type.mltt", TESTS_DIR, name);
         let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
         files.add(path, src)
     };
@@ -84,12 +156,6 @@ fn run_elaborate_pass(name: &str) {
 
     validate::synth_term(&validation_context, &metas, &term)
         .unwrap_or_else(|error| panic!("{}", error));
-
-    let ty_file_id = {
-        let path = format!("{}/elaborate/pass/{}.type.mltt", TESTS_DIR, name);
-        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
-        files.add(path, src)
-    };
 
     let (expected_ty, _level) = {
         let lexer = Lexer::new(&files[ty_file_id]);
@@ -152,12 +218,12 @@ mod samples {
 }
 
 mod elaborate {
-    mod pass {
+    mod check_pass {
         macro_rules! test {
             ($test_name:ident, $file_name:literal) => {
                 #[test]
                 fn $test_name() {
-                    $crate::run_elaborate_pass($file_name);
+                    $crate::run_elaborate_check_pass($file_name);
                 }
             };
         }
@@ -166,10 +232,28 @@ mod elaborate {
         test!(case_default, "case-default");
         test!(case_overlapping, "case-overlapping");
         test!(case_simple, "case-simple");
-        test!(fun_elim_implicit, "fun-elim-implicit");
-        test!(fun_elim, "fun-elim");
         test!(fun_intro_implicit, "fun-intro-implicit");
         test!(fun_intro, "fun-intro");
+        test!(literal_intro_u8_dec_min, "literal-intro-u8-dec-min");
+        test!(literal_intro_u8_dec_max, "literal-intro-u8-dec-max");
+        test!(if_, "if");
+        test!(prim, "prim");
+        test!(record_intro_singleton, "record-intro-singleton");
+        test!(record_intro_singleton1, "record-intro-singleton1");
+    }
+
+    mod synth_pass {
+        macro_rules! test {
+            ($test_name:ident, $file_name:literal) => {
+                #[test]
+                fn $test_name() {
+                    $crate::run_elaborate_synth_pass($file_name);
+                }
+            };
+        }
+
+        test!(fun_elim_implicit, "fun-elim-implicit");
+        test!(fun_elim, "fun-elim");
         test!(fun_type_param_group_1, "fun-type-param-group-1");
         test!(fun_type_param_group_2, "fun-type-param-group-2");
         test!(fun_type_term_term, "fun-type-term-term");
@@ -178,12 +262,9 @@ mod elaborate {
         test!(fun_type_type_term, "fun-type-type-term");
         test!(fun_type_type_type, "fun-type-type-type");
         test!(fun_type_type1_term, "fun-type-type1-term");
-        test!(if_, "if");
         test!(literal_intro_bool_false, "literal-intro-bool-false");
         test!(literal_intro_bool_true, "literal-intro-bool-true");
         test!(literal_intro_string, "literal-intro-string");
-        test!(literal_intro_u8_dec_min, "literal-intro-u8-dec-min");
-        test!(literal_intro_u8_dec_max, "literal-intro-u8-dec-max");
         test!(literal_type_bool, "literal-type-bool");
         test!(literal_type_char, "literal-type-char");
         test!(literal_type_f32, "literal-type-f32");
@@ -198,12 +279,9 @@ mod elaborate {
         test!(literal_type_u32, "literal-type-u32");
         test!(literal_type_u64, "literal-type-u64");
         test!(parens, "parens");
-        test!(prim, "prim");
         test!(record_elim_dependent, "record-elim-dependent");
         test!(record_elim_singleton, "record-elim-singleton");
         test!(record_intro_empty, "record-intro-empty");
-        test!(record_intro_singleton, "record-intro-singleton");
-        test!(record_intro_singleton1, "record-intro-singleton1");
         test!(record_dependent, "record-type-dependent");
         test!(record_type_empty, "record-type-empty");
         test!(record_type_singleton, "record-type-singleton");

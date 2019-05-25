@@ -1,1 +1,0 @@
-primitive "u8-add" : U8 -> U8 -> U8

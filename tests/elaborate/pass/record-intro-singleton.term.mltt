@@ -1,5 +1,0 @@
-record {
-    unit = record {};
-} : Record {
-    unit : Record {};
-}

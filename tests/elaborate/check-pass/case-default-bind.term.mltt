@@ -1,0 +1,4 @@
+fun value => case value {
+    "hi" => "bye";
+    other => other;
+}

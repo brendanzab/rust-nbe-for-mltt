@@ -1,0 +1,6 @@
+fun magic => case magic {
+    7 => "the common choice";
+    42 => "life, the universe, and everything";
+    13 => "unlucky";
+    _ => "nonsense";
+}

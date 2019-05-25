@@ -1,5 +1,0 @@
-(
-    fun x => case x {
-        _ => "default";
-    }
-) : Bool -> String
