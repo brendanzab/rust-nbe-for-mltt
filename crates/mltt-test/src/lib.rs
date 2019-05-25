@@ -46,6 +46,7 @@ mod elaborate {
         test!(literal_intro_u8_dec_min, "literal-intro-u8-dec-min");
         test!(literal_intro_u8_dec_max, "literal-intro-u8-dec-max");
         test!(if_, "if");
+        test!(parens, "parens");
         test!(prim, "prim");
         test!(record_intro_singleton, "record-intro-singleton");
         test!(record_intro_singleton1, "record-intro-singleton1");
