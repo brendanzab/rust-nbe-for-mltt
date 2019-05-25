@@ -102,13 +102,8 @@ mod elaborate {
             test!(forward_declarations, "let/forward-declarations");
         }
 
+        #[rustfmt::skip]
         mod literal_intro {
-            mod bool {
-                test!(false_, "literal-intro/bool/false");
-                test!(true_, "literal-intro/bool/true");
-            }
-
-            #[rustfmt::skip]
             mod char {
                 test!(ascii, "literal-intro/char/ascii");
                 test!(escape_ascii_lower_max, "literal-intro/char/escape-ascii-lower-max");
@@ -124,7 +119,6 @@ mod elaborate {
                 test!(escape_unicode_upper_max, "literal-intro/char/escape-unicode-upper-max");
             }
 
-            #[rustfmt::skip]
             mod string {
                 test!(ascii, "literal-intro/string/ascii");
                 test!(escape_ascii_lower_max, "literal-intro/string/escape-ascii-lower-max");
@@ -140,22 +134,6 @@ mod elaborate {
                 test!(escape_unicode_upper_max, "literal-intro/string/escape-unicode-upper-max");
                 test!(escapes, "literal-intro/string/escapes");
             }
-        }
-
-        mod literal_type {
-            test!(bool, "literal-type/bool");
-            test!(char, "literal-type/char");
-            test!(f32, "literal-type/f32");
-            test!(f64, "literal-type/f64");
-            test!(s8, "literal-type/s8");
-            test!(s16, "literal-type/s16");
-            test!(s32, "literal-type/s32");
-            test!(s64, "literal-type/s64");
-            test!(string, "literal-type/string");
-            test!(u8, "literal-type/u8");
-            test!(u16, "literal-type/u16");
-            test!(u32, "literal-type/u32");
-            test!(u64, "literal-type/u64");
         }
 
         mod record_elim {
@@ -178,6 +156,24 @@ mod elaborate {
             test!(type_, "universe/type");
             test!(type0, "universe/type0");
             test!(type1, "universe/type1");
+        }
+
+        mod var {
+            test!(bool, "var/bool");
+            test!(false_, "var/false");
+            test!(true_, "var/true");
+            test!(char, "var/char");
+            test!(f32, "var/f32");
+            test!(f64, "var/f64");
+            test!(s8, "var/s8");
+            test!(s16, "var/s16");
+            test!(s32, "var/s32");
+            test!(s64, "var/s64");
+            test!(string, "var/string");
+            test!(u8, "var/u8");
+            test!(u16, "var/u16");
+            test!(u32, "var/u32");
+            test!(u64, "var/u64");
         }
     }
 }
