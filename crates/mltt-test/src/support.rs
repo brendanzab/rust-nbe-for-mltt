@@ -63,7 +63,7 @@ pub fn run_elaborate_check_pass(name: &str) {
     let term_file_id = load_file(&mut files, term_path);
     let ty_file_id = load_file(&mut files, ty_path);
 
-    let (expected_ty, _level) = {
+    let expected_ty = {
         let lexer = Lexer::new(&files[ty_file_id]);
         let concrete_ty = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
             let writer = &mut writer.lock();
@@ -72,20 +72,24 @@ pub fn run_elaborate_check_pass(name: &str) {
         });
         // FIXME: check lexer for errors
 
-        mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
-            |diagnostic| {
-                let writer = &mut writer.lock();
-                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-                panic!("error encountered");
-            },
-        )
+        let (expected_ty, level1) =
+            mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
+                |diagnostic| {
+                    let writer = &mut writer.lock();
+                    language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG)
+                        .unwrap();
+                    panic!("error encountered");
+                },
+            );
+
+        let level2 = validate::synth_universe(&context.validation_context(), &metas, &expected_ty)
+            .unwrap_or_else(|error| panic!("{}", error));
+
+        assert_eq!(level1, level2);
+
+        nbe::eval_term(context.prims(), &metas, context.values(), &expected_ty)
+            .unwrap_or_else(|error| panic!("{}", error))
     };
-
-    validate::synth_universe(&context.validation_context(), &metas, &expected_ty)
-        .unwrap_or_else(|error| panic!("{}", error));
-
-    let expected_ty = nbe::eval_term(context.prims(), &metas, context.values(), &expected_ty)
-        .unwrap_or_else(|error| panic!("{}", error));
 
     let term = {
         let lexer = Lexer::new(&files[term_file_id]);
@@ -139,7 +143,7 @@ pub fn run_elaborate_synth_pass(name: &str) {
     validate::synth_term(&context.validation_context(), &metas, &term)
         .unwrap_or_else(|error| panic!("{}", error));
 
-    let (expected_ty, _level) = {
+    let expected_ty = {
         let lexer = Lexer::new(&files[ty_file_id]);
         let concrete_ty = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
             let writer = &mut writer.lock();
@@ -148,20 +152,24 @@ pub fn run_elaborate_synth_pass(name: &str) {
         });
         // FIXME: check lexer for errors
 
-        mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
-            |diagnostic| {
-                let writer = &mut writer.lock();
-                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-                panic!("error encountered");
-            },
-        )
+        let (expected_ty, level1) =
+            mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
+                |diagnostic| {
+                    let writer = &mut writer.lock();
+                    language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG)
+                        .unwrap();
+                    panic!("error encountered");
+                },
+            );
+
+        let level2 = validate::synth_universe(&context.validation_context(), &metas, &expected_ty)
+            .unwrap_or_else(|error| panic!("{}", error));
+
+        assert_eq!(level1, level2);
+
+        nbe::eval_term(context.prims(), &metas, context.values(), &expected_ty)
+            .unwrap_or_else(|error| panic!("{}", error))
     };
-
-    validate::synth_universe(&context.validation_context(), &metas, &expected_ty)
-        .unwrap_or_else(|error| panic!("{}", error));
-
-    let expected_ty = nbe::eval_term(context.prims(), &metas, context.values(), &expected_ty)
-        .unwrap_or_else(|error| panic!("{}", error));
 
     if !nbe::check_ty(
         context.prims(),
