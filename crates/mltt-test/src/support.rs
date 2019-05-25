@@ -1,9 +1,10 @@
 use language_reporting::termcolor::{ColorChoice, StandardStream};
+use language_reporting::Diagnostic;
 use mltt_core::{nbe, validate};
 use mltt_elaborate::MetaInsertion;
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
-use mltt_span::{FileId, Files};
+use mltt_span::{FileId, FileSpan, Files};
 use std::fs;
 
 const TESTS_DIR: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests");
@@ -21,6 +22,17 @@ fn load_file(files: &mut Files, path: String) -> FileId {
     files.add(path, src)
 }
 
+fn emit_diagnostic<'a, T>(
+    writer: &'a StandardStream,
+    files: &'a Files,
+) -> impl FnOnce(Diagnostic<FileSpan>) -> T + 'a {
+    move |diagnostic| {
+        let writer = &mut writer.lock();
+        language_reporting::emit(writer, files, &diagnostic, &REPORTING_CONFIG).unwrap();
+        panic!("error encountered");
+    }
+}
+
 pub fn run_sample(name: &str) {
     let _ = pretty_env_logger::try_init();
     let writer = StandardStream::stdout(ColorChoice::Always);
@@ -32,20 +44,12 @@ pub fn run_sample(name: &str) {
 
     let module = {
         let lexer = Lexer::new(&files[module_file_id]);
-        let concrete_module = parser::parse_module(lexer).unwrap_or_else(|diagnostic| {
-            let writer = &mut writer.lock();
-            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-            panic!("error encountered");
-        });
+        let concrete_module =
+            parser::parse_module(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
         // FIXME: check lexer for errors
 
-        mltt_elaborate::check_module(&context, &mut metas, &concrete_module).unwrap_or_else(
-            |diagnostic| {
-                let writer = &mut writer.lock();
-                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-                panic!("error encountered");
-            },
-        )
+        mltt_elaborate::check_module(&context, &mut metas, &concrete_module)
+            .unwrap_or_else(emit_diagnostic(&writer, &files))
     };
 
     validate::check_module(&context.validation_context(), &metas, &module)
@@ -65,22 +69,13 @@ pub fn run_elaborate_check_pass(name: &str) {
 
     let expected_ty = {
         let lexer = Lexer::new(&files[ty_file_id]);
-        let concrete_ty = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
-            let writer = &mut writer.lock();
-            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-            panic!("error encountered");
-        });
+        let concrete_ty =
+            parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
         // FIXME: check lexer for errors
 
         let (expected_ty, level1) =
-            mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
-                |diagnostic| {
-                    let writer = &mut writer.lock();
-                    language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG)
-                        .unwrap();
-                    panic!("error encountered");
-                },
-            );
+            mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty)
+                .unwrap_or_else(emit_diagnostic(&writer, &files));
 
         let level2 = validate::synth_universe(&context.validation_context(), &metas, &expected_ty)
             .unwrap_or_else(|error| panic!("{}", error));
@@ -93,19 +88,12 @@ pub fn run_elaborate_check_pass(name: &str) {
 
     let term = {
         let lexer = Lexer::new(&files[term_file_id]);
-        let concrete_term = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
-            let writer = &mut writer.lock();
-            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-            panic!("error encountered");
-        });
+        let concrete_term =
+            parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
         // FIXME: check lexer for errors
 
         mltt_elaborate::check_term(&context, &mut metas, &concrete_term, &expected_ty)
-            .unwrap_or_else(|diagnostic| {
-                let writer = &mut writer.lock();
-                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-                panic!("error encountered");
-            })
+            .unwrap_or_else(emit_diagnostic(&writer, &files))
     };
 
     validate::check_term(&context.validation_context(), &metas, &term, &expected_ty)
@@ -125,19 +113,12 @@ pub fn run_elaborate_synth_pass(name: &str) {
 
     let (term, term_ty) = {
         let lexer = Lexer::new(&files[term_file_id]);
-        let concrete_term = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
-            let writer = &mut writer.lock();
-            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-            panic!("error encountered");
-        });
+        let concrete_term =
+            parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
         // FIXME: check lexer for errors
 
         mltt_elaborate::synth_term(MetaInsertion::Yes, &context, &mut metas, &concrete_term)
-            .unwrap_or_else(|diagnostic| {
-                let writer = &mut writer.lock();
-                language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-                panic!("error encountered");
-            })
+            .unwrap_or_else(emit_diagnostic(&writer, &files))
     };
 
     validate::synth_term(&context.validation_context(), &metas, &term)
@@ -145,22 +126,13 @@ pub fn run_elaborate_synth_pass(name: &str) {
 
     let expected_ty = {
         let lexer = Lexer::new(&files[ty_file_id]);
-        let concrete_ty = parser::parse_term(lexer).unwrap_or_else(|diagnostic| {
-            let writer = &mut writer.lock();
-            language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
-            panic!("error encountered");
-        });
+        let concrete_ty =
+            parser::parse_term(lexer).unwrap_or_else(emit_diagnostic(&writer, &files));
         // FIXME: check lexer for errors
 
         let (expected_ty, level1) =
-            mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty).unwrap_or_else(
-                |diagnostic| {
-                    let writer = &mut writer.lock();
-                    language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG)
-                        .unwrap();
-                    panic!("error encountered");
-                },
-            );
+            mltt_elaborate::synth_universe(&context, &mut metas, &concrete_ty)
+                .unwrap_or_else(emit_diagnostic(&writer, &files));
 
         let level2 = validate::synth_universe(&context.validation_context(), &metas, &expected_ty)
             .unwrap_or_else(|error| panic!("{}", error));
