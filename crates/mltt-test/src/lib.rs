@@ -80,6 +80,7 @@ mod elaborate {
         mod fun_elim {
             test!(explicit, "fun-elim/explicit");
             test!(implicit, "fun-elim/implicit");
+            test!(implicit_insert_meta, "fun-elim/implicit-insert-meta");
             test!(instance, "fun-elim/instance");
         }
 

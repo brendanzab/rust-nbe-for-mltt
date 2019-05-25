@@ -1,0 +1,5 @@
+let
+    id : Fun {A : Type} -> A -> A;
+    id a = a;
+in
+    id true
