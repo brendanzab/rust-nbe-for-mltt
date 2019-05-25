@@ -7,11 +7,16 @@ use mltt_core::{nbe, validate};
 use mltt_elaborate::MetaInsertion;
 use mltt_parse::lexer::Lexer;
 use mltt_parse::parser;
-use mltt_span::Files;
+use mltt_span::{FileId, Files};
 use std::fs;
 
 const TESTS_DIR: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests");
 const REPORTING_CONFIG: language_reporting::DefaultConfig = language_reporting::DefaultConfig;
+
+fn load_file(files: &mut Files, path: String) -> FileId {
+    let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
+    files.add(path, src)
+}
 
 fn run_sample(name: &str) {
     let _ = pretty_env_logger::try_init();
@@ -22,14 +27,11 @@ fn run_sample(name: &str) {
     let context = mltt_elaborate::Context::default();
     let validation_context = context.validation_context();
 
-    let file_id = {
-        let path = format!("{}/samples/{}.mltt", TESTS_DIR, name);
-        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
-        files.add(path, src)
-    };
+    let module_path = format!("{}/samples/{}.mltt", TESTS_DIR, name);
+    let module_file_id = load_file(&mut files, module_path);
 
     let module = {
-        let lexer = Lexer::new(&files[file_id]);
+        let lexer = Lexer::new(&files[module_file_id]);
         let concrete_module = parser::parse_module(lexer).unwrap_or_else(|diagnostic| {
             let writer = &mut writer.lock();
             language_reporting::emit(writer, &files, &diagnostic, &REPORTING_CONFIG).unwrap();
@@ -59,17 +61,10 @@ fn run_elaborate_check_pass(name: &str) {
     let context = mltt_elaborate::Context::default();
     let validation_context = context.validation_context();
 
-    let term_file_id = {
-        let path = format!("{}/elaborate/check-pass/{}.term.mltt", TESTS_DIR, name);
-        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
-        files.add(path, src)
-    };
-
-    let ty_file_id = {
-        let path = format!("{}/elaborate/check-pass/{}.type.mltt", TESTS_DIR, name);
-        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
-        files.add(path, src)
-    };
+    let term_path = format!("{}/elaborate/check-pass/{}.term.mltt", TESTS_DIR, name);
+    let ty_path = format!("{}/elaborate/check-pass/{}.type.mltt", TESTS_DIR, name);
+    let term_file_id = load_file(&mut files, term_path);
+    let ty_file_id = load_file(&mut files, ty_path);
 
     let (expected_ty, _level) = {
         let lexer = Lexer::new(&files[ty_file_id]);
@@ -125,17 +120,10 @@ fn run_elaborate_synth_pass(name: &str) {
     let context = mltt_elaborate::Context::default();
     let validation_context = context.validation_context();
 
-    let term_file_id = {
-        let path = format!("{}/elaborate/synth-pass/{}.term.mltt", TESTS_DIR, name);
-        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
-        files.add(path, src)
-    };
-
-    let ty_file_id = {
-        let path = format!("{}/elaborate/synth-pass/{}.type.mltt", TESTS_DIR, name);
-        let src = fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}", error));
-        files.add(path, src)
-    };
+    let term_path = format!("{}/elaborate/synth-pass/{}.term.mltt", TESTS_DIR, name);
+    let ty_path = format!("{}/elaborate/synth-pass/{}.type.mltt", TESTS_DIR, name);
+    let term_file_id = load_file(&mut files, term_path);
+    let ty_file_id = load_file(&mut files, ty_path);
 
     let (term, term_ty) = {
         let lexer = Lexer::new(&files[term_file_id]);
