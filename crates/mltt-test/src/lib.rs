@@ -19,7 +19,6 @@ mod samples {
     test!(connectives, "connectives");
     test!(cumulativity, "cumulativity");
     test!(empty, "empty");
-    test!(literals, "literals");
     test!(primitives, "primitives");
     test!(records, "records");
 }
@@ -134,6 +133,7 @@ mod elaborate {
                 test!(oct_max, "literal-intro/u8/oct-max");
                 test!(hex_min, "literal-intro/u8/hex-min");
                 test!(hex_max, "literal-intro/u8/hex-max");
+                test!(samples, "literal-intro/u8/samples"); // TODO: Split up into separate tests
             }
 
             mod u16 {

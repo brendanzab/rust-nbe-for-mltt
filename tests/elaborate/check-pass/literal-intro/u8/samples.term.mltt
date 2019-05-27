@@ -1,0 +1,13 @@
+-- TODO: Split into separate tests
+let
+    bin-0 : U8 = 0b0;
+    bin-1 : U8 = 0b1;
+    bin-11 : U8 = 0b11;
+    bin-11-11 : U8 = 0b_11_11;
+    oct-172 : U8 = 0o___172;
+    dec-0 : U8 = 0;
+    dec-0000 : U8 = 0000;
+    dec-0--12 : U8 = 0__12;
+    hex-a : U8 = 0xA;
+in
+    record {}
