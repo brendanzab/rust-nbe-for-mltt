@@ -35,14 +35,16 @@ mod elaborate {
         }
 
         mod literal_intro {
-            mod u8 {
-                test!(dec_overflow, "literal-intro/u8/dec-overflow");
-                test!(dec_underflow, "literal-intro/u8/dec-underflow");
-            }
+            mod int {
+                mod u8 {
+                    test!(dec_overflow, "literal-intro/int/u8/dec-overflow");
+                    test!(dec_underflow, "literal-intro/int/u8/dec-underflow");
+                }
 
-            mod u16 {
-                test!(dec_overflow, "literal-intro/u16/dec-overflow");
-                test!(dec_underflow, "literal-intro/u16/dec-underflow");
+                mod u16 {
+                    test!(dec_overflow, "literal-intro/int/u16/dec-overflow");
+                    test!(dec_underflow, "literal-intro/int/u16/dec-underflow");
+                }
             }
         }
 
@@ -80,93 +82,95 @@ mod elaborate {
         }
 
         mod literal_intro {
-            mod s8 {
-                test!(bin_min, "literal-intro/s8/bin-min");
-                test!(bin_max, "literal-intro/s8/bin-max");
-                test!(dec_min, "literal-intro/s8/dec-min");
-                test!(dec_max, "literal-intro/s8/dec-max");
-                test!(oct_min, "literal-intro/s8/oct-min");
-                test!(oct_max, "literal-intro/s8/oct-max");
-                test!(hex_min, "literal-intro/s8/hex-min");
-                test!(hex_max, "literal-intro/s8/hex-max");
-            }
+            mod int {
+                mod s8 {
+                    test!(bin_min, "literal-intro/int/s8/bin-min");
+                    test!(bin_max, "literal-intro/int/s8/bin-max");
+                    test!(dec_min, "literal-intro/int/s8/dec-min");
+                    test!(dec_max, "literal-intro/int/s8/dec-max");
+                    test!(oct_min, "literal-intro/int/s8/oct-min");
+                    test!(oct_max, "literal-intro/int/s8/oct-max");
+                    test!(hex_min, "literal-intro/int/s8/hex-min");
+                    test!(hex_max, "literal-intro/int/s8/hex-max");
+                }
 
-            mod s16 {
-                test!(bin_min, "literal-intro/s16/bin-min");
-                test!(bin_max, "literal-intro/s16/bin-max");
-                test!(dec_min, "literal-intro/s16/dec-min");
-                test!(dec_max, "literal-intro/s16/dec-max");
-                test!(oct_min, "literal-intro/s16/oct-min");
-                test!(oct_max, "literal-intro/s16/oct-max");
-                test!(hex_min, "literal-intro/s16/hex-min");
-                test!(hex_max, "literal-intro/s16/hex-max");
-            }
+                mod s16 {
+                    test!(bin_min, "literal-intro/int/s16/bin-min");
+                    test!(bin_max, "literal-intro/int/s16/bin-max");
+                    test!(dec_min, "literal-intro/int/s16/dec-min");
+                    test!(dec_max, "literal-intro/int/s16/dec-max");
+                    test!(oct_min, "literal-intro/int/s16/oct-min");
+                    test!(oct_max, "literal-intro/int/s16/oct-max");
+                    test!(hex_min, "literal-intro/int/s16/hex-min");
+                    test!(hex_max, "literal-intro/int/s16/hex-max");
+                }
 
-            mod s32 {
-                test!(bin_min, "literal-intro/s32/bin-min");
-                test!(bin_max, "literal-intro/s32/bin-max");
-                test!(dec_min, "literal-intro/s32/dec-min");
-                test!(dec_max, "literal-intro/s32/dec-max");
-                test!(oct_min, "literal-intro/s32/oct-min");
-                test!(oct_max, "literal-intro/s32/oct-max");
-                test!(hex_min, "literal-intro/s32/hex-min");
-                test!(hex_max, "literal-intro/s32/hex-max");
-            }
+                mod s32 {
+                    test!(bin_min, "literal-intro/int/s32/bin-min");
+                    test!(bin_max, "literal-intro/int/s32/bin-max");
+                    test!(dec_min, "literal-intro/int/s32/dec-min");
+                    test!(dec_max, "literal-intro/int/s32/dec-max");
+                    test!(oct_min, "literal-intro/int/s32/oct-min");
+                    test!(oct_max, "literal-intro/int/s32/oct-max");
+                    test!(hex_min, "literal-intro/int/s32/hex-min");
+                    test!(hex_max, "literal-intro/int/s32/hex-max");
+                }
 
-            mod s64 {
-                test!(bin_min, "literal-intro/s64/bin-min");
-                test!(bin_max, "literal-intro/s64/bin-max");
-                test!(dec_min, "literal-intro/s64/dec-min");
-                test!(dec_max, "literal-intro/s64/dec-max");
-                test!(oct_min, "literal-intro/s64/oct-min");
-                test!(oct_max, "literal-intro/s64/oct-max");
-                test!(hex_min, "literal-intro/s64/hex-min");
-                test!(hex_max, "literal-intro/s64/hex-max");
-            }
+                mod s64 {
+                    test!(bin_min, "literal-intro/int/s64/bin-min");
+                    test!(bin_max, "literal-intro/int/s64/bin-max");
+                    test!(dec_min, "literal-intro/int/s64/dec-min");
+                    test!(dec_max, "literal-intro/int/s64/dec-max");
+                    test!(oct_min, "literal-intro/int/s64/oct-min");
+                    test!(oct_max, "literal-intro/int/s64/oct-max");
+                    test!(hex_min, "literal-intro/int/s64/hex-min");
+                    test!(hex_max, "literal-intro/int/s64/hex-max");
+                }
 
-            mod u8 {
-                test!(bin_min, "literal-intro/u8/bin-min");
-                test!(bin_max, "literal-intro/u8/bin-max");
-                test!(dec_min, "literal-intro/u8/dec-min");
-                test!(dec_max, "literal-intro/u8/dec-max");
-                test!(oct_min, "literal-intro/u8/oct-min");
-                test!(oct_max, "literal-intro/u8/oct-max");
-                test!(hex_min, "literal-intro/u8/hex-min");
-                test!(hex_max, "literal-intro/u8/hex-max");
-                test!(samples, "literal-intro/u8/samples"); // TODO: Split up into separate tests
-            }
+                mod u8 {
+                    test!(bin_min, "literal-intro/int/u8/bin-min");
+                    test!(bin_max, "literal-intro/int/u8/bin-max");
+                    test!(dec_min, "literal-intro/int/u8/dec-min");
+                    test!(dec_max, "literal-intro/int/u8/dec-max");
+                    test!(oct_min, "literal-intro/int/u8/oct-min");
+                    test!(oct_max, "literal-intro/int/u8/oct-max");
+                    test!(hex_min, "literal-intro/int/u8/hex-min");
+                    test!(hex_max, "literal-intro/int/u8/hex-max");
+                    test!(samples, "literal-intro/int/u8/samples"); // TODO: Split up into separate tests
+                }
 
-            mod u16 {
-                test!(bin_min, "literal-intro/u16/bin-min");
-                test!(bin_max, "literal-intro/u16/bin-max");
-                test!(dec_min, "literal-intro/u16/dec-min");
-                test!(dec_max, "literal-intro/u16/dec-max");
-                test!(oct_min, "literal-intro/u16/oct-min");
-                test!(oct_max, "literal-intro/u16/oct-max");
-                test!(hex_min, "literal-intro/u16/hex-min");
-                test!(hex_max, "literal-intro/u16/hex-max");
-            }
+                mod u16 {
+                    test!(bin_min, "literal-intro/int/u16/bin-min");
+                    test!(bin_max, "literal-intro/int/u16/bin-max");
+                    test!(dec_min, "literal-intro/int/u16/dec-min");
+                    test!(dec_max, "literal-intro/int/u16/dec-max");
+                    test!(oct_min, "literal-intro/int/u16/oct-min");
+                    test!(oct_max, "literal-intro/int/u16/oct-max");
+                    test!(hex_min, "literal-intro/int/u16/hex-min");
+                    test!(hex_max, "literal-intro/int/u16/hex-max");
+                }
 
-            mod u32 {
-                test!(bin_min, "literal-intro/u32/bin-min");
-                test!(bin_max, "literal-intro/u32/bin-max");
-                test!(dec_min, "literal-intro/u32/dec-min");
-                test!(dec_max, "literal-intro/u32/dec-max");
-                test!(oct_min, "literal-intro/u32/oct-min");
-                test!(oct_max, "literal-intro/u32/oct-max");
-                test!(hex_min, "literal-intro/u32/hex-min");
-                test!(hex_max, "literal-intro/u32/hex-max");
-            }
+                mod u32 {
+                    test!(bin_min, "literal-intro/int/u32/bin-min");
+                    test!(bin_max, "literal-intro/int/u32/bin-max");
+                    test!(dec_min, "literal-intro/int/u32/dec-min");
+                    test!(dec_max, "literal-intro/int/u32/dec-max");
+                    test!(oct_min, "literal-intro/int/u32/oct-min");
+                    test!(oct_max, "literal-intro/int/u32/oct-max");
+                    test!(hex_min, "literal-intro/int/u32/hex-min");
+                    test!(hex_max, "literal-intro/int/u32/hex-max");
+                }
 
-            mod u64 {
-                test!(bin_min, "literal-intro/u64/bin-min");
-                test!(bin_max, "literal-intro/u64/bin-max");
-                test!(dec_min, "literal-intro/u64/dec-min");
-                test!(dec_max, "literal-intro/u64/dec-max");
-                test!(oct_min, "literal-intro/u64/oct-min");
-                test!(oct_max, "literal-intro/u64/oct-max");
-                test!(hex_min, "literal-intro/u64/hex-min");
-                test!(hex_max, "literal-intro/u64/hex-max");
+                mod u64 {
+                    test!(bin_min, "literal-intro/int/u64/bin-min");
+                    test!(bin_max, "literal-intro/int/u64/bin-max");
+                    test!(dec_min, "literal-intro/int/u64/dec-min");
+                    test!(dec_max, "literal-intro/int/u64/dec-max");
+                    test!(oct_min, "literal-intro/int/u64/oct-min");
+                    test!(oct_max, "literal-intro/int/u64/oct-max");
+                    test!(hex_min, "literal-intro/int/u64/hex-min");
+                    test!(hex_max, "literal-intro/int/u64/hex-max");
+                }
             }
         }
 
@@ -201,8 +205,13 @@ mod elaborate {
         }
 
         mod literal_intro {
-            test!(float_ambiguous, "literal-intro/float-ambiguous");
-            test!(int_ambiguous, "literal-intro/int-ambiguous");
+            mod float {
+                test!(float_ambiguous, "literal-intro/float/ambiguous");
+            }
+
+            mod int {
+                test!(int_ambiguous, "literal-intro/int/ambiguous");
+            }
         }
 
         mod prim {
