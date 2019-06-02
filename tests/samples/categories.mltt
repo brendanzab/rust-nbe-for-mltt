@@ -62,9 +62,9 @@ let
 in
     record {
         Category = Category;
-        id = id;
-        seq = seq;
-        compose = compose;
+        -- FIXME: id = id;
+        -- FIXME: seq = seq;
+        -- FIXME: compose = compose;
         Functor = Functor;
-        map = map;
+        -- FIXME: map = map;
     }

@@ -599,18 +599,27 @@ pub fn synth_term(
                 Rc::from(domain::Value::universe(max_level)),
             ))
         },
-        Term::RecordIntro(span, intro_fields) => {
-            if intro_fields.is_empty() {
-                Ok((
-                    Rc::from(syntax::Term::RecordIntro(Vec::new())),
-                    Rc::from(domain::Value::RecordTypeEmpty),
-                ))
-            } else {
-                Err(Diagnostic::new_error("ambiguous term").with_label(
-                    DiagnosticLabel::new_primary(*span)
-                        .with_message("type annotations needed here"),
-                ))
+        Term::RecordIntro(_, concrete_intro_fields) => {
+            let mut context = context.clone();
+            let mut fields = Vec::new();
+            let mut record_ty = Rc::from(domain::Value::RecordTypeEmpty); // hmmmm...
+
+            for concrete_intro_field in concrete_intro_fields {
+                let (label, params, body_ty, body) = concrete_intro_field.desugar();
+
+                let clause = Clause::new(params, body_ty, &body);
+                let (term, term_ty) = clause::synth_clause(&context, metas, clause)?;
+
+                let term_value = context.eval_term(metas, body.span(), &term)?;
+
+                fields.push((Label(label.to_string()), term));
+                context.add_defn(label, term_value.clone(), term_ty);
             }
+
+            Ok((
+                Rc::from(syntax::Term::RecordIntro(fields)),
+                unimplemented!("synth record intros"),
+            ))
         },
         Term::RecordElim(concrete_record, label) => {
             let (record, mut record_ty) =

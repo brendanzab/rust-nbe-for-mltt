@@ -21,6 +21,6 @@ let
 in
     record {
         Eq = Eq;
-        eq = eq;
+        -- FIXME: eq = eq;
         bool-eq = bool-eq;
     }

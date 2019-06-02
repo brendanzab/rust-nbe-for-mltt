@@ -214,10 +214,6 @@ mod elaborate {
             test!(field_not_found, "record-elim/field-not-found");
         }
 
-        mod record_intro {
-            test!(ambiguous, "record-intro/ambiguous");
-        }
-
         mod universe {
             test!(overflow, "universe/overflow");
         }
@@ -308,6 +304,7 @@ mod elaborate {
 
         mod record_intro {
             test!(empty, "record-intro/empty");
+            test!(singleton, "record-intro/singleton");
         }
 
         mod record_type {
