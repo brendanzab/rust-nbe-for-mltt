@@ -223,6 +223,7 @@ impl syntax::Term {
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(var_index),
             syntax::Term::Meta(meta_index) => Doc::as_string(meta_index),
+            syntax::Term::Global(global_name) => Doc::as_string(global_name),
             syntax::Term::Prim(prim_name) => prim(Doc::as_string(prim_name)),
 
             syntax::Term::Ann(term, term_ty) => ann(term.to_debug_doc(), term_ty.to_debug_doc()),
@@ -456,6 +457,7 @@ impl syntax::Term {
         match self {
             syntax::Term::Var(var_index) => Doc::as_string(env.lookup_name(*var_index)),
             syntax::Term::Meta(meta_index) => Doc::as_string(meta_index),
+            syntax::Term::Global(global_name) => unimplemented!(),
             syntax::Term::Prim(prim_name) => prim(Doc::as_string(prim_name)),
 
             syntax::Term::Ann(term, term_ty) => {

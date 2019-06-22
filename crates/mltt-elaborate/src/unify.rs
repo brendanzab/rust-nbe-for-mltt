@@ -2,7 +2,7 @@
 
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_core::literal::{LiteralIntro, LiteralType};
-use mltt_core::{domain, meta, prim, syntax, var, AppMode};
+use mltt_core::{domain, global, meta, prim, syntax, var, AppMode};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -10,6 +10,7 @@ use crate::nbe;
 
 /// Check that all entries in a spine are bound variables.
 fn check_spine(
+    globals: &global::Env,
     prims: &prim::Env,
     metas: &meta::Env,
     span: FileSpan,
@@ -20,7 +21,7 @@ fn check_spine(
         .map(|elim| {
             if let domain::Elim::Fun(_, arg) = elim {
                 if let domain::Value::Neutral(domain::Head::Var(var_level), spine) =
-                    nbe::force_value(prims, metas, span, arg)?.as_ref()
+                    nbe::force_value(globals, prims, metas, span, arg)?.as_ref()
                 {
                     if spine.is_empty() {
                         return Ok(*var_level);
@@ -68,6 +69,7 @@ fn check_solution(
                 Ok(())
             }
         },
+        syntax::Term::Global(_) => Ok(()),
         syntax::Term::Prim(_) => Ok(()),
 
         syntax::Term::Ann(term, term_ty) => {
@@ -128,6 +130,7 @@ fn check_solution(
 /// Solve metavariables in the case where a metavariable has been found in a
 /// head position.
 fn solve_neutral(
+    globals: &global::Env,
     prims: &prim::Env,
     metas: &mut meta::Env,
     values: &var::Env<Rc<domain::Value>>,
@@ -136,8 +139,8 @@ fn solve_neutral(
     spine: &domain::Spine,
     rhs: &Rc<domain::Value>,
 ) -> Result<(), Diagnostic<FileSpan>> {
-    let bound_levels = check_spine(prims, metas, span, spine)?;
-    let rhs = nbe::read_back_value(prims, metas, values.size(), None, rhs)?;
+    let bound_levels = check_spine(globals, prims, metas, span, spine)?;
+    let rhs = nbe::read_back_value(globals, prims, metas, values.size(), None, rhs)?;
 
     check_solution(values.size(), span, head, &bound_levels, &rhs)?;
 
@@ -145,7 +148,7 @@ fn solve_neutral(
         Rc::from(syntax::Term::FunIntro(AppMode::Explicit, None, acc))
     });
 
-    let rhs_value = nbe::eval_term(prims, metas, &var::Env::new(), None, &rhs)?;
+    let rhs_value = nbe::eval_term(globals, prims, metas, &var::Env::new(), None, &rhs)?;
 
     metas.add_solved(head, rhs_value);
 
@@ -156,6 +159,7 @@ fn solve_neutral(
 /// definitionally equal to, or a subtype of of `value2` in the updated
 /// metavariable environment.
 pub fn unify_values(
+    globals: &global::Env,
     prims: &prim::Env,
     metas: &mut meta::Env,
     values: &var::Env<Rc<domain::Value>>,
@@ -184,8 +188,8 @@ pub fn unify_values(
     }
 
     match (
-        nbe::force_value(prims, metas, span, value1)?.as_ref(),
-        nbe::force_value(prims, metas, span, value2)?.as_ref(),
+        nbe::force_value(globals, prims, metas, span, value1)?.as_ref(),
+        nbe::force_value(globals, prims, metas, span, value2)?.as_ref(),
     ) {
         (domain::Value::Neutral(head1, spine1), domain::Value::Neutral(head2, spine2))
             if head1 == head2 && spine1.len() == spine2.len() =>
@@ -195,27 +199,43 @@ pub fn unify_values(
                     (domain::Elim::Fun(app_mode1, arg1), domain::Elim::Fun(app_mode2, arg2))
                         if app_mode1 == app_mode2 =>
                     {
-                        unify_values(prims, metas, values, span, arg1, arg2)?;
+                        unify_values(globals, prims, metas, values, span, arg1, arg2)?;
                     }
                     (domain::Elim::Record(l1), domain::Elim::Record(l2)) if l1 == l2 => {},
                     (domain::Elim::Literal(lc1), domain::Elim::Literal(lc2)) => {
                         // Hum, guessing here??
                         let (sc, values) = instantiate_value(values);
-                        let val1 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc1.clone())?;
-                        let val2 = nbe::eval_literal_elim(prims, metas, sc.clone(), lc2.clone())?;
-                        unify_values(prims, metas, &values, span, &val1, &val2)?;
+                        let lc1 = lc1.clone();
+                        let lc2 = lc2.clone();
+                        let val1 = nbe::eval_literal_elim(globals, prims, metas, sc.clone(), lc1)?;
+                        let val2 = nbe::eval_literal_elim(globals, prims, metas, sc.clone(), lc2)?;
+                        unify_values(globals, prims, metas, &values, span, &val1, &val2)?;
                     },
                     (_, _) => unification_error(span, value1, value2)?,
                 }
             }
             Ok(())
         }
-        (domain::Value::Neutral(domain::Head::Meta(meta_level), spine), _) => {
-            solve_neutral(prims, metas, values, span, *meta_level, spine, value2)
-        },
-        (_, domain::Value::Neutral(domain::Head::Meta(meta_level), spine)) => {
-            solve_neutral(prims, metas, values, span, *meta_level, spine, value1)
-        },
+        (domain::Value::Neutral(domain::Head::Meta(meta_level), spine), _) => solve_neutral(
+            globals,
+            prims,
+            metas,
+            values,
+            span,
+            *meta_level,
+            spine,
+            value2,
+        ),
+        (_, domain::Value::Neutral(domain::Head::Meta(meta_level), spine)) => solve_neutral(
+            globals,
+            prims,
+            metas,
+            values,
+            span,
+            *meta_level,
+            spine,
+            value1,
+        ),
 
         (
             domain::Value::LiteralIntro(literal_intro1),
@@ -231,13 +251,13 @@ pub fn unify_values(
             domain::Value::FunType(app_mode1, _, param_ty1, body_ty1),
             domain::Value::FunType(app_mode2, _, param_ty2, body_ty2),
         ) if app_mode1 == app_mode2 => {
-            unify_values(prims, metas, values, span, param_ty1, param_ty2)?;
+            unify_values(globals, prims, metas, values, span, param_ty1, param_ty2)?;
 
             let (param, values) = instantiate_value(values);
-            let body_ty1 = nbe::app_closure(prims, metas, body_ty1, param.clone())?;
-            let body_ty2 = nbe::app_closure(prims, metas, body_ty2, param.clone())?;
+            let body_ty1 = nbe::app_closure(globals, prims, metas, body_ty1, param.clone())?;
+            let body_ty2 = nbe::app_closure(globals, prims, metas, body_ty2, param.clone())?;
 
-            unify_values(prims, metas, &values, span, &body_ty1, &body_ty2)?;
+            unify_values(globals, prims, metas, &values, span, &body_ty1, &body_ty2)?;
 
             Ok(())
         },
@@ -246,10 +266,10 @@ pub fn unify_values(
             domain::Value::FunIntro(app_mode2, _, body2),
         ) if app_mode1 == app_mode2 => {
             let (param, values) = instantiate_value(values);
-            let body1 = nbe::app_closure(prims, metas, body1, param.clone())?;
-            let body2 = nbe::app_closure(prims, metas, body2, param.clone())?;
+            let body1 = nbe::app_closure(globals, prims, metas, body1, param.clone())?;
+            let body2 = nbe::app_closure(globals, prims, metas, body2, param.clone())?;
 
-            unify_values(prims, metas, &values, span, &body1, &body2)?;
+            unify_values(globals, prims, metas, &values, span, &body1, &body2)?;
 
             Ok(())
         },
@@ -266,19 +286,21 @@ pub fn unify_values(
         // - https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
         (domain::Value::FunIntro(app_mode1, _, body1), _) => {
             let (param, values) = instantiate_value(values);
-            let body1 = nbe::app_closure(prims, metas, body1, param.clone())?;
-            let body2 = nbe::eval_fun_elim(prims, metas, value2.clone(), app_mode1, param)?;
+            let body1 = nbe::app_closure(globals, prims, metas, body1, param.clone())?;
+            let body2 =
+                nbe::eval_fun_elim(globals, prims, metas, value2.clone(), app_mode1, param)?;
 
-            unify_values(prims, metas, &values, span, &body1, &body2)?;
+            unify_values(globals, prims, metas, &values, span, &body1, &body2)?;
 
             Ok(())
         },
         (_, domain::Value::FunIntro(app_mode2, _, body2)) => {
             let (param, values) = instantiate_value(values);
-            let body2 = nbe::app_closure(prims, metas, body2, param.clone())?;
-            let body1 = nbe::eval_fun_elim(prims, metas, value1.clone(), app_mode2, param)?;
+            let body2 = nbe::app_closure(globals, prims, metas, body2, param.clone())?;
+            let body1 =
+                nbe::eval_fun_elim(globals, prims, metas, value1.clone(), app_mode2, param)?;
 
-            unify_values(prims, metas, &values, span, &body1, &body2)?;
+            unify_values(globals, prims, metas, &values, span, &body1, &body2)?;
 
             Ok(())
         },
@@ -287,13 +309,13 @@ pub fn unify_values(
             domain::Value::RecordTypeExtend(_, label1, _, value_ty1, rest_ty1),
             domain::Value::RecordTypeExtend(_, label2, _, value_ty2, rest_ty2),
         ) if label1 == label2 => {
-            unify_values(prims, metas, values, span, value_ty1, value_ty2)?;
+            unify_values(globals, prims, metas, values, span, value_ty1, value_ty2)?;
 
             let (value, values) = instantiate_value(values);
-            let rest_ty1 = nbe::app_closure(prims, metas, rest_ty1, value.clone())?;
-            let rest_ty2 = nbe::app_closure(prims, metas, rest_ty2, value.clone())?;
+            let rest_ty1 = nbe::app_closure(globals, prims, metas, rest_ty1, value.clone())?;
+            let rest_ty2 = nbe::app_closure(globals, prims, metas, rest_ty2, value.clone())?;
 
-            unify_values(prims, metas, &values, span, &rest_ty1, &rest_ty2)?;
+            unify_values(globals, prims, metas, &values, span, &rest_ty1, &rest_ty2)?;
 
             Ok(())
         },
@@ -306,7 +328,7 @@ pub fn unify_values(
                 Iterator::zip(fields1.iter(), fields2.iter())
             {
                 if label1 == label2 {
-                    unify_values(prims, metas, &values, span, value1, value2)?;
+                    unify_values(globals, prims, metas, &values, span, value1, value2)?;
                     values.add_entry(Rc::from(domain::Value::var(values.size().next_level())));
                 } else {
                     unification_error(span, value1, value2)?;
@@ -330,7 +352,7 @@ pub fn unify_values(
             let mut values = values.clone();
             for (label1, value1) in fields1 {
                 let value2 = nbe::eval_record_elim(value2.clone(), label1)?;
-                unify_values(prims, metas, &values, span, value1, &value2)?;
+                unify_values(globals, prims, metas, &values, span, value1, &value2)?;
                 values.add_entry(Rc::from(domain::Value::var(values.size().next_level())));
             }
             Ok(())
@@ -339,7 +361,7 @@ pub fn unify_values(
             let mut values = values.clone();
             for (label2, value2) in fields2 {
                 let value1 = nbe::eval_record_elim(value1.clone(), label2)?;
-                unify_values(prims, metas, &values, span, &value1, value2)?;
+                unify_values(globals, prims, metas, &values, span, &value1, value2)?;
                 values.add_entry(Rc::from(domain::Value::var(values.size().next_level())));
             }
             Ok(())

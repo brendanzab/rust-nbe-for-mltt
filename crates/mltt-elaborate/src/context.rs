@@ -1,7 +1,7 @@
 //! The elaboration context.
 
 use language_reporting::Diagnostic;
-use mltt_core::{domain, meta, prim, syntax, validate, var, AppMode};
+use mltt_core::{domain, global, meta, prim, syntax, validate, var, AppMode};
 use mltt_span::FileSpan;
 use pretty::{BoxDoc, Doc};
 use std::rc::Rc;
@@ -18,6 +18,8 @@ use crate::{nbe, unify};
 /// costly to clone this - for example when entering into new scopes.
 #[derive(Debug, Clone)]
 pub struct Context {
+    /// Global entries.
+    globals: global::Env,
     /// Primitive entries.
     prims: prim::Env,
     /// Values to be used during evaluation.
@@ -42,15 +44,21 @@ pub struct Context {
 
 impl Context {
     /// Create a new, empty context.
-    pub fn empty() -> Context {
+    pub fn new(globals: global::Env, prims: prim::Env) -> Context {
         Context {
-            prims: prim::Env::new(),
+            globals,
+            prims,
             values: var::Env::new(),
             tys: var::Env::new(),
             names: var::Env::new(),
             names_to_levels: im::HashMap::new(),
             bound_levels: im::Vector::new(),
         }
+    }
+
+    /// Global entries.
+    pub fn globals(&self) -> &global::Env {
+        &self.globals
     }
 
     /// Primitive entries.
@@ -65,7 +73,12 @@ impl Context {
 
     /// Convert the context into a validation context.
     pub fn validation_context(&self) -> validate::Context {
-        validate::Context::new(self.prims.clone(), self.values.clone(), self.tys.clone())
+        validate::Context::new(
+            self.globals.clone(),
+            self.prims.clone(),
+            self.values.clone(),
+            self.tys.clone(),
+        )
     }
 
     /// Convert the context into a pretty printing environment.
@@ -170,7 +183,7 @@ impl Context {
         closure: &domain::AppClosure,
         arg: Rc<domain::Value>,
     ) -> Result<Rc<domain::Value>, Diagnostic<FileSpan>> {
-        nbe::app_closure(self.prims(), metas, closure, arg)
+        nbe::app_closure(self.globals(), self.prims(), metas, closure, arg)
     }
 
     /// Evaluate a term using the evaluation environment
@@ -180,7 +193,14 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &Rc<syntax::Term>,
     ) -> Result<Rc<domain::Value>, Diagnostic<FileSpan>> {
-        nbe::eval_term(self.prims(), metas, self.values(), span, term)
+        nbe::eval_term(
+            self.globals(),
+            self.prims(),
+            metas,
+            self.values(),
+            span,
+            term,
+        )
     }
 
     /// Read a value back into the core syntax, normalizing as required.
@@ -190,7 +210,14 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &Rc<domain::Value>,
     ) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
-        nbe::read_back_value(self.prims(), metas, self.values().size(), span, value)
+        nbe::read_back_value(
+            self.globals(),
+            self.prims(),
+            metas,
+            self.values().size(),
+            span,
+            value,
+        )
     }
 
     /// Fully normalize a term by first evaluating it, then reading it back.
@@ -200,7 +227,14 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         term: &Rc<syntax::Term>,
     ) -> Result<Rc<syntax::Term>, Diagnostic<FileSpan>> {
-        nbe::normalize_term(self.prims(), metas, self.values(), span, term)
+        nbe::normalize_term(
+            self.globals(),
+            self.prims(),
+            metas,
+            self.values(),
+            span,
+            term,
+        )
     }
 
     /// Evaluate a value further, if it's now possible due to updates made to the
@@ -211,7 +245,7 @@ impl Context {
         span: impl Into<Option<FileSpan>>,
         value: &Rc<domain::Value>,
     ) -> Result<Rc<domain::Value>, Diagnostic<FileSpan>> {
-        nbe::force_value(self.prims(), metas, span, value)
+        nbe::force_value(self.globals(), self.prims(), metas, span, value)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context
@@ -222,7 +256,15 @@ impl Context {
         value1: &Rc<domain::Value>,
         value2: &Rc<domain::Value>,
     ) -> Result<(), Diagnostic<FileSpan>> {
-        unify::unify_values(self.prims(), metas, self.values(), span, value1, value2)
+        unify::unify_values(
+            self.globals(),
+            self.prims(),
+            metas,
+            self.values(),
+            span,
+            value1,
+            value2,
+        )
     }
 
     /// Convert a term to a pretty printable document.
@@ -245,40 +287,7 @@ impl Context {
 
 impl Default for Context {
     fn default() -> Context {
-        use mltt_core::domain::Value;
-        use mltt_core::literal::LiteralType as LitType;
-
-        let mut context = Context::empty();
-        let u0 = Rc::from(Value::universe(0));
-        let bool = Rc::from(Value::literal_ty(LitType::Bool));
-
-        context.add_defn(
-            "String",
-            Rc::from(Value::literal_ty(LitType::String)),
-            u0.clone(),
-        );
-        context.add_defn(
-            "Char",
-            Rc::from(Value::literal_ty(LitType::Char)),
-            u0.clone(),
-        );
-        context.add_defn("Bool", bool.clone(), u0.clone());
-        context.add_defn("true", Rc::from(Value::literal_intro(true)), bool.clone());
-        context.add_defn("false", Rc::from(Value::literal_intro(false)), bool.clone());
-        context.add_defn("U8", Rc::from(Value::literal_ty(LitType::U8)), u0.clone());
-        context.add_defn("U16", Rc::from(Value::literal_ty(LitType::U16)), u0.clone());
-        context.add_defn("U32", Rc::from(Value::literal_ty(LitType::U32)), u0.clone());
-        context.add_defn("U64", Rc::from(Value::literal_ty(LitType::U64)), u0.clone());
-        context.add_defn("S8", Rc::from(Value::literal_ty(LitType::S8)), u0.clone());
-        context.add_defn("S16", Rc::from(Value::literal_ty(LitType::S16)), u0.clone());
-        context.add_defn("S32", Rc::from(Value::literal_ty(LitType::S32)), u0.clone());
-        context.add_defn("S64", Rc::from(Value::literal_ty(LitType::S64)), u0.clone());
-        context.add_defn("F32", Rc::from(Value::literal_ty(LitType::F32)), u0.clone());
-        context.add_defn("F64", Rc::from(Value::literal_ty(LitType::F64)), u0.clone());
-
-        context.prims = prim::Env::default();
-
-        context
+        Context::new(global::Env::default(), prim::Env::default())
     }
 }
 
@@ -290,7 +299,7 @@ mod test {
     fn add_params() {
         use mltt_core::domain::Value;
 
-        let mut context = Context::empty();
+        let mut context = Context::new(global::Env::new(), prim::Env::new());
 
         let ty1 = Rc::from(Value::universe(0));
         let ty2 = Rc::from(Value::universe(1));
@@ -313,7 +322,7 @@ mod test {
     fn add_params_shadow() {
         use mltt_core::domain::Value;
 
-        let mut context = Context::empty();
+        let mut context = Context::new(global::Env::new(), prim::Env::new());
 
         let ty1 = Rc::from(Value::universe(0));
         let ty2 = Rc::from(Value::universe(1));
@@ -334,7 +343,7 @@ mod test {
     fn add_params_fresh() {
         use mltt_core::domain::Value;
 
-        let mut context = Context::empty();
+        let mut context = Context::new(global::Env::new(), prim::Env::new());
 
         let ty1 = Rc::from(Value::universe(0));
         let ty2 = Rc::from(Value::universe(1));

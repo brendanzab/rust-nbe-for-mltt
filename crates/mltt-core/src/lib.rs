@@ -6,6 +6,7 @@ use std::fmt;
 use std::rc::Rc;
 use std::u16;
 
+pub mod global;
 pub mod meta;
 pub mod var;
 

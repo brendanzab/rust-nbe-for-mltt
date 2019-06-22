@@ -9,14 +9,16 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 
-use super::literal::{LiteralIntro, LiteralType};
 use crate::domain::{AppClosure, Type, Value};
+use crate::literal::{LiteralIntro, LiteralType};
 use crate::syntax::{Item, Module, Term};
-use crate::{meta, nbe, prim, var, AppMode, Label, UniverseLevel};
+use crate::{global, meta, nbe, prim, var, AppMode, Label, UniverseLevel};
 
 /// Local type checking context.
 #[derive(Debug, Clone)]
 pub struct Context {
+    /// Global entries.
+    globals: global::Env,
     /// Primitive entries.
     prims: prim::Env,
     /// Values to be used during evaluation.
@@ -29,13 +31,33 @@ impl Context {
     /// Create a new context.
     ///
     /// We assume that the value and type environments are of the same length.
-    pub fn new(prims: prim::Env, values: var::Env<Rc<Value>>, tys: var::Env<Rc<Type>>) -> Context {
-        Context { prims, values, tys }
+    pub fn new(
+        globals: global::Env,
+        prims: prim::Env,
+        values: var::Env<Rc<Value>>,
+        tys: var::Env<Rc<Type>>,
+    ) -> Context {
+        Context {
+            globals,
+            prims,
+            values,
+            tys,
+        }
     }
 
     /// Create a new, empty context.
     pub fn empty() -> Context {
-        Context::new(prim::Env::new(), var::Env::new(), var::Env::new())
+        Context::new(
+            global::Env::new(),
+            prim::Env::new(),
+            var::Env::new(),
+            var::Env::new(),
+        )
+    }
+
+    /// Global entries.
+    pub fn globals(&self) -> &global::Env {
+        &self.globals
     }
 
     /// Primitive entries.
@@ -77,12 +99,13 @@ impl Context {
         closure: &AppClosure,
         arg: Rc<Value>,
     ) -> Result<Rc<Value>, TypeError> {
-        nbe::app_closure(self.prims(), metas, closure, arg).map_err(TypeError::Nbe)
+        nbe::app_closure(self.globals(), self.prims(), metas, closure, arg).map_err(TypeError::Nbe)
     }
 
     /// Evaluate a term using the evaluation environment.
     pub fn eval_term(&self, metas: &meta::Env, term: &Rc<Term>) -> Result<Rc<Value>, TypeError> {
-        nbe::eval_term(self.prims(), metas, self.values(), term).map_err(TypeError::Nbe)
+        nbe::eval_term(self.globals(), self.prims(), metas, self.values(), term)
+            .map_err(TypeError::Nbe)
     }
 
     /// Expect that `ty1` is a subtype of `ty2` in the current context.
@@ -92,7 +115,8 @@ impl Context {
         ty1: &Rc<Type>,
         ty2: &Rc<Type>,
     ) -> Result<(), TypeError> {
-        if nbe::check_ty(self.prims(), metas, self.values().size(), true, ty1, ty2)
+        let size = self.values().size();
+        if nbe::check_ty(self.globals(), self.prims(), metas, size, true, ty1, ty2)
             .map_err(TypeError::Nbe)?
         {
             Ok(())
@@ -115,6 +139,7 @@ pub enum TypeError {
     UnboundVariable(var::Index),
     UnboundMeta(meta::Index),
     UnsolvedMeta(meta::Index),
+    UnboundGlobal(global::Name),
     UnknownPrim(prim::Name),
     BadLiteralPatterns(Vec<LiteralIntro>),
     NoFieldInType(Label),
@@ -141,7 +166,8 @@ impl fmt::Display for TypeError {
             TypeError::UnboundVariable(index) => write!(f, "unbound variable: {}", index),
             TypeError::UnboundMeta(level) => write!(f, "unbound metavariable: `{}`", level),
             TypeError::UnsolvedMeta(level) => write!(f, "unsolved metavariable `{}`", level),
-            TypeError::UnknownPrim(name) => write!(f, "unbound primitive: {}", name),
+            TypeError::UnboundGlobal(name) => write!(f, "unbound global: {}", name),
+            TypeError::UnknownPrim(name) => write!(f, "unknown primitive: {}", name),
             TypeError::BadLiteralPatterns(literal_intros) => write!(
                 f,
                 "literal patterns are not sorted properly: {}",
@@ -414,6 +440,10 @@ pub fn synth_term(
             Some((_, meta::Solution::Solved(_value), meta_ty)) => Ok(meta_ty.clone()),
             Some((_, meta::Solution::Unsolved, _)) => Err(TypeError::UnsolvedMeta(*meta_level)),
             None => Err(TypeError::UnboundMeta(*meta_level)),
+        },
+        Term::Global(global_name) => match context.globals().lookup_entry(global_name) {
+            None => Err(TypeError::UnboundGlobal(global_name.clone())),
+            Some(_) => Err(TypeError::AmbiguousTerm(term.clone())),
         },
         Term::Prim(prim_name) => match context.prims().lookup_entry(prim_name) {
             None => Err(TypeError::UnknownPrim(prim_name.clone())),

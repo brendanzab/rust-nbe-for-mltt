@@ -13,7 +13,7 @@
 use language_reporting::{Diagnostic, Label as DiagnosticLabel};
 use mltt_concrete::{Arg, Item, SpannedString, Term, TypeParam};
 use mltt_core::literal::{LiteralIntro, LiteralType};
-use mltt_core::{domain, meta, prim, syntax, AppMode, DocString, Label, UniverseLevel};
+use mltt_core::{domain, global, meta, prim, syntax, AppMode, DocString, Label, UniverseLevel};
 use mltt_span::FileSpan;
 use std::rc::Rc;
 
@@ -380,12 +380,21 @@ pub fn synth_term(
 
     match concrete_term {
         Term::Var(name) => match context.lookup_binder(name.slice) {
-            None => Err(Diagnostic::new_error("unbound variable")
-                .with_label(DiagnosticLabel::new_primary(name.span()))),
             Some((index, var_ty)) => {
                 let span = concrete_term.span().end_span();
                 let var = Rc::from(syntax::Term::var(index));
                 insert_metas(meta_insertion, context, metas, span, var, var_ty)
+            },
+            None => {
+                let global_name = global::Name(name.to_string());
+                match context.globals().lookup_entry(&global_name) {
+                    Some((_, global_ty)) => {
+                        let global = Rc::from(syntax::Term::global(global_name));
+                        Ok((global, global_ty.clone()))
+                    },
+                    None => Err(Diagnostic::new_error("unbound variable")
+                        .with_label(DiagnosticLabel::new_primary(name.span()))),
+                }
             },
         },
         Term::Prim(span, name) => match context

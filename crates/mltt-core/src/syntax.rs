@@ -3,8 +3,8 @@
 use std::fmt;
 use std::rc::Rc;
 
-use super::literal::{LiteralIntro, LiteralType};
-use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
+use crate::literal::{LiteralIntro, LiteralType};
+use crate::{global, meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 
 /// Top-level module.
 #[derive(Clone, PartialEq)]
@@ -43,6 +43,8 @@ pub enum Term {
     Var(var::Index),
     /// Metavariables
     Meta(meta::Index),
+    /// Globals
+    Global(global::Name),
     /// Primitives
     Prim(prim::Name),
 
@@ -89,6 +91,11 @@ impl Term {
     /// Construct a metavariable.
     pub fn meta(index: impl Into<meta::Index>) -> Term {
         Term::Meta(index.into())
+    }
+
+    /// Construct a global.
+    pub fn global(name: impl Into<global::Name>) -> Term {
+        Term::Global(name.into())
     }
 
     /// Construct a primitive.

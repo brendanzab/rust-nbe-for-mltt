@@ -2,9 +2,9 @@
 
 use std::rc::Rc;
 
-use super::literal::{LiteralIntro, LiteralType};
+use crate::literal::{LiteralIntro, LiteralType};
 use crate::syntax::Term;
-use crate::{meta, prim, var, AppMode, DocString, Label, UniverseLevel};
+use crate::{global, meta, prim, var, AppMode, DocString, Label, UniverseLevel};
 
 /// Terms that are in _weak head normal form_.
 ///
@@ -52,6 +52,11 @@ impl Value {
         Value::Neutral(Head::Meta(index.into()), Vec::new())
     }
 
+    /// Construct a global.
+    pub fn global(name: impl Into<global::Name>) -> Value {
+        Value::Neutral(Head::Global(name.into()), Vec::new())
+    }
+
     /// Construct a primitive.
     pub fn prim(name: impl Into<prim::Name>) -> Value {
         Value::Neutral(Head::Prim(name.into()), Vec::new())
@@ -84,6 +89,8 @@ pub enum Head {
     Var(var::Level),
     /// Metavariables
     Meta(meta::Index),
+    /// Globals
+    Global(global::Name),
     /// Primitives
     Prim(prim::Name),
 }

@@ -1,8 +1,8 @@
 use std::fmt;
 use std::rc::Rc;
 
-use super::literal::LiteralIntro;
 use crate::domain::{Elim, Value};
+use crate::literal::LiteralIntro;
 
 /// The name of a primitive.
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
