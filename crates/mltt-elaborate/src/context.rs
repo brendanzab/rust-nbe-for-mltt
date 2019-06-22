@@ -113,6 +113,7 @@ impl Context {
         let value = Rc::from(domain::Value::var(var_level));
         self.values.add_entry(value.clone());
         self.tys.add_entry(ty);
+        self.bound_levels.push_back(var_level);
         value
     }
 
@@ -131,6 +132,7 @@ impl Context {
         let value = Rc::from(domain::Value::var(var_level));
         self.values.add_entry(value.clone());
         self.tys.add_entry(ty);
+        self.bound_levels.push_back(var_level);
         value
     }
 
