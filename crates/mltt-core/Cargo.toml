@@ -8,7 +8,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-im = "13.0.0"
+im = "15.1.0"
 itertools = "0.8"
 log = "0.4"
 mltt-span = { path = "../mltt-span" }
